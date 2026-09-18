@@ -18,6 +18,13 @@ def _format_ts(ts: str) -> str:
     return dt.isoformat(timespec="seconds")
 
 
+def _format_epoch(value: float | None) -> str:
+    """Render unix epoch seconds as an ISO timestamp, or "(never)" when unset."""
+    if value is None:
+        return "(never)"
+    return datetime.fromtimestamp(value, tz=UTC).isoformat(timespec="seconds")
+
+
 def _build_user_names(conn: sqlite3.Connection, messages: list[CachedMessage]) -> dict[str, str]:
     """Map the thread's author ids to human-readable names for rendering.
 

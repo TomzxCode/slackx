@@ -8,8 +8,8 @@ import json
 from dataclasses import asdict
 from typing import Any
 
-from slack_cached.cli._internal._format import _format_ts
-from slack_cached.storage import CachedChannel, CachedMessage, CachedUser
+from slack_cached.cli._internal._format import _format_epoch, _format_ts
+from slack_cached.storage import CachedChannel, CachedMessage, CachedUser, DbStatus
 from slack_cached.urls import ThreadRef
 
 # ---------------------------------------------------------------------------
@@ -233,3 +233,16 @@ def _render_channels_human(
             visibility = "private" if channel.is_private else "public"
         lines.append(f"{channel.id}  {name} ({visibility})")
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _render_status_human(status: DbStatus) -> str:
+    def line(label: str, count: int, updated_at: float | None) -> str:
+        return f"{count} {label}(s)  last updated {_format_epoch(updated_at)}"
+
+    lines = [
+        line("channel", status.channel_count, status.channels_updated_at),
+        line("user", status.user_count, status.users_updated_at),
+        line("thread", status.thread_count, status.threads_updated_at),
+        f"{status.message_count} message(s)",
+    ]
+    return "\n".join(lines) + "\n"

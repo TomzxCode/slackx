@@ -459,6 +459,50 @@ def test_search_backfills_rows_written_before_triggers(tmp_path: Path) -> None:
     conn2.close()
 
 
+def test_db_status_empty(tmp_path: Path) -> None:
+    from slack_cached.storage import db_status
+
+    conn = connect(tmp_path / "cache.db")
+    status = db_status(conn)
+
+    assert status.channel_count == 0
+    assert status.user_count == 0
+    assert status.thread_count == 0
+    assert status.message_count == 0
+    assert status.channels_updated_at is None
+    assert status.users_updated_at is None
+    assert status.threads_updated_at is None
+
+
+def test_db_status_counts_and_last_updates(tmp_path: Path) -> None:
+    from slack_cached.storage import db_status
+
+    conn = connect(tmp_path / "cache.db")
+    upsert_users(
+        conn,
+        [{"id": "U1", "name": "alice"}, {"id": "U2", "name": "bob"}],
+        now=1700000000.0,
+    )
+    upsert_channels(conn, [{"id": "C1", "name": "general", "is_private": False}], now=1700000100.0)
+    record_thread_refresh(conn, "C1", "1700000200.000100", None, now=1700000200.0)
+    upsert_messages(
+        conn,
+        "C1",
+        "1700000200.000100",
+        [{"ts": "1700000200.000100", "user": "U1", "text": "hi"}],
+    )
+    conn.commit()
+
+    status = db_status(conn)
+    assert status.channel_count == 1
+    assert status.user_count == 2
+    assert status.thread_count == 1
+    assert status.message_count == 1
+    assert status.channels_updated_at == 1700000100.0
+    assert status.users_updated_at == 1700000000.0
+    assert status.threads_updated_at == 1700000200.0
+
+
 def test_list_channel_summaries_counts(tmp_path: Path) -> None:
     _, list_channel_summaries, load_channel_thread_roots, _ = _import_search_helpers()
     conn = connect(tmp_path / "cache.db")
