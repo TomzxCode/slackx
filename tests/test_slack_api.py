@@ -94,6 +94,44 @@ def test_iter_channels_passes_types_and_stops_without_cursor() -> None:
     assert len(transport.calls) == 1
 
 
+def test_iter_channel_pages_yields_one_list_per_page() -> None:
+    transport = FakeTransport(
+        [
+            {
+                "ok": True,
+                "channels": [{"id": "C1"}, {"id": "C2"}],
+                "response_metadata": {"next_cursor": "next"},
+            },
+            {"ok": True, "channels": [{"id": "C3"}], "response_metadata": {"next_cursor": ""}},
+        ]
+    )
+    client = _client(transport)
+
+    pages = asyncio.run(_collect(client.iter_channel_pages(types="public_channel")))
+
+    assert [[c["id"] for c in page] for page in pages] == [["C1", "C2"], ["C3"]]
+    assert transport.calls[1]["params"]["cursor"] == "next"
+
+
+def test_iter_user_pages_yields_one_list_per_page() -> None:
+    transport = FakeTransport(
+        [
+            {
+                "ok": True,
+                "members": [{"id": "U1"}],
+                "response_metadata": {"next_cursor": "next"},
+            },
+            {"ok": True, "members": [{"id": "U2"}], "response_metadata": {"next_cursor": ""}},
+        ]
+    )
+    client = _client(transport)
+
+    pages = asyncio.run(_collect(client.iter_user_pages()))
+
+    assert [[u["id"] for u in page] for page in pages] == [["U1"], ["U2"]]
+    assert transport.calls[0]["url"] == "/api/users.list"
+
+
 def test_iter_channel_history_follows_cursor() -> None:
     transport = FakeTransport(
         [

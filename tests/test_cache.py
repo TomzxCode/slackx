@@ -7,6 +7,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from slack_cached.cache import (
     fetch_channel_messages,
     fetch_channels,
@@ -17,6 +19,7 @@ from slack_cached.cache import (
 )
 from slack_cached.storage import (
     connect,
+    count_channels,
     get_channel,
     get_thread_state,
     get_user,
@@ -243,6 +246,47 @@ def test_fetch_channels_caches_all(tmp_path: Path) -> None:
     channel = get_channel(conn, "C2")
     assert channel is not None
     assert channel.is_private is True
+
+
+class FailingChannelClient:
+    """Yields channel pages, then raises while fetching a later page."""
+
+    def __init__(self, page_size: int, pages_before_failure: int) -> None:
+        self._page_size = page_size
+        self._pages_before_failure = pages_before_failure
+
+    async def iter_channels_pages(
+        self, types: str = "public_channel", limit: int = 1000
+    ) -> AsyncIterator[list[dict[str, Any]]]:
+        for page in range(self._pages_before_failure + 1):
+            if page == self._pages_before_failure:
+                raise RuntimeError("pagination interrupted")
+            start = page * self._page_size
+            yield [
+                {"id": f"C{i}", "name": f"chan-{i}"} for i in range(start, start + self._page_size)
+            ]
+
+    async def iter_channels(
+        self, types: str = "public_channel", limit: int = 1000
+    ) -> AsyncIterator[dict[str, Any]]:
+        async for page in self.iter_channels_pages(types=types, limit=limit):
+            for channel in page:
+                yield channel
+
+
+def test_fetch_channels_persists_progress_before_failure(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    page_size = 3
+    pages_before_failure = 2
+    client = FailingChannelClient(page_size=page_size, pages_before_failure=pages_before_failure)
+
+    with pytest.raises(RuntimeError, match="pagination interrupted"):
+        asyncio.run(fetch_channels(conn, client))
+
+    persisted = page_size * pages_before_failure
+    assert count_channels(conn) == persisted
+    assert get_channel(conn, "C0") is not None
+    assert get_channel(conn, f"C{persisted}") is None
 
 
 def test_fetch_users_is_idempotent(tmp_path: Path) -> None:

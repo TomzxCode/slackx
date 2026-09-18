@@ -32,11 +32,9 @@ def run_fake_server(
     num_channels: Annotated[int, Parameter(help="Number of channels (default: 13).")] = 13,
     num_ims: Annotated[
         int,
-        Parameter(help="Number of direct message conversations (default: 4)."),
+        Parameter(help="Number of direct message channels (default: 4)."),
     ] = 4,
-    num_threads: Annotated[
-        int, Parameter(help="Number of conversation threads (default: 30).")
-    ] = 30,
+    num_threads: Annotated[int, Parameter(help="Number of channel threads (default: 30).")] = 30,
     messages_per_thread: Annotated[
         str,
         Parameter(help="Message count range per thread, e.g. '3-12' or '5' (default: 3-12)."),

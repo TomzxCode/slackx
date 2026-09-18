@@ -39,6 +39,7 @@ from slack_cached.storage import (
     load_channel_messages,
     load_thread_messages,
 )
+from slack_cached.urls import parse_channel_url
 
 log = structlog.get_logger(__name__)
 
@@ -78,6 +79,14 @@ async def show(
         channel = await _resolve_channel(common, channel)
         if channel is None:
             return 1
+
+    if not channel and url:
+        url_channel = parse_channel_url(url)
+        if url_channel is not None:
+            channel = await _resolve_channel(common, url_channel)
+            if channel is None:
+                return 1
+            url = None
 
     if channel and not ts and not url:
         return await _show_channel(common, channel, no_fetch, last, fmt)

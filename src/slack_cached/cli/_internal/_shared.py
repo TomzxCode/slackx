@@ -68,8 +68,9 @@ NoFetchArg = Annotated[
 UrlArg = Annotated[
     str | None,
     Parameter(
-        help="Slack thread permalink (e.g. "
-        "https://acme.slack.com/archives/C123/p1700000000123456).",
+        help="Slack permalink: a thread (e.g. "
+        "https://acme.slack.com/archives/C123/p1700000000123456) or a channel "
+        "(e.g. https://acme.slack.com/archives/C123).",
     ),
 ]
 ChannelArg = Annotated[

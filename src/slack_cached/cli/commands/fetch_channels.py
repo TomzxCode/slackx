@@ -21,7 +21,7 @@ async def fetch_channels(
     api_base_url: ApiBaseUrlArg = None,
     verbose: VerboseArg = False,
 ) -> int:
-    """Fetch and cache every visible conversation."""
+    """Fetch and cache every visible channel."""
     from slack_cached.cache import fetch_channels
 
     common = _setup(db, api_base_url, verbose, workspace)

@@ -405,6 +405,19 @@ def test_fetch_channel_messages_basic(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert rc == 0
 
 
+def test_fetch_channel_via_url(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    db_path = tmp_path / "cache.db"
+    client = FakeChannelClient(
+        messages=[
+            {"ts": "1700000000.000100", "user": "U1", "text": "hello"},
+        ]
+    )
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(["fetch", "--url", "https://acme.slack.com/archives/C1", "--db", str(db_path)])
+    assert rc == 0
+
+
 def test_fetch_channel_requires_url_or_channel_ts(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     with pytest.raises(SystemExit):
@@ -532,6 +545,34 @@ def test_show_channel_without_ts_human(
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
     rc = cli.main(["show", "--channel", "C1", "--db", str(db_path)])
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "Channel C1" in out
+    assert "2 message(s)" in out
+
+
+def test_show_channel_via_url(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    client = FakeChannelClient(
+        messages=[
+            {"ts": "1700000000.000100", "user": "U1", "text": "hello"},
+            {"ts": "1700000000.000200", "user": "U2", "text": "world"},
+        ]
+    )
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(
+        [
+            "show",
+            "--url",
+            "https://acme.slack.com/archives/C1",
+            "--db",
+            str(db_path),
+        ]
+    )
     assert rc == 0
 
     out = capsys.readouterr().out

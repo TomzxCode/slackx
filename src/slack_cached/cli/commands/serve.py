@@ -42,8 +42,8 @@ def serve(
     """Serve the cached database through a local web UI.
 
     Opens a Slack-like interface to browse cached users, channels, messages
-    and threads. Ctrl+P opens a palette to jump between channels and
-    conversations. Refresh buttons trigger live Slack fetches when
+    and threads. Ctrl+P opens a palette to jump between channels.
+    Refresh buttons trigger live Slack fetches when
     credentials are configured. Without --db or --workspace, the workspace
     is determined from the configured token/cookie (cached on disk after the
     first auth.test), falling back to the last-used workspace offline.
