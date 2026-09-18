@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Cache Slack threads to a local SQLite database."
 readme = "README.md"
 authors = [
-    { name = "Tom Rochette", email = "tom.rochette@shopify.com" }
+    { name = "Tom Rochette", email = "roctom@gmail.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from slack_cached.urls import ThreadRef, parse_channel_ts, parse_thread_url
+from slack_cached.urls import ThreadRef, parse_channel_ts, parse_channel_url, parse_thread_url
 
 
 def test_parse_thread_root_permalink() -> None:
@@ -39,6 +39,29 @@ def test_parse_dm_channel_id() -> None:
 def test_parse_thread_url_rejects_bad_inputs(url: str) -> None:
     with pytest.raises(ValueError):
         parse_thread_url(url)
+
+
+def test_parse_channel_url_returns_channel_id() -> None:
+    url = "https://acme.slack.com/archives/D0123ABCDEF"
+    assert parse_channel_url(url) == "D0123ABCDEF"
+
+
+def test_parse_channel_url_returns_none_for_thread_permalink() -> None:
+    url = "https://acme.slack.com/archives/C0123ABCDEF/p1700000000123456"
+    assert parse_channel_url(url) is None
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/archives/C0123ABCDEF",
+        "https://acme.slack.com/messages/C0123ABCDEF",
+        "https://acme.slack.com/archives/X0123ABCDEF",
+        "https://acme.slack.com/archives/C0123ABCDEF/extra",
+    ],
+)
+def test_parse_channel_url_returns_none_for_bad_inputs(url: str) -> None:
+    assert parse_channel_url(url) is None
 
 
 def test_parse_channel_ts_happy_path() -> None:

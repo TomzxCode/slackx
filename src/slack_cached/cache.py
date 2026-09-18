@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from collections.abc import AsyncIterator, Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -438,14 +439,57 @@ async def fetch_search(
     )
 
 
+_LIST_FLUSH_SIZE = 500
+
+
+async def _list_pages(client: SlackClient, kind: str) -> AsyncIterator[list[dict[str, Any]]]:
+    """Yield list-endpoint items in pages.
+
+    Prefers the client's page-level iterator so each page is committed as soon
+    as it arrives. Clients that only expose item-level iteration (test doubles,
+    simple wrappers) fall back to fixed-size chunks.
+    """
+    page_iter = getattr(client, f"iter_{kind}_pages", None)
+    if page_iter is not None:
+        async for page in page_iter():
+            yield page
+        return
+
+    batch: list[dict[str, Any]] = []
+    async for item in getattr(client, f"iter_{kind}")():
+        batch.append(item)
+        if len(batch) >= _LIST_FLUSH_SIZE:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
+
+async def _stream_upsert(
+    conn: sqlite3.Connection,
+    pages: AsyncIterator[list[dict[str, Any]]],
+    upsert: Callable[[sqlite3.Connection, Iterable[dict[str, Any]]], int],
+) -> int:
+    """Upsert pages of items, committing once per page.
+
+    Committing after each page means a failure mid-enumeration (rate limit,
+    network error, interrupt) keeps every page fetched so far, and memory stays
+    flat instead of buffering the whole workspace before the first write.
+    """
+    processed = 0
+    async for page in pages:
+        if not page:
+            continue
+        with transaction(conn):
+            processed += upsert(conn, page)
+    return processed
+
+
 async def fetch_users(conn: sqlite3.Connection, client: SlackClient) -> ListFetchResult:
     """Fetch every workspace user from Slack and cache them."""
     log.info("fetch_users_start")
     before = count_users(conn)
-    users: list[dict[str, Any]] = [u async for u in client.iter_users()]
-
-    with transaction(conn):
-        processed = upsert_users(conn, users)
+    processed = await _stream_upsert(conn, _list_pages(client, "users"), upsert_users)
 
     total = count_users(conn)
     added = total - before
@@ -454,13 +498,10 @@ async def fetch_users(conn: sqlite3.Connection, client: SlackClient) -> ListFetc
 
 
 async def fetch_channels(conn: sqlite3.Connection, client: SlackClient) -> ListFetchResult:
-    """Fetch every visible conversation from Slack and cache them."""
+    """Fetch every visible channel from Slack and cache them."""
     log.info("fetch_channels_start")
     before = count_channels(conn)
-    channels: list[dict[str, Any]] = [c async for c in client.iter_channels()]
-
-    with transaction(conn):
-        processed = upsert_channels(conn, channels)
+    processed = await _stream_upsert(conn, _list_pages(client, "channels"), upsert_channels)
 
     total = count_channels(conn)
     added = total - before

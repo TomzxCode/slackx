@@ -37,6 +37,28 @@ def _pts_to_ts(pts: str) -> str:
     return f"{digits[:-6]}.{digits[-6:]}"
 
 
+def parse_channel_url(url: str) -> str | None:
+    """Return the channel id from a channel permalink, else None.
+
+    A channel permalink has the form
+    https://<workspace>.slack.com/archives/<CHANNEL_ID> with no message ts.
+    Returns None when ``url`` is not a channel permalink (including thread
+    permalinks, which carry a ``/p<PTS>`` segment).
+    """
+    parsed = urlparse(url)
+    if not parsed.netloc.endswith(".slack.com"):
+        return None
+
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) != 2 or parts[0] != "archives":
+        return None
+
+    channel = parts[1]
+    if not channel or channel[0] not in CHANNEL_PREFIXES:
+        return None
+    return channel
+
+
 def parse_thread_url(url: str) -> ThreadRef:
     """Parse a Slack thread permalink into a ThreadRef.
 

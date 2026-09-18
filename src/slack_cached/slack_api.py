@@ -261,16 +261,18 @@ class SlackClient:
             if not cursor:
                 return
 
-    async def _iter_cursor(
+    async def _iter_cursor_pages(
         self,
         url: str,
         key: str,
         params: dict[str, Any],
-    ) -> AsyncIterator[dict[str, Any]]:
-        """Yield items under ``key``, following cursor-based pagination.
+    ) -> AsyncIterator[list[dict[str, Any]]]:
+        """Yield one list of items per page, following cursor-based pagination.
 
         Slack list endpoints page via ``response_metadata.next_cursor``, returning
         an empty string (or omitting the cursor) when there is nothing more.
+        Exposing whole pages lets callers persist each page as it arrives
+        instead of buffering the entire workspace.
         """
         cursor: str | None = None
         page = 0
@@ -293,16 +295,48 @@ class SlackClient:
                 total_seen=seen,
                 has_more=bool(cursor),
             )
-            for item in items:
-                yield item
+            yield items
 
             if not cursor:
                 return
+
+    async def _iter_cursor(
+        self,
+        url: str,
+        key: str,
+        params: dict[str, Any],
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Yield items under ``key`` one at a time across all pages."""
+        async for page in self._iter_cursor_pages(url, key, params):
+            for item in page:
+                yield item
+
+    async def iter_user_pages(
+        self, limit: int = DEFAULT_LIST_LIMIT
+    ) -> AsyncIterator[list[dict[str, Any]]]:
+        """Yield workspace members one page at a time via users.list."""
+        async for page in self._iter_cursor_pages(
+            self._users_list_url, "members", {"limit": limit}
+        ):
+            yield page
 
     async def iter_users(self, limit: int = DEFAULT_LIST_LIMIT) -> AsyncIterator[dict[str, Any]]:
         """Yield every member of the workspace via users.list."""
         async for item in self._iter_cursor(self._users_list_url, "members", {"limit": limit}):
             yield item
+
+    async def iter_channel_pages(
+        self,
+        types: str = DEFAULT_CHANNEL_TYPES,
+        limit: int = DEFAULT_LIST_LIMIT,
+    ) -> AsyncIterator[list[dict[str, Any]]]:
+        """Yield visible conversations one page at a time via conversations.list."""
+        async for page in self._iter_cursor_pages(
+            self._conversations_list_url,
+            "channels",
+            {"limit": limit, "types": types},
+        ):
+            yield page
 
     async def iter_channels(
         self,
