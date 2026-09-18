@@ -222,6 +222,132 @@ def test_iter_search_messages_paginates_by_page() -> None:
     assert transport.calls[1]["params"]["page"] == "2"
 
 
+def test_iter_search_messages_limit_caps_total_matches() -> None:
+    transport = FakeTransport(
+        [
+            {
+                "ok": True,
+                "messages": {
+                    "total": 4,
+                    "pagination": {
+                        "total_count": 4,
+                        "page": 1,
+                        "per_page": 2,
+                        "page_count": 2,
+                        "first": 1,
+                        "last": 2,
+                    },
+                    "matches": [
+                        {"ts": "1.0", "channel": "C1", "text": "a"},
+                        {"ts": "2.0", "channel": "C1", "text": "b"},
+                    ],
+                },
+            },
+            {
+                "ok": True,
+                "messages": {
+                    "total": 4,
+                    "pagination": {
+                        "total_count": 4,
+                        "page": 2,
+                        "per_page": 2,
+                        "page_count": 2,
+                        "first": 3,
+                        "last": 4,
+                    },
+                    "matches": [
+                        {"ts": "3.0", "channel": "C2", "text": "c"},
+                        {"ts": "4.0", "channel": "C2", "text": "d"},
+                    ],
+                },
+            },
+        ]
+    )
+    client = _client(transport)
+
+    msgs = asyncio.run(_collect(client.iter_search_messages(query="hello", count=2, limit=3)))
+
+    assert [m["ts"] for m in msgs] == ["1.0", "2.0", "3.0"]
+    assert len(transport.calls) == 2
+
+
+def test_iter_search_messages_limit_stops_within_page() -> None:
+    transport = FakeTransport(
+        [
+            {
+                "ok": True,
+                "messages": {
+                    "total": 4,
+                    "pagination": {
+                        "total_count": 4,
+                        "page": 1,
+                        "per_page": 2,
+                        "page_count": 2,
+                        "first": 1,
+                        "last": 2,
+                    },
+                    "matches": [
+                        {"ts": "1.0", "channel": "C1", "text": "a"},
+                        {"ts": "2.0", "channel": "C1", "text": "b"},
+                    ],
+                },
+            },
+        ]
+    )
+    client = _client(transport)
+
+    msgs = asyncio.run(_collect(client.iter_search_messages(query="hello", count=2, limit=1)))
+
+    assert [m["ts"] for m in msgs] == ["1.0"]
+    assert len(transport.calls) == 1
+
+
+def test_iter_search_messages_limit_zero_fetches_all_pages() -> None:
+    transport = FakeTransport(
+        [
+            {
+                "ok": True,
+                "messages": {
+                    "total": 3,
+                    "pagination": {
+                        "total_count": 3,
+                        "page": 1,
+                        "per_page": 2,
+                        "page_count": 2,
+                        "first": 1,
+                        "last": 2,
+                    },
+                    "matches": [
+                        {"ts": "1.0", "channel": "C1", "text": "a"},
+                        {"ts": "2.0", "channel": "C1", "text": "b"},
+                    ],
+                },
+            },
+            {
+                "ok": True,
+                "messages": {
+                    "total": 3,
+                    "pagination": {
+                        "total_count": 3,
+                        "page": 2,
+                        "per_page": 2,
+                        "page_count": 2,
+                        "first": 3,
+                        "last": 3,
+                    },
+                    "matches": [{"ts": "3.0", "channel": "C2", "text": "c"}],
+                },
+            },
+        ]
+    )
+    client = _client(transport)
+
+    msgs = asyncio.run(_collect(client.iter_search_messages(query="hello", count=2, limit=0)))
+
+    assert [m["ts"] for m in msgs] == ["1.0", "2.0", "3.0"]
+    assert len(transport.calls) == 2
+
+
 def test_iter_search_messages_stops_on_single_page() -> None:
     transport = FakeTransport(
         [

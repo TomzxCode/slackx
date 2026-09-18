@@ -125,6 +125,14 @@ default `timestamp`), and `--sort-dir` (`asc` or `desc`, default `desc`).
 slackx search "RFC" --count 5 --sort score --sort-dir asc
 ```
 
+`--limit` caps the total number of matches fetched (default `200`), so broad
+queries do not page through every result and stall under Slack's rate limits.
+Pass `--limit 0` for no cap.
+
+```bash
+slackx search "from:@alice" --limit 500
+```
+
 ### Polling channels
 
 Poll multiple channels concurrently for new messages:

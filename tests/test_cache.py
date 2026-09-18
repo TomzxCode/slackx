@@ -410,11 +410,14 @@ class FakeSearchClient:
         count: int = 20,
         sort: str = "timestamp",
         sort_dir: str = "desc",
+        limit: int = 200,
     ) -> AsyncIterator[dict[str, Any]]:
         self.search_calls.append(
-            {"query": query, "count": count, "sort": sort, "sort_dir": sort_dir}
+            {"query": query, "count": count, "sort": sort, "sort_dir": sort_dir, "limit": limit}
         )
-        for m in self._matches:
+        for i, m in enumerate(self._matches):
+            if 0 < limit <= i:
+                return
             yield m
 
     async def iter_thread_replies(

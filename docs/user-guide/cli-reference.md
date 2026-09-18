@@ -49,13 +49,14 @@ slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--no-fetch] 
 Search Slack via `search.messages` and cache every matched message/thread.
 
 ```bash
-slackx search QUERY [--count N] [--sort score|timestamp] [--sort-dir asc|desc] [--full-threads] [--json | --jsonl]
+slackx search QUERY [--count N] [--limit N] [--sort score|timestamp] [--sort-dir asc|desc] [--full-threads] [--json | --jsonl]
 ```
 
 | Argument | Description |
 |---|---|
 | `QUERY` | Slack search query (same syntax as the Slack search box, required) |
 | `--count N` | Maximum results per page (default: `20`) |
+| `--limit N` | Maximum total matches to fetch (default: `200`; `0` for no limit) |
 | `--sort` | Sort by `score` or `timestamp` (default: `timestamp`) |
 | `--sort-dir` | Sort direction, `asc` or `desc` (default: `desc`) |
 | `--full-threads` | Also fetch all replies for every thread a match belongs to |
