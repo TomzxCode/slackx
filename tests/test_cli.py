@@ -965,11 +965,14 @@ class FakeSearchClient:
         count=20,
         sort="timestamp",
         sort_dir="desc",
+        limit=200,
     ):
         self.search_calls.append(
-            {"query": query, "count": count, "sort": sort, "sort_dir": sort_dir}
+            {"query": query, "count": count, "sort": sort, "sort_dir": sort_dir, "limit": limit}
         )
-        for m in self._matches:
+        for i, m in enumerate(self._matches):
+            if 0 < limit <= i:
+                return
             yield m
 
     async def iter_thread_replies(self, channel, thread_ts, oldest=None, limit=200):
@@ -1148,6 +1151,38 @@ def test_search_passes_count_sort_flags(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert client.search_calls[0]["count"] == 5
     assert client.search_calls[0]["sort"] == "score"
     assert client.search_calls[0]["sort_dir"] == "asc"
+
+
+def test_search_passes_limit_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Search forwards --limit and stops at the cap."""
+    db_path = tmp_path / "cache.db"
+    client = FakeSearchClient(
+        matches=[
+            {"ts": f"1700000000.00010{i}", "user": "U1", "text": "hi", "channel": "C1"}
+            for i in range(5)
+        ]
+    )
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(["search", "hi", "--limit", "2", "--db", str(db_path)])
+    assert rc == 0
+    assert client.search_calls[0]["limit"] == 2
+    assert "2 match(es)" in capsys.readouterr().out
+
+
+def test_search_defaults_limit_to_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Search applies a default limit so broad queries do not page forever."""
+    from slack_cached.slack_api import DEFAULT_SEARCH_LIMIT
+
+    db_path = tmp_path / "cache.db"
+    client = FakeSearchClient(matches=[])
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(["search", "hi", "--db", str(db_path)])
+    assert rc == 0
+    assert client.search_calls[0]["limit"] == DEFAULT_SEARCH_LIMIT
 
 
 def test_search_caches_matches_for_show(

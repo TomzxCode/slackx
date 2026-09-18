@@ -29,6 +29,7 @@ DEFAULT_API_BASE = "https://slack.com/api"
 DEFAULT_LIMIT = 200
 DEFAULT_LIST_LIMIT = 1000
 DEFAULT_SEARCH_COUNT = 20
+DEFAULT_SEARCH_LIMIT = 200
 DEFAULT_CHANNEL_TYPES = "public_channel,private_channel,mpim,im"
 MAX_RETRIES = 5
 REQUEST_TIMEOUT = 30
@@ -357,6 +358,7 @@ class SlackClient:
         count: int = DEFAULT_SEARCH_COUNT,
         sort: str = "timestamp",
         sort_dir: str = "desc",
+        limit: int = DEFAULT_SEARCH_LIMIT,
     ) -> AsyncIterator[dict[str, Any]]:
         """Yield messages matching ``query`` via search.messages.
 
@@ -364,10 +366,18 @@ class SlackClient:
         the cursor-based pagination used by list endpoints. Each match carries
         its own ``channel``, ``ts`` and ``permalink`` so callers can route it
         back into the per-thread cache.
+
+        ``limit`` caps the total number of matches yielded, defaulting to
+        ``DEFAULT_SEARCH_LIMIT``; a broad query can otherwise span hundreds of
+        pages and take a very long time under Slack's rate limits. Pass a
+        non-positive value to fetch every page.
         """
         page = 1
+        yielded = 0
         seen_pages: set[int] = set()
         while True:
+            if 0 < limit <= yielded:
+                return
             if page in seen_pages:
                 return
             seen_pages.add(page)
@@ -384,6 +394,9 @@ class SlackClient:
             page += 1
             for match in matches:
                 yield match
+                yielded += 1
+                if 0 < limit <= yielded:
+                    return
 
             pagination = block.get("pagination") or {}
             page_count = int(pagination.get("page_count", 0) or 0)

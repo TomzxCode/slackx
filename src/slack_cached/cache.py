@@ -19,7 +19,7 @@ from typing import Any
 
 import structlog
 
-from .slack_api import SlackClient
+from .slack_api import DEFAULT_SEARCH_LIMIT, SlackClient
 from .storage import (
     CachedMessage,
     count_channel_messages,
@@ -306,6 +306,7 @@ async def fetch_search(
     sort: str = "timestamp",
     sort_dir: str = "desc",
     full_threads: bool = False,
+    limit: int = DEFAULT_SEARCH_LIMIT,
 ) -> SearchFetchResult:
     """Search Slack via search.messages and cache every matched message.
 
@@ -314,6 +315,9 @@ async def fetch_search(
     thread ts to the message ts when Slack omits one, matching the channel
     fetch behaviour).  When *full_threads* is True, every distinct matched
     thread is then fetched in full via conversations.replies.
+
+    ``limit`` caps the total number of matches fetched; pass a non-positive
+    value to fetch every page.
 
     Returns the raw matches so the caller can render them (with permalinks)
     without re-reading the cache.
@@ -325,12 +329,13 @@ async def fetch_search(
         sort=sort,
         sort_dir=sort_dir,
         full_threads=full_threads,
+        limit=limit,
     )
 
     matches: list[dict[str, Any]] = [
         match
         async for match in client.iter_search_messages(
-            query=query, count=count, sort=sort, sort_dir=sort_dir
+            query=query, count=count, sort=sort, sort_dir=sort_dir, limit=limit
         )
     ]
     log.info("fetch_search_matches", query=query, matches=len(matches))

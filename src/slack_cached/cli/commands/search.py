@@ -21,6 +21,7 @@ from slack_cached.cli._internal._shared import (
     _timed,
     app,
 )
+from slack_cached.slack_api import DEFAULT_SEARCH_LIMIT
 from slack_cached.storage import load_user_display_names
 
 log = structlog.get_logger(__name__)
@@ -34,6 +35,14 @@ async def search(
     ],
     *,
     count: Annotated[int, Parameter(help="Maximum results per page (default: 20).")] = 20,
+    limit: Annotated[
+        int,
+        Parameter(
+            help="Maximum total matches to fetch (default: 200; 0 for no limit). "
+            "Broad queries can span hundreds of pages, so the cap keeps them "
+            "from taking a very long time under Slack's rate limits."
+        ),
+    ] = DEFAULT_SEARCH_LIMIT,
     sort: Annotated[
         Literal["score", "timestamp"],
         Parameter(help="Sort matches by score or timestamp."),
@@ -73,6 +82,7 @@ async def search(
                 sort=sort,
                 sort_dir=sort_dir,
                 full_threads=full_threads,
+                limit=limit,
             )
         matches = result.matches
         log.debug("search_matches", count=len(matches))
