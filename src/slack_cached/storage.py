@@ -209,6 +209,25 @@ class SearchHit:
     snippet: str | None
 
 
+@dataclass(frozen=True)
+class DbStatus:
+    """Aggregate counts and last-update times for the cache database.
+
+    Update times are unix epoch seconds, or None when the corresponding table
+    is empty. Channel/user update times come from the ``fetched_at`` column of
+    each table; threads/messages report the newest ``threads.last_fetched``
+    since messages carry no fetch timestamp of their own.
+    """
+
+    channel_count: int
+    user_count: int
+    thread_count: int
+    message_count: int
+    channels_updated_at: float | None
+    users_updated_at: float | None
+    threads_updated_at: float | None
+
+
 def _normalize_sql(statement: str) -> str:
     """Collapse whitespace in a SQL statement for compact logging."""
     return " ".join(statement.split())
@@ -797,6 +816,29 @@ def count_all_threads(conn: sqlite3.Connection) -> int:
     """Return the number of cached threads across every channel."""
     row = conn.execute("SELECT COUNT(*) AS n FROM threads").fetchone()
     return int(row["n"]) if row else 0
+
+
+def db_status(conn: sqlite3.Connection) -> DbStatus:
+    """Return counts and last-update times for the cache database."""
+    row = conn.execute(
+        "SELECT "
+        "(SELECT COUNT(*) FROM channels) AS channel_count, "
+        "(SELECT COUNT(*) FROM users) AS user_count, "
+        "(SELECT COUNT(*) FROM threads) AS thread_count, "
+        "(SELECT COUNT(*) FROM messages) AS message_count, "
+        "(SELECT MAX(fetched_at) FROM channels) AS channels_updated_at, "
+        "(SELECT MAX(fetched_at) FROM users) AS users_updated_at, "
+        "(SELECT MAX(last_fetched) FROM threads) AS threads_updated_at"
+    ).fetchone()
+    return DbStatus(
+        channel_count=row["channel_count"],
+        user_count=row["user_count"],
+        thread_count=row["thread_count"],
+        message_count=row["message_count"],
+        channels_updated_at=row["channels_updated_at"],
+        users_updated_at=row["users_updated_at"],
+        threads_updated_at=row["threads_updated_at"],
+    )
 
 
 def ensure_search_index(conn: sqlite3.Connection) -> bool:

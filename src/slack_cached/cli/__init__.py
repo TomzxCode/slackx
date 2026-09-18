@@ -21,6 +21,7 @@ from slack_cached.cli.commands import (  # noqa: F401
     show,
     show_channels,
     show_users,
+    status,
 )
 
 __all__ = ["app", "main"]

@@ -370,6 +370,69 @@ def test_show_users_no_fetch_empty(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "0 user(s)" in capsys.readouterr().out
 
 
+def _populate_status_db(db_path: Path) -> None:
+    from slack_cached import storage
+
+    conn = storage.connect(db_path)
+    storage.upsert_users(conn, [{"id": "U1", "name": "alice"}], now=1700000000.0)
+    storage.upsert_channels(
+        conn, [{"id": "C1", "name": "general", "is_private": False}], now=1700000100.0
+    )
+    storage.record_thread_refresh(conn, "C1", "1700000200.000100", None, now=1700000200.0)
+    storage.upsert_messages(
+        conn,
+        "C1",
+        "1700000200.000100",
+        [{"ts": "1700000200.000100", "user": "U1", "text": "hi"}],
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_status_human(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """status prints counts and last update times without hitting Slack."""
+    db_path = tmp_path / "cache.db"
+    _populate_status_db(db_path)
+
+    rc = cli.main(["status", "--db", str(db_path)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "1 channel(s)" in out
+    assert "1 user(s)" in out
+    assert "1 thread(s)" in out
+    assert "1 message(s)" in out
+    assert "2023-11-14" in out
+
+
+def test_status_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_status_db(db_path)
+
+    rc = cli.main(["status", "--db", str(db_path), "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["channel_count"] == 1
+    assert payload["user_count"] == 1
+    assert payload["thread_count"] == 1
+    assert payload["message_count"] == 1
+    assert payload["channels_updated_at"] == 1700000100.0
+    assert payload["users_updated_at"] == 1700000000.0
+    assert payload["threads_updated_at"] == 1700000200.0
+
+
+def test_status_jsonl(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """status --jsonl emits a single compact JSON line."""
+    db_path = tmp_path / "cache.db"
+
+    rc = cli.main(["status", "--db", str(db_path), "--jsonl"])
+    assert rc == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 1
+    payload = json.loads(lines[0])
+    assert payload["channel_count"] == 0
+    assert payload["channels_updated_at"] is None
+
+
 class FakeChannelClient:
     """Stub client for channel message fetching."""
 

@@ -174,6 +174,14 @@ slackx show-channels --jsonl
 When a thread's authors are present in the cached users, `show` renders their
 real name and handle (e.g. `Alice Smith (alice)`) instead of raw user ids.
 
+Inspect the cache itself with `status`, which reports the number of cached
+channels, users, threads, and messages, along with the last update time for
+each (`--json`/`--jsonl` for machine-readable output):
+
+```bash
+slackx status
+```
+
 ## Refresh behavior
 
 `fetch` always reaches out to Slack.

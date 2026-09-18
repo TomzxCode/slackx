@@ -97,6 +97,18 @@ Print cached channels.
 slackx show-channels [--json | --jsonl] [--no-fetch]
 ```
 
+### status
+
+Print cache database status: counts and last update time per entity.
+
+```bash
+slackx status [--json | --jsonl]
+```
+
+Reports the number of cached channels, users, threads, and messages, plus the
+most recent update time for channels, users, and threads (threads carry the
+message-cache update time). Never fetches from Slack.
+
 ### poll
 
 Poll channels concurrently in a loop for new messages.
