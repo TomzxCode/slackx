@@ -22,9 +22,9 @@ from slack_cached.cli._internal._shared import (
     ChannelArg,
     CommonArgs,
     DbArg,
+    FetchArg,
     JsonArg,
     JsonlArg,
-    NoFetchArg,
     TsArg,
     UrlArg,
     VerboseArg,
@@ -50,7 +50,7 @@ async def show(
     *,
     channel: ChannelArg = None,
     ts: TsArg = None,
-    no_fetch: NoFetchArg = False,
+    fetch: FetchArg = True,
     json_output: JsonArg = False,
     jsonl_output: JsonlArg = False,
     last: Annotated[
@@ -67,7 +67,7 @@ async def show(
 ) -> int:
     """Print a cached thread or channel to stdout (human-readable by default).
 
-    Fetches first if not already cached (unless --no-fetch is given).
+    Fetches first if not already cached (disable with --no-fetch).
 
     When --channel is given without --ts, shows all messages for that channel
     (fetching first if needed, unless --no-fetch).
@@ -89,7 +89,7 @@ async def show(
             url = None
 
     if channel and not ts and not url:
-        return await _show_channel(common, channel, no_fetch, last, fmt)
+        return await _show_channel(common, channel, fetch, last, fmt)
 
     log.debug("cmd_show_start")
     with _timed("resolve_ref"):
@@ -99,7 +99,7 @@ async def show(
     # network (and its auth.test-resolved workspace) on a cache miss.
     need_fetch = False
     async with _client._open_db(common) as conn:
-        if get_thread_state(conn, ref.channel, ref.thread_ts) is not None or no_fetch:
+        if get_thread_state(conn, ref.channel, ref.thread_ts) is not None or not fetch:
             messages, user_names, channel_name = _load_thread_view(conn, ref)
         else:
             need_fetch = True
@@ -154,9 +154,7 @@ def _load_thread_view(conn, ref) -> tuple[list, dict[str, str], str | None]:
     return messages, user_names, channel_name
 
 
-async def _show_channel(
-    common: CommonArgs, channel: str, no_fetch: bool, last: str, fmt: str
-) -> int:
+async def _show_channel(common: CommonArgs, channel: str, fetch: bool, last: str, fmt: str) -> int:
     """Show all messages for a channel, fetching first if needed."""
     oldest = _oldest_ts_from_last(last)
 
@@ -167,7 +165,7 @@ async def _show_channel(
         user_names = _build_user_names(conn, messages)
         channel_name = load_channel_display_names(conn, [channel]).get(channel)
 
-    if not messages and not no_fetch:
+    if not messages and fetch:
         from slack_cached.cache import fetch_channel_messages
 
         async with (
