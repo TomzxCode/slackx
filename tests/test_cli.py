@@ -2217,3 +2217,133 @@ def test_serve_sync_resolution_without_credentials_falls_back_offline(
 
     common = CommonArgs()
     assert _client._resolve_db_path_sync(common) == offline_db_path()
+
+
+def _seed_all_entities(db_path: Path) -> None:
+    """Cache one thread/message, one user, and one channel directly."""
+    from slack_cached.storage import (
+        connect,
+        record_thread_refresh,
+        upsert_channels,
+        upsert_messages,
+        upsert_users,
+    )
+
+    conn = connect(db_path)
+    try:
+        with conn:
+            record_thread_refresh(conn, "C1", "1700000000.000100", None)
+            upsert_messages(
+                conn,
+                "C1",
+                "1700000000.000100",
+                [{"ts": "1700000000.000100", "user": "U1", "text": "hello"}],
+            )
+            upsert_users(conn, [{"id": "U1", "name": "alice", "real_name": "Alice Smith"}])
+            upsert_channels(conn, [{"id": "C1", "name": "general", "is_private": False}])
+    finally:
+        conn.close()
+
+
+def _status_counts(db_path: Path):
+    from slack_cached.storage import connect, db_status
+
+    conn = connect(db_path)
+    try:
+        return db_status(conn)
+    finally:
+        conn.close()
+
+
+def test_clear_requires_confirmation_without_yes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Without --yes (and no interactive stdin) clear refuses and deletes nothing."""
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(["clear", "--db", str(db_path)])
+
+    assert rc == 1
+    assert "pass --yes" in capsys.readouterr().err
+    counts = _status_counts(db_path)
+    assert counts.message_count == 1
+    assert counts.thread_count == 1
+    assert counts.channel_count == 1
+    assert counts.user_count == 1
+
+
+def test_clear_defaults_to_everything(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """clear with no target removes messages, threads, channels, and users."""
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(["clear", "--yes", "--db", str(db_path)])
+
+    assert rc == 0
+    assert "messages=1 threads=1 channels=1 users=1" in capsys.readouterr().err
+    counts = _status_counts(db_path)
+    assert counts.message_count == 0
+    assert counts.thread_count == 0
+    assert counts.channel_count == 0
+    assert counts.user_count == 0
+
+
+def test_clear_messages_also_clears_threads_and_keeps_the_rest(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(["clear", "messages", "--yes", "--db", str(db_path)])
+
+    assert rc == 0
+    counts = _status_counts(db_path)
+    assert counts.message_count == 0
+    assert counts.thread_count == 0
+    assert counts.channel_count == 1
+    assert counts.user_count == 1
+
+
+def test_clear_channels_keeps_messages_and_users(tmp_path: Path) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(["clear", "channels", "--yes", "--db", str(db_path)])
+
+    assert rc == 0
+    counts = _status_counts(db_path)
+    assert counts.channel_count == 0
+    assert counts.message_count == 1
+    assert counts.thread_count == 1
+    assert counts.user_count == 1
+
+
+def test_clear_users_keeps_messages_and_channels(tmp_path: Path) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(["clear", "users", "--yes", "--db", str(db_path)])
+
+    assert rc == 0
+    counts = _status_counts(db_path)
+    assert counts.user_count == 0
+    assert counts.message_count == 1
+    assert counts.thread_count == 1
+    assert counts.channel_count == 1
+
+
+def test_clear_messages_reopens_thread_for_refetch(tmp_path: Path) -> None:
+    """Clearing messages drops the thread row so show refetches instead of trusting it."""
+    from slack_cached.storage import connect, get_thread_state
+
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    assert cli.main(["clear", "messages", "--yes", "--db", str(db_path)]) == 0
+
+    conn = connect(db_path)
+    try:
+        assert get_thread_state(conn, "C1", "1700000000.000100") is None
+    finally:
+        conn.close()

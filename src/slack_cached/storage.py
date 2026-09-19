@@ -234,6 +234,16 @@ class DbStatus:
     threads_updated_at: float | None
 
 
+@dataclass(frozen=True)
+class ClearedCounts:
+    """Number of rows removed by ``clear_cache``, per entity."""
+
+    messages: int
+    threads: int
+    channels: int
+    users: int
+
+
 def _normalize_sql(statement: str) -> str:
     """Collapse whitespace in a SQL statement for compact logging."""
     return " ".join(statement.split())
@@ -855,6 +865,40 @@ def count_all_threads(conn: sqlite3.Connection) -> int:
     """Return the number of cached threads across every channel."""
     row = conn.execute("SELECT COUNT(*) AS n FROM threads").fetchone()
     return int(row["n"]) if row else 0
+
+
+def clear_cache(
+    conn: sqlite3.Connection,
+    *,
+    messages: bool = False,
+    channels: bool = False,
+    users: bool = False,
+) -> ClearedCounts:
+    """Delete cached rows for the requested entities; returns what was removed.
+
+    Clearing ``messages`` also clears the ``threads`` table: thread rows are the
+    "is this cached" signal that ``show`` keys on, so leaving them behind would
+    make an emptied thread look cached and suppress a refetch. The FTS index is
+    kept in sync by the ``messages_fts`` delete trigger.
+    """
+    cleared_messages = 0
+    cleared_threads = 0
+    cleared_channels = 0
+    cleared_users = 0
+    with transaction(conn):
+        if messages:
+            cleared_messages = conn.execute("DELETE FROM messages").rowcount
+            cleared_threads = conn.execute("DELETE FROM threads").rowcount
+        if channels:
+            cleared_channels = conn.execute("DELETE FROM channels").rowcount
+        if users:
+            cleared_users = conn.execute("DELETE FROM users").rowcount
+    return ClearedCounts(
+        messages=cleared_messages,
+        threads=cleared_threads,
+        channels=cleared_channels,
+        users=cleared_users,
+    )
 
 
 def db_status(conn: sqlite3.Connection) -> DbStatus:
