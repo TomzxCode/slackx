@@ -38,7 +38,7 @@ from .storage import (
     upsert_messages,
     upsert_users,
 )
-from .urls import ThreadRef
+from .urls import ThreadRef, parse_thread_url
 
 log = structlog.get_logger(__name__)
 
@@ -66,6 +66,30 @@ def _normalize_channel_id(channel: Any) -> str | None:
     if isinstance(channel, str):
         return channel or None
     return None
+
+
+def _thread_ts_for_match(msg: dict[str, Any]) -> str | None:
+    """Resolve the thread root ts for a ``search.messages`` match.
+
+    Slack returns ``thread_ts: null`` on search results for a thread reply, but
+    the reply's ``permalink`` carries the true root in its ``?thread_ts=`` query
+    parameter. ``slackx show`` resolves permalinks the same way, so keying the
+    cache off the explicit field alone would file a reply under its own ts and
+    make every subsequent ``show`` a cache miss. Prefer the explicit field, then
+    the permalink, then the message's own ts (a standalone message or thread
+    parent is its own root).
+    """
+    thread_ts = msg.get("thread_ts")
+    if isinstance(thread_ts, str) and thread_ts:
+        return thread_ts
+    permalink = msg.get("permalink")
+    if isinstance(permalink, str) and permalink:
+        try:
+            return parse_thread_url(permalink).thread_ts
+        except ValueError:
+            pass
+    ts = msg.get("ts")
+    return ts if isinstance(ts, str) and ts else None
 
 
 def _latest_ts(messages: list[dict[str, Any]]) -> str | None:
@@ -368,7 +392,9 @@ async def fetch_search(
                 channel = msg.get("channel")
                 if not channel or not msg.get("ts"):
                     continue
-                thread_ts = msg.get("thread_ts") or msg["ts"]
+                thread_ts = _thread_ts_for_match(msg)
+                if thread_ts is None:
+                    continue
                 record_thread_refresh(conn, channel, thread_ts, None)
                 n = upsert_messages(conn, channel, thread_ts, [msg])
                 seen += 1
@@ -381,7 +407,9 @@ async def fetch_search(
             channel = msg.get("channel")
             if not channel or not msg.get("ts"):
                 continue
-            thread_ts = msg.get("thread_ts") or msg["ts"]
+            thread_ts = _thread_ts_for_match(msg)
+            if thread_ts is None:
+                continue
             threads_touched.add((channel, thread_ts))
 
     if full_threads:
@@ -408,7 +436,9 @@ async def fetch_search(
             channel = msg.get("channel")
             if not channel or not msg.get("ts"):
                 continue
-            thread_ts = msg.get("thread_ts") or msg["ts"]
+            thread_ts = _thread_ts_for_match(msg)
+            if thread_ts is None:
+                continue
             match_by_thread.setdefault((channel, thread_ts), msg)
 
         for (channel, thread_ts), replies in zip(ordered, results, strict=True):

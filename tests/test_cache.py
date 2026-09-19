@@ -599,6 +599,88 @@ def test_fetch_search_full_threads_expands_replies(tmp_path: Path) -> None:
     assert [m.ts for m in msgs] == ["1700000000.000100", "1700000000.000300"]
 
 
+def test_fetch_search_reply_match_keys_thread_by_permalink_root(tmp_path: Path) -> None:
+    """A reply match has no ``thread_ts`` but its permalink carries the root.
+
+    Slack returns ``thread_ts: null`` for a reply in search results, so keying
+    the cache off the match's own ``ts`` would file it under the reply ts and
+    make every later ``slackx show <reply permalink>`` (which resolves the root
+    from the permalink) a cache miss.
+    """
+    conn = connect(tmp_path / "cache.db")
+    client = FakeSearchClient(
+        matches=[
+            {
+                "ts": "1700000000.000200",
+                "thread_ts": None,
+                "user": "U2",
+                "text": "reply",
+                "channel": "C1",
+                "permalink": (
+                    "https://acme.slack.com/archives/C1/p1700000000000200"
+                    "?thread_ts=1700000000.000100"
+                ),
+            },
+        ]
+    )
+
+    result = asyncio.run(fetch_search(conn, client, query="reply"))
+
+    assert result.threads_seen == 1
+    assert result.threads_new == 1
+    # Cached under the root, not the reply's own ts.
+    assert get_thread_state(conn, "C1", "1700000000.000100") is not None
+    assert get_thread_state(conn, "C1", "1700000000.000200") is None
+    msgs = load_thread_messages(conn, "C1", "1700000000.000100")
+    assert [(m.ts, m.text) for m in msgs] == [("1700000000.000200", "reply")]
+
+
+def test_fetch_search_full_threads_reply_match_fetches_permalink_root(
+    tmp_path: Path,
+) -> None:
+    """With --full-threads, a reply match expands its real thread, not itself."""
+    conn = connect(tmp_path / "cache.db")
+    client = FakeSearchClient(
+        matches=[
+            {
+                "ts": "1700000000.000200",
+                "thread_ts": None,
+                "user": "U2",
+                "text": "reply",
+                "channel": "C1",
+                "permalink": (
+                    "https://acme.slack.com/archives/C1/p1700000000000200"
+                    "?thread_ts=1700000000.000100"
+                ),
+            },
+        ],
+        thread_replies={
+            ("C1", "1700000000.000100"): [
+                {
+                    "ts": "1700000000.000100",
+                    "thread_ts": "1700000000.000100",
+                    "user": "U1",
+                    "text": "parent",
+                },
+                {
+                    "ts": "1700000000.000200",
+                    "thread_ts": "1700000000.000100",
+                    "user": "U2",
+                    "text": "reply",
+                },
+            ],
+        },
+    )
+
+    result = asyncio.run(fetch_search(conn, client, query="reply", full_threads=True))
+
+    assert result.threads_seen == 1
+    assert result.threads_new == 1
+    assert [c["thread_ts"] for c in client.replies_calls] == ["1700000000.000100"]
+    msgs = load_thread_messages(conn, "C1", "1700000000.000100")
+    assert [m.ts for m in msgs] == ["1700000000.000100", "1700000000.000200"]
+
+
 def test_fetch_search_no_matches_still_returns_empty(tmp_path: Path) -> None:
     conn = connect(tmp_path / "cache.db")
     client = FakeSearchClient(matches=[])
