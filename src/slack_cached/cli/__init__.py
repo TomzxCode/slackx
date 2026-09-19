@@ -12,6 +12,7 @@ from slack_cached.cli._internal._shared import app
 
 # Import command modules so their @app.command decorators register them.
 from slack_cached.cli.commands import (  # noqa: F401
+    clear,
     fetch,
     fetch_channels,
     fetch_users,

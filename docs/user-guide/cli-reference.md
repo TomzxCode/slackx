@@ -137,6 +137,30 @@ Reports the number of cached channels, users, threads, and messages, plus the
 most recent update time for channels, users, and threads (threads carry the
 message-cache update time). Never fetches from Slack.
 
+### clear
+
+Delete cached data: everything, messages, channels, or users.
+
+```bash
+slackx clear [TARGET] [--yes]
+```
+
+| Argument | Description |
+|---|---|
+| `TARGET` | What to clear: `all` (default), `messages`, `channels`, or `users` |
+| `--yes`, `-y` | Skip the confirmation prompt |
+
+Reads and clears the cache database directly; never calls Slack. `clear messages`
+also clears the thread metadata (the rows `show` uses to decide a thread is
+cached), so those threads are refetched on next use. Without `--yes` the command
+asks for confirmation on an interactive terminal and refuses to run otherwise.
+
+```bash
+slackx clear messages       # drop all cached messages and threads
+slackx clear users          # drop the cached user list
+slackx clear all --yes      # wipe every cached entity
+```
+
 ### poll
 
 Poll channels concurrently in a loop for new messages.

@@ -217,6 +217,17 @@ each (`--json`/`--jsonl` for machine-readable output):
 slackx status
 ```
 
+Clear cached data with `clear`, scoped to `messages`, `channels`, `users`, or
+`all` (the default). Clearing messages also drops the thread metadata so those
+threads are refetched next time:
+
+```bash
+slackx clear messages
+slackx clear all --yes
+```
+
+Without `--yes` the command asks for confirmation on an interactive terminal.
+
 ## Refresh behavior
 
 `fetch` always reaches out to Slack.
