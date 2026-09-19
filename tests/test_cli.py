@@ -261,6 +261,16 @@ class FakeListClient:
     async def iter_channels(self, types: str = "public_channel", limit: int = 1000):
         yield {"id": "C1", "name": "general", "is_private": False}
 
+    async def get_channel_info(self, channel: str):
+        if channel == "C1":
+            return {"id": "C1", "name": "general", "is_private": False}
+        raise AssertionError(f"unexpected channel {channel}")
+
+    async def get_user_info(self, user: str):
+        if user == "U1":
+            return {"id": "U1", "name": "alice", "real_name": "Alice Smith"}
+        raise AssertionError(f"unexpected user {user}")
+
     async def aclose(self) -> None:
         pass
 
@@ -281,6 +291,85 @@ def test_fetch_users_then_show(
     assert "U1" in out
     assert "alice" in out
     assert "Alice Smith" in out
+
+
+def test_fetch_users_single(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """fetch-users with an id fetches just that user via users.info."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
+
+    rc = cli.main(["fetch-users", "U1", "--db", str(db_path)])
+    assert rc == 0
+    assert "fetched user U1 (Alice Smith)" in capsys.readouterr().err
+
+    rc = cli.main(["show-users", "U1", "--db", str(db_path), "--no-fetch"])
+    assert rc == 0
+    assert "alice" in capsys.readouterr().out
+
+
+class UnknownUserClient:
+    """Stub client that reports every user lookup as empty."""
+
+    async def get_user_info(self, user: str):
+        return {}
+
+    async def aclose(self) -> None:
+        pass
+
+
+def test_fetch_users_single_unknown(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """fetch-users with an unknown id reports an error and exits non-zero."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: UnknownUserClient())
+
+    rc = cli.main(["fetch-users", "U9", "--db", str(db_path)])
+    assert rc == 1
+    assert "error: user U9 not found" in capsys.readouterr().err
+
+
+def test_show_users_single_cached(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show-users with an id shows only that cached user."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
+    assert cli.main(["fetch-users", "--db", str(db_path)]) == 0
+
+    rc = cli.main(["show-users", "U1", "--db", str(db_path), "--no-fetch"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "1 user(s)" in out
+    assert "U1" in out
+    assert "alice" in out
+
+
+def test_show_users_single_fetches_when_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show-users with an uncached id fetches it via users.info."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
+
+    rc = cli.main(["show-users", "U1", "--db", str(db_path), "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["user_count"] == 1
+    assert payload["users"][0]["id"] == "U1"
+    assert payload["users"][0]["name"] == "alice"
+
+
+def test_show_users_single_unknown_no_fetch(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show-users with an uncached id and --no-fetch reports an error."""
+    db_path = tmp_path / "cache.db"
+    rc = cli.main(["show-users", "U9", "--db", str(db_path), "--no-fetch"])
+    assert rc == 1
+    assert "error: user U9 is not cached" in capsys.readouterr().err
 
 
 def test_show_users_json(
@@ -332,6 +421,44 @@ def test_fetch_channels_then_show(
     assert "public" in out
 
 
+def test_fetch_channels_single(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """fetch-channels with an id fetches just that channel via conversations.info."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
+
+    rc = cli.main(["fetch-channels", "C1", "--db", str(db_path)])
+    assert rc == 0
+    assert "fetched channel C1 (general)" in capsys.readouterr().err
+
+    rc = cli.main(["show-channels", "C1", "--db", str(db_path), "--no-fetch"])
+    assert rc == 0
+    assert "general" in capsys.readouterr().out
+
+
+class UnknownChannelClient:
+    """Stub client that reports every channel lookup as empty."""
+
+    async def get_channel_info(self, channel: str):
+        return {}
+
+    async def aclose(self) -> None:
+        pass
+
+
+def test_fetch_channels_single_unknown(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """fetch-channels with an unknown id reports an error and exits non-zero."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: UnknownChannelClient())
+
+    rc = cli.main(["fetch-channels", "C9", "--db", str(db_path)])
+    assert rc == 1
+    assert "error: channel C9 not found" in capsys.readouterr().err
+
+
 def test_show_channels_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -361,6 +488,47 @@ def test_show_channels_jsonl(
     assert payload["channel_count"] == 1
     assert payload["channels"][0]["id"] == "C1"
     assert payload["channels"][0]["is_private"] is False
+
+
+def test_show_channels_single_cached(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show-channels with an id shows only that cached channel."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
+    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+
+    rc = cli.main(["show-channels", "C1", "--db", str(db_path), "--no-fetch"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "1 channel(s)" in out
+    assert "C1" in out
+    assert "general" in out
+
+
+def test_show_channels_single_fetches_when_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show-channels with an uncached id fetches it via conversations.info."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
+
+    rc = cli.main(["show-channels", "C1", "--db", str(db_path), "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["channel_count"] == 1
+    assert payload["channels"][0]["id"] == "C1"
+    assert payload["channels"][0]["name"] == "general"
+
+
+def test_show_channels_single_unknown_no_fetch(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show-channels with an uncached id and --no-fetch reports an error."""
+    db_path = tmp_path / "cache.db"
+    rc = cli.main(["show-channels", "C9", "--db", str(db_path), "--no-fetch"])
+    assert rc == 1
+    assert "error: channel C9 is not cached" in capsys.readouterr().err
 
 
 def test_show_users_no_fetch_empty(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

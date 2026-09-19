@@ -404,6 +404,50 @@ def test_iter_search_messages_no_matches_returns_empty() -> None:
     assert len(transport.calls) == 1
 
 
+def test_get_user_info_returns_user() -> None:
+    transport = FakeTransport(
+        [
+            {"ok": True, "user": {"id": "U1", "name": "alice", "real_name": "Alice Smith"}},
+        ]
+    )
+    client = _client(transport)
+
+    user = asyncio.run(client.get_user_info("U1"))
+
+    assert user["id"] == "U1"
+    assert user["name"] == "alice"
+    assert transport.calls == [{"url": "/api/users.info", "params": {"user": "U1"}}]
+
+
+def test_get_user_info_empty_when_no_user() -> None:
+    transport = FakeTransport([{"ok": True}])
+    client = _client(transport)
+
+    assert asyncio.run(client.get_user_info("U1")) == {}
+
+
+def test_get_channel_info_returns_channel() -> None:
+    transport = FakeTransport(
+        [
+            {"ok": True, "channel": {"id": "C1", "name": "general", "is_private": False}},
+        ]
+    )
+    client = _client(transport)
+
+    channel = asyncio.run(client.get_channel_info("C1"))
+
+    assert channel["id"] == "C1"
+    assert channel["name"] == "general"
+    assert transport.calls == [{"url": "/api/conversations.info", "params": {"channel": "C1"}}]
+
+
+def test_get_channel_info_empty_when_no_channel() -> None:
+    transport = FakeTransport([{"ok": True}])
+    client = _client(transport)
+
+    assert asyncio.run(client.get_channel_info("C1")) == {}
+
+
 def test_auth_test_returns_payload_and_caches() -> None:
     transport = FakeTransport(
         [

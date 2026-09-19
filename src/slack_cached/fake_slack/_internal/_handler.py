@@ -38,7 +38,9 @@ class FakeSlackHandler(BaseHTTPRequestHandler):
             "/api/conversations.replies": self._handle_conversations_replies,
             "/api/conversations.history": self._handle_conversations_history,
             "/api/users.list": self._handle_users_list,
+            "/api/users.info": self._handle_users_info,
             "/api/conversations.list": self._handle_conversations_list,
+            "/api/conversations.info": self._handle_conversations_info,
             "/api/search.messages": self._handle_search_messages,
         }
 
@@ -163,6 +165,14 @@ class FakeSlackHandler(BaseHTTPRequestHandler):
 
         self._send_json(response)
 
+    def _handle_users_info(self, params: dict[str, str]) -> None:
+        user = params.get("user", "")
+        info = self.workspace.get_user(user)
+        if info is None:
+            self._send_json({"ok": False, "error": "user_not_found"}, 404)
+            return
+        self._send_json({"ok": True, "user": info})
+
     def _handle_conversations_list(self, params: dict[str, str]) -> None:
         limit = int(params.get("limit", "1000"))
         types = params.get("types")
@@ -179,6 +189,14 @@ class FakeSlackHandler(BaseHTTPRequestHandler):
             response["response_metadata"] = {"next_cursor": ""}
 
         self._send_json(response)
+
+    def _handle_conversations_info(self, params: dict[str, str]) -> None:
+        channel = params.get("channel", "")
+        info = self.workspace.get_channel(channel)
+        if info is None:
+            self._send_json({"ok": False, "error": "channel_not_found"}, 404)
+            return
+        self._send_json({"ok": True, "channel": info})
 
     def _handle_search_messages(self, params: dict[str, str]) -> None:
         query = params.get("query", "")

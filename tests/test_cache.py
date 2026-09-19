@@ -10,10 +10,12 @@ from typing import Any
 import pytest
 
 from slack_cached.cache import (
+    fetch_channel,
     fetch_channel_messages,
     fetch_channels,
     fetch_search,
     fetch_thread,
+    fetch_user,
     fetch_users,
     load_thread,
 )
@@ -168,6 +170,18 @@ class FakeListClient:
         for c in self._channels:
             yield c
 
+    async def get_channel_info(self, channel: str) -> dict[str, Any]:
+        for c in self._channels:
+            if c["id"] == channel:
+                return c
+        return {}
+
+    async def get_user_info(self, user: str) -> dict[str, Any]:
+        for u in self._users:
+            if u["id"] == user:
+                return u
+        return {}
+
 
 class FakeChannelClient:
     """In-memory stand-in for channel message fetching."""
@@ -246,6 +260,46 @@ def test_fetch_channels_caches_all(tmp_path: Path) -> None:
     channel = get_channel(conn, "C2")
     assert channel is not None
     assert channel.is_private is True
+
+
+def test_fetch_channel_caches_single(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    client = FakeListClient(channels=[{"id": "C1", "name": "general", "is_private": False}])
+
+    channel = asyncio.run(fetch_channel(conn, client, "C1"))
+
+    assert channel is not None
+    assert channel.id == "C1"
+    assert channel.name == "general"
+    assert [c.id for c in load_channels(conn)] == ["C1"]
+
+
+def test_fetch_channel_returns_none_for_empty_payload(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    client = FakeListClient(channels=[])
+
+    assert asyncio.run(fetch_channel(conn, client, "C1")) is None
+    assert load_channels(conn) == []
+
+
+def test_fetch_user_caches_single(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    client = FakeListClient(users=[{"id": "U1", "name": "alice", "real_name": "Alice Smith"}])
+
+    user = asyncio.run(fetch_user(conn, client, "U1"))
+
+    assert user is not None
+    assert user.id == "U1"
+    assert user.name == "alice"
+    assert [u.id for u in load_users(conn)] == ["U1"]
+
+
+def test_fetch_user_returns_none_for_empty_payload(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    client = FakeListClient(users=[])
+
+    assert asyncio.run(fetch_user(conn, client, "U1")) is None
+    assert load_users(conn) == []
 
 
 class FailingChannelClient:

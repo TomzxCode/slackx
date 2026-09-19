@@ -108,8 +108,10 @@ class SlackClient:
 
         self._replies_url = f"{self._base_url}/conversations.replies"
         self._users_list_url = f"{self._base_url}/users.list"
+        self._users_info_url = f"{self._base_url}/users.info"
         self._conversations_list_url = f"{self._base_url}/conversations.list"
         self._conversations_history_url = f"{self._base_url}/conversations.history"
+        self._conversations_info_url = f"{self._base_url}/conversations.info"
         self._search_messages_url = f"{self._base_url}/search.messages"
         self._auth_test_url = f"{self._base_url}/auth.test"
         self._auth_test_data: dict[str, Any] | None = None
@@ -325,6 +327,24 @@ class SlackClient:
         """Yield every member of the workspace via users.list."""
         async for item in self._iter_cursor(self._users_list_url, "members", {"limit": limit}):
             yield item
+
+    async def get_user_info(self, user: str) -> dict[str, Any]:
+        """Return a single user's profile via users.info.
+
+        Raises ``SlackAPIError`` when the user id is unknown or not visible to
+        the token.
+        """
+        data = await self._get(self._users_info_url, {"user": user})
+        return data.get("user") or {}
+
+    async def get_channel_info(self, channel: str) -> dict[str, Any]:
+        """Return a single conversation's metadata via conversations.info.
+
+        Raises ``SlackAPIError`` when the channel id is unknown or not visible
+        to the token.
+        """
+        data = await self._get(self._conversations_info_url, {"channel": channel})
+        return data.get("channel") or {}
 
     async def iter_channel_pages(
         self,
