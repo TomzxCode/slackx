@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import structlog
 from cyclopts import App, Parameter
@@ -45,9 +45,13 @@ ApiBaseUrlArg = Annotated[
         "the SLACK_API_BASE_URL environment variable.",
     ),
 ]
-VerboseArg = Annotated[
-    bool,
-    Parameter(name=["--verbose", "-v"], help="Enable debug logging."),
+LogLevelArg = Annotated[
+    Literal["debug", "info", "warning", "error", "critical"],
+    Parameter(
+        name="--log-level",
+        help="Logging verbosity: debug, info, warning, error, or critical "
+        "(default: info). Use 'debug' for per-query SQL timings.",
+    ),
 ]
 JsonArg = Annotated[
     bool,
@@ -115,16 +119,16 @@ TsArg = Annotated[
 
 @dataclass
 class CommonArgs:
-    """Carries the shared db/workspace/api-base-url/verbose flags through helpers."""
+    """Carries the shared db/workspace/api-base-url/log-level flags through helpers."""
 
     db: Path | None = None
     workspace: str | None = None
     api_base_url: str | None = None
-    verbose: bool = False
+    log_level: str = "info"
 
 
-def _configure_logging(verbose: bool) -> None:
-    level = logging.DEBUG if verbose else logging.INFO
+def _configure_logging(log_level: str) -> None:
+    level = getattr(logging, log_level.upper())
     structlog.configure(
         processors=[
             structlog.processors.add_log_level,
@@ -137,11 +141,11 @@ def _configure_logging(verbose: bool) -> None:
 
 
 def _setup(
-    db: Path | None, api_base_url: str | None, verbose: bool, workspace: str | None = None
+    db: Path | None, api_base_url: str | None, log_level: str, workspace: str | None = None
 ) -> CommonArgs:
     """Build the CommonArgs carrier and wire up logging in one place."""
-    common = CommonArgs(db=db, workspace=workspace, api_base_url=api_base_url, verbose=verbose)
-    _configure_logging(verbose)
+    common = CommonArgs(db=db, workspace=workspace, api_base_url=api_base_url, log_level=log_level)
+    _configure_logging(log_level)
     log.debug("dispatch")
     return common
 
@@ -150,9 +154,9 @@ def _setup(
 def _timed(phase: str, **fields: object) -> Iterator[None]:
     """Log how long a block of work takes, at debug level.
 
-    Surfaces only in verbose mode, alongside the per-query SQL timings, so the
-    time spent outside the database (deserialization, rendering, output) can be
-    attributed to a specific phase.
+    Surfaces only at debug log level, alongside the per-query SQL timings, so
+    the time spent outside the database (deserialization, rendering, output) can
+    be attributed to a specific phase.
     """
     start = time.perf_counter()
     try:

@@ -15,7 +15,7 @@ from slack_cached.cli._internal._shared import (
     DbArg,
     JsonArg,
     JsonlArg,
-    VerboseArg,
+    LogLevelArg,
     WorkspaceArg,
     _setup,
     _timed,
@@ -57,7 +57,7 @@ async def search(
     api_base_url: ApiBaseUrlArg = None,
     json_output: JsonArg = False,
     jsonl_output: JsonlArg = False,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Search Slack via search.messages and cache the matched messages/threads.
 
@@ -68,7 +68,7 @@ async def search(
     """
     from slack_cached.cache import fetch_search
 
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
 
     log.debug("cmd_search_start", query=query)

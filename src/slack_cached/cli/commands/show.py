@@ -25,9 +25,9 @@ from slack_cached.cli._internal._shared import (
     FetchArg,
     JsonArg,
     JsonlArg,
+    LogLevelArg,
     TsArg,
     UrlArg,
-    VerboseArg,
     WorkspaceArg,
     _setup,
     _timed,
@@ -63,7 +63,7 @@ async def show(
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Print a cached thread or channel to stdout (human-readable by default).
 
@@ -72,7 +72,7 @@ async def show(
     When --channel is given without --ts, shows all messages for that channel
     (fetching first if needed, unless --no-fetch).
     """
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
 
     if channel:
@@ -120,7 +120,7 @@ async def show(
                     thread_ts=ref.thread_ts,
                     thread_ts_iso=_format_ts(ref.thread_ts),
                 )
-                if verbose:
+                if log_level == "debug":
                     print(
                         f"fetching thread {ref.channel}/{ref.thread_ts} from Slack...",
                         file=sys.stderr,
@@ -174,7 +174,7 @@ async def _show_channel(common: CommonArgs, channel: str, fetch: bool, last: str
         ):
             if not load_channel_messages(conn, channel):
                 log.info("channel_not_cached_fetching", channel=channel)
-                if common.verbose:
+                if common.log_level == "debug":
                     print(
                         f"fetching messages for {channel} from Slack...",
                         file=sys.stderr,

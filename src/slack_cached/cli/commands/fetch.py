@@ -15,9 +15,9 @@ from slack_cached.cli._internal._shared import (
     ChannelArg,
     CommonArgs,
     DbArg,
+    LogLevelArg,
     TsArg,
     UrlArg,
-    VerboseArg,
     WorkspaceArg,
     _setup,
     app,
@@ -47,10 +47,10 @@ async def fetch(
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Cache or refresh a Slack thread, or fetch all messages from a channel."""
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
     if channel:
         channel = await _resolve_channel(common, channel)
         if channel is None:

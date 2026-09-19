@@ -67,12 +67,14 @@ Override with `--db`:
 slackx --db /path/to/custom.db fetch <url>
 ```
 
-## Verbose mode
+## Log level
 
-Enable debug logging with `-v` or `--verbose`:
+Control logging verbosity with `--log-level` (`debug`, `info`, `warning`,
+`error`, or `critical`; default: `info`):
 
 ```bash
-slackx -v fetch <url>
+slackx fetch --log-level debug <url>
 ```
 
-This outputs SQL query timings, API request details, and other diagnostic information to stderr.
+At `debug`, this outputs SQL query timings, API request details, and other
+diagnostic information to stderr.

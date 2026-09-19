@@ -55,7 +55,8 @@ offline reads fall back to it only while no workspace cache exists yet.
 
 ## Usage
 
-All commands accept `-v/--verbose` for debug logging on stderr, `--db` to
+All commands accept `--log-level` (`debug`, `info`, `warning`, `error`, or
+`critical`; default `info`) for logging on stderr, `--db` to
 override the cache location, `--workspace` to select the per-workspace cache
 explicitly, and `--api-base-url` to override the Slack API
 base URL (defaults to `https://slack.com/api`; also settable via

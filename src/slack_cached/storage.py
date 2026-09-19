@@ -236,8 +236,9 @@ def _normalize_sql(statement: str) -> str:
 def _log_sql(statement: str, duration_s: float) -> None:
     """Log a completed SQL statement and how long it took.
 
-    Emits at debug level, so the statements only surface when verbose
-    (debug) logging is enabled. The duration is reported in milliseconds.
+    Emits at debug level, so the statements only surface when debug
+    logging is enabled (--log-level debug). The duration is reported in
+    milliseconds.
     """
     log.debug(
         "sql",
@@ -382,7 +383,7 @@ def upsert_messages(
 
     # When debug logging is on, surface the field-level diff between the
     # incoming canonical payload and what is already cached. This makes cache
-    # oscillation against real Slack diagnosable with --verbose.
+    # oscillation against real Slack diagnosable with --log-level debug.
     if log.is_enabled_for(10):  # logging.DEBUG
         _log_canonical_diffs(conn, channel, thread_ts, rows)
 

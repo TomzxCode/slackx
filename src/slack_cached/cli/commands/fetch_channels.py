@@ -6,7 +6,7 @@ from slack_cached.cli._internal import _client
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
     DbArg,
-    VerboseArg,
+    LogLevelArg,
     WorkspaceArg,
     _setup,
     app,
@@ -19,12 +19,12 @@ async def fetch_channels(
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Fetch and cache every visible channel."""
     from slack_cached.cache import fetch_channels
 
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
     async with _client._open_client(common) as client, _client._open_db(common, client) as conn:
         result = await fetch_channels(conn, client)
     print(

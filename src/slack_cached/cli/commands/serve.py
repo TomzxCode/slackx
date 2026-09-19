@@ -11,7 +11,7 @@ from slack_cached.cli._internal import _client
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
     DbArg,
-    VerboseArg,
+    LogLevelArg,
     WorkspaceArg,
     _setup,
     app,
@@ -37,7 +37,7 @@ def serve(
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Serve the cached database through a local web UI.
 
@@ -48,7 +48,7 @@ def serve(
     is determined from the configured token/cookie (cached on disk after the
     first auth.test), falling back to the last-used workspace offline.
     """
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
     db_path = _client._resolve_db_path_sync(common)
 
     import uvicorn
@@ -57,5 +57,5 @@ def serve(
 
     webapp = create_app(db_path=db_path, api_base_url=common.api_base_url)
     log.info("serve_starting", host=host, port=port, db_path=str(db_path))
-    uvicorn.run(webapp, host=host, port=port, log_level="debug" if verbose else "warning")
+    uvicorn.run(webapp, host=host, port=port, log_level=common.log_level)
     return 0

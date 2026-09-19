@@ -62,7 +62,7 @@ same message slightly differently between `search.messages` and
 `conversations.replies` (different `blocks` ids, signed image URLs, team
 metadata, search-highlighted `text`, etc.); the comparison normalizes those
 away so the same message still counts as existing. If you ever see unexpectedly
-high "new" counts on a rerun, run with `--verbose` and look for
+high "new" counts on a rerun, run with `--log-level debug` and look for
 `message_payload_diff` log lines, which show the field-level diff for every
 message that was considered changed.
 
