@@ -19,8 +19,8 @@ from slack_cached.cli._internal._shared import (
     JsonArg,
     JsonlArg,
     LimitArg,
+    LogLevelArg,
     UserFieldsArg,
-    VerboseArg,
     WorkspaceArg,
     _setup,
     app,
@@ -41,10 +41,10 @@ async def show_users(
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Print cached users to stdout (human-readable by default)."""
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
     try:
         selected = parse_fields(fields, USER_FIELDS, USER_DEFAULT_FIELDS)

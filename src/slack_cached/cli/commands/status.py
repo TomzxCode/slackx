@@ -12,7 +12,7 @@ from slack_cached.cli._internal._shared import (
     DbArg,
     JsonArg,
     JsonlArg,
-    VerboseArg,
+    LogLevelArg,
     WorkspaceArg,
     _setup,
     app,
@@ -28,10 +28,10 @@ async def status(
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Print cache database status: counts and last update per entity."""
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
     async with _client._open_db(common) as conn:
         snapshot = db_status(conn)

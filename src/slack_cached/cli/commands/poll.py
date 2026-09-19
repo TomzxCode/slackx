@@ -12,7 +12,7 @@ from slack_cached.cli._internal._poll import _poll_loop
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
     DbArg,
-    VerboseArg,
+    LogLevelArg,
     WorkspaceArg,
     _setup,
     app,
@@ -57,10 +57,10 @@ async def poll(
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
-    verbose: VerboseArg = False,
+    log_level: LogLevelArg = "info",
 ) -> int:
     """Poll channels concurrently in a loop for new messages."""
-    common = _setup(db, api_base_url, verbose, workspace)
+    common = _setup(db, api_base_url, log_level, workspace)
 
     resolved = await _resolve_poll_channels(common, channels)
     if not resolved:

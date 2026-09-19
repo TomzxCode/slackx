@@ -6,7 +6,7 @@
 |---|---|
 | `--db PATH` | SQLite cache database path (default: `~/.cache/slackx/threads.db`) |
 | `--api-base-url URL` | Slack API base URL (default: `https://slack.com/api`) |
-| `-v`, `--verbose` | Enable debug logging |
+| `--log-level LEVEL` | Logging verbosity: `debug`, `info`, `warning`, `error`, or `critical` (default: `info`) |
 
 ## Subcommands
 

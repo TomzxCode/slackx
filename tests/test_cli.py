@@ -370,6 +370,21 @@ def test_show_users_no_fetch_empty(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "0 user(s)" in capsys.readouterr().out
 
 
+def test_log_level_debug_emits_debug_logs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--log-level", "debug"])
+    assert rc == 0
+    assert "[debug" in capsys.readouterr().err
+
+
+def test_log_level_rejects_unknown_value(tmp_path: Path) -> None:
+    db_path = tmp_path / "cache.db"
+    with pytest.raises(SystemExit):
+        cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--log-level", "bogus"])
+
+
 class FakeMultiListClient:
     """Stub client returning several users and channels."""
 
