@@ -95,6 +95,15 @@ ChannelFieldsArg = Annotated[
         "display_name, fetched_at, payload (default: id,name,is_private).",
     ),
 ]
+SearchFieldsArg = Annotated[
+    str | None,
+    Parameter(
+        name="--fields",
+        help="Comma-separated fields to include, in order: channel, channel_name, "
+        "ts, thread_ts, user, user_name, text, permalink, payload (default: "
+        "channel,channel_name,ts,thread_ts,user,user_name,text,permalink).",
+    ),
+]
 UrlArg = Annotated[
     str | None,
     Parameter(

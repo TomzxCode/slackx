@@ -49,7 +49,7 @@ slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--fetch | --
 Search Slack via `search.messages` and cache every matched message/thread.
 
 ```bash
-slackx search QUERY [--count N] [--limit N] [--sort score|timestamp] [--sort-dir asc|desc] [--full-threads] [--json | --jsonl]
+slackx search QUERY [--count N] [--limit N] [--sort score|timestamp] [--sort-dir asc|desc] [--full-threads] [--fields FIELDS] [--json | --jsonl]
 ```
 
 | Argument | Description |
@@ -60,6 +60,7 @@ slackx search QUERY [--count N] [--limit N] [--sort score|timestamp] [--sort-dir
 | `--sort` | Sort by `score` or `timestamp` (default: `timestamp`) |
 | `--sort-dir` | Sort direction, `asc` or `desc` (default: `desc`) |
 | `--full-threads` | Also fetch all replies for every thread a match belongs to |
+| `--fields FIELDS` | Comma-separated fields to include, in order: `channel`, `channel_name`, `ts`, `thread_ts`, `user`, `user_name`, `text`, `permalink`, `payload` (default: all but `payload`) |
 | `--json` | Output as pretty-printed JSON |
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
 
