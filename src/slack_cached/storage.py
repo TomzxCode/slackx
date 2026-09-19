@@ -86,6 +86,9 @@ CREATE TABLE IF NOT EXISTS users (
     PRIMARY KEY (id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_users_fetched_at
+    ON users (fetched_at);
+
 CREATE TABLE IF NOT EXISTS channels (
     id          TEXT NOT NULL,
     name        TEXT,
@@ -94,6 +97,9 @@ CREATE TABLE IF NOT EXISTS channels (
     payload     TEXT NOT NULL,
     PRIMARY KEY (id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_channels_fetched_at
+    ON channels (fetched_at);
 
 CREATE TABLE IF NOT EXISTS meta (
     key    TEXT NOT NULL,
@@ -637,12 +643,27 @@ def get_channel(conn: sqlite3.Connection, channel_id: str) -> CachedChannel | No
     return _row_to_channel(row) if row is not None else None
 
 
-def load_users(conn: sqlite3.Connection) -> list[CachedUser]:
-    """Return all cached users, ordered by id."""
-    rows = conn.execute(
-        "SELECT id, name, real_name, fetched_at, payload FROM users ORDER BY id ASC"
-    ).fetchall()
-    return [_row_to_user(row) for row in rows]
+def load_users(
+    conn: sqlite3.Connection,
+    *,
+    limit: int | None = None,
+    include_payload: bool = True,
+) -> list[CachedUser]:
+    """Return cached users, ordered by id.
+
+    Pass ``limit`` to cap the number of rows returned (pushed into SQL so a
+    small listing does not read the whole table), and ``include_payload=False``
+    to skip reading and JSON-decoding the large payload column when it is not
+    going to be rendered.
+    """
+    columns = "id, name, real_name, fetched_at" + (", payload" if include_payload else "")
+    sql = f"SELECT {columns} FROM users ORDER BY id ASC"
+    params: list[Any] = []
+    if limit is not None and limit > 0:
+        sql += " LIMIT ?"
+        params.append(limit)
+    rows = conn.execute(sql, params).fetchall()
+    return [_row_to_user(row, include_payload=include_payload) for row in rows]
 
 
 def load_user_display_names(conn: sqlite3.Connection, user_ids: Iterable[str]) -> dict[str, str]:
@@ -683,12 +704,29 @@ def _format_display_name(real_name: str | None, name: str | None, user_id: str) 
     return real_name or name or user_id
 
 
-def load_channels(conn: sqlite3.Connection) -> list[CachedChannel]:
-    """Return all cached channels, ordered by id."""
-    rows = conn.execute(
-        "SELECT id, name, is_private, fetched_at, payload FROM channels ORDER BY id ASC"
-    ).fetchall()
-    return [_row_to_channel(row) for row in rows]
+def load_channels(
+    conn: sqlite3.Connection,
+    *,
+    limit: int | None = None,
+    include_payload: bool = True,
+) -> list[CachedChannel]:
+    """Return cached channels, ordered by id.
+
+    Pass ``limit`` to cap the number of rows returned (pushed into SQL so a
+    small listing does not read the whole table), and ``include_payload=False``
+    to skip reading and JSON-decoding the large payload column when it is not
+    going to be rendered. Note that the ``is_private``-derived "direct"
+    visibility relies on ``payload``; callers that need it must keep the
+    payload.
+    """
+    columns = "id, name, is_private, fetched_at" + (", payload" if include_payload else "")
+    sql = f"SELECT {columns} FROM channels ORDER BY id ASC"
+    params: list[Any] = []
+    if limit is not None and limit > 0:
+        sql += " LIMIT ?"
+        params.append(limit)
+    rows = conn.execute(sql, params).fetchall()
+    return [_row_to_channel(row, include_payload=include_payload) for row in rows]
 
 
 def load_channel_display_names(
@@ -1007,22 +1045,22 @@ def _bool_to_int(value: Any) -> int | None:
     return 1 if value else 0
 
 
-def _row_to_user(row: sqlite3.Row) -> CachedUser:
+def _row_to_user(row: sqlite3.Row, *, include_payload: bool = True) -> CachedUser:
     return CachedUser(
         id=row["id"],
         name=row["name"],
         real_name=row["real_name"],
         fetched_at=row["fetched_at"],
-        payload=json.loads(row["payload"]),
+        payload=json.loads(row["payload"]) if include_payload else {},
     )
 
 
-def _row_to_channel(row: sqlite3.Row) -> CachedChannel:
+def _row_to_channel(row: sqlite3.Row, *, include_payload: bool = True) -> CachedChannel:
     is_private = row["is_private"]
     return CachedChannel(
         id=row["id"],
         name=row["name"],
         is_private=None if is_private is None else bool(is_private),
         fetched_at=row["fetched_at"],
-        payload=json.loads(row["payload"]),
+        payload=json.loads(row["payload"]) if include_payload else {},
     )

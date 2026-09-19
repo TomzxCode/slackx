@@ -183,6 +183,24 @@ def test_upsert_and_load_users(tmp_path: Path) -> None:
     assert loaded[1].real_name == "Bob Jones"
 
 
+def test_load_users_limit_and_payload(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    upsert_users(
+        conn,
+        [{"id": "U1", "name": "alice"}, {"id": "U2", "name": "bob"}, {"id": "U3"}],
+        now=1.0,
+    )
+    conn.commit()
+
+    limited = load_users(conn, limit=2)
+    assert [u.id for u in limited] == ["U1", "U2"]
+
+    without_payload = load_users(conn, include_payload=False)
+    assert [u.id for u in without_payload] == ["U1", "U2", "U3"]
+    assert without_payload[0].name == "alice"
+    assert without_payload[0].payload == {}
+
+
 def test_get_user_missing_returns_none(tmp_path: Path) -> None:
     conn = connect(tmp_path / "cache.db")
     assert get_user(conn, "U1") is None
@@ -272,6 +290,27 @@ def test_upsert_and_load_channels(tmp_path: Path) -> None:
     assert loaded[2].is_private is None
     assert loaded[0].fetched_at == 5.0
     assert loaded[0].payload["name"] == "general"
+
+
+def test_load_channels_limit_and_payload(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    upsert_channels(
+        conn,
+        [
+            {"id": "C1", "name": "general", "is_private": False},
+            {"id": "C2", "name": "random", "is_private": False},
+        ],
+        now=5.0,
+    )
+    conn.commit()
+
+    limited = load_channels(conn, limit=1)
+    assert [c.id for c in limited] == ["C1"]
+
+    without_payload = load_channels(conn, include_payload=False)
+    assert [c.id for c in without_payload] == ["C1", "C2"]
+    assert without_payload[0].is_private is False
+    assert without_payload[0].payload == {}
 
 
 def test_get_channel_missing_returns_none(tmp_path: Path) -> None:

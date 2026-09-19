@@ -52,8 +52,10 @@ async def show_channels(
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    include_payload = bool({"is_private", "payload"} & set(selected))
+
     async with _client._open_db(common) as conn:
-        channels = load_channels(conn)
+        channels = load_channels(conn, limit=limit, include_payload=include_payload)
 
     if not channels and fetch:
         from slack_cached.cache import fetch_channels
@@ -63,12 +65,9 @@ async def show_channels(
             _client._open_client(common) as client,
             _client._open_db(common, client) as conn,
         ):
-            if not load_channels(conn):
+            if not load_channels(conn, limit=1):
                 await fetch_channels(conn, client)
-            channels = load_channels(conn)
-
-    if limit > 0:
-        channels = channels[:limit]
+            channels = load_channels(conn, limit=limit, include_payload=include_payload)
 
     display_names: dict[str, str] = {}
     if {"name", "display_name"} & set(selected):
