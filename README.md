@@ -134,6 +134,12 @@ Pass `--limit 0` for no cap.
 slackx search "from:@alice" --limit 500
 ```
 
+Use `--fields` to choose which fields are returned, in order:
+
+```bash
+slackx search "incident" --json --fields channel,ts,user,text
+```
+
 ### Polling channels
 
 Poll multiple channels concurrently for new messages:

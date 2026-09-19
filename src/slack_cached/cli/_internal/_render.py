@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from typing import Any
 
+from slack_cached.cli._internal._fields import SEARCH_DEFAULT_FIELDS
 from slack_cached.cli._internal._format import _format_epoch, _format_ts
 from slack_cached.storage import CachedChannel, CachedMessage, CachedUser, DbStatus
 from slack_cached.urls import ThreadRef
@@ -140,12 +141,15 @@ def _render_search_human(
     matches: list[dict[str, Any]],
     user_names: dict[str, str] | None = None,
     channel_names: dict[str, str] | None = None,
+    fields: Sequence[str] | None = None,
 ) -> str:
     """Render search matches as a human-readable string.
 
     Each match is printed with its channel, an optional permalink, the author
-    and the message text, in the same style as `_render_human`.
+    and the message text, in the same style as `_render_human`. ``fields``
+    restricts which parts are printed, mirroring the JSON renderer.
     """
+    selected = set(fields or SEARCH_DEFAULT_FIELDS)
     names = user_names or {}
     ch_names = channel_names or {}
     lines = [f"Search: {query}", f"{len(matches)} match(es)", ""]
@@ -157,15 +161,50 @@ def _render_search_human(
         author = names.get(user, user) if user else "(unknown)"
         text = msg.get("text") if msg.get("text") is not None else ""
         permalink = msg.get("permalink")
-        header = f"[{ch_label}]"
-        if permalink:
-            header = f"{header} {permalink}"
-        lines.append(header)
-        lines.append(f"[{_format_ts(ts)}] {author}")
-        for text_line in text.splitlines() or [""]:
-            lines.append(f"    {text_line}")
+        if {"channel", "channel_name"} & selected:
+            header = f"[{ch_label}]"
+            if permalink and "permalink" in selected:
+                header = f"{header} {permalink}"
+            lines.append(header)
+        meta: list[str] = []
+        if "ts" in selected:
+            meta.append(_format_ts(ts))
+        if {"user", "user_name"} & selected:
+            meta.append(author)
+        if meta:
+            lines.append(f"[{' '.join(meta)}]")
+        if "text" in selected:
+            for text_line in text.splitlines() or [""]:
+                lines.append(f"    {text_line}")
         lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _search_field_value(
+    msg: dict[str, Any], field: str, names: dict[str, str], ch_names: dict[str, str]
+) -> Any:
+    """Return the value of a single search field for JSON output."""
+    channel = msg.get("channel")
+    user = msg.get("user")
+    if field == "channel":
+        return channel
+    if field == "channel_name":
+        return ch_names.get(channel) if channel else None
+    if field == "ts":
+        return msg.get("ts")
+    if field == "thread_ts":
+        return msg.get("thread_ts")
+    if field == "user":
+        return user
+    if field == "user_name":
+        return names.get(user) if user else None
+    if field == "text":
+        return msg.get("text")
+    if field == "permalink":
+        return msg.get("permalink")
+    if field == "payload":
+        return msg
+    return None
 
 
 def _render_search_json(
@@ -173,31 +212,23 @@ def _render_search_json(
     matches: list[dict[str, Any]],
     user_names: dict[str, str] | None = None,
     channel_names: dict[str, str] | None = None,
+    fields: Sequence[str] | None = None,
     *,
     indent: int | None = 2,
 ) -> str:
     """Render search matches as a JSON string (pretty-printed by default).
 
-    Pass ``indent=None`` to emit the whole payload as a single line.
+    ``fields`` selects and orders the keys emitted for each match; it defaults
+    to every field except ``payload``. Pass ``indent=None`` to emit the whole
+    payload as a single line.
     """
+    selected = list(fields or SEARCH_DEFAULT_FIELDS)
     names = user_names or {}
     ch_names = channel_names or {}
-    enriched: list[dict[str, Any]] = []
-    for msg in matches:
-        channel = msg.get("channel")
-        user = msg.get("user")
-        entry: dict[str, Any] = {
-            "channel": channel,
-            "channel_name": ch_names.get(channel) if channel else None,
-            "ts": msg.get("ts"),
-            "thread_ts": msg.get("thread_ts"),
-            "user": user,
-            "text": msg.get("text"),
-            "permalink": msg.get("permalink"),
-        }
-        if user and user in names:
-            entry["user_name"] = names[user]
-        enriched.append(entry)
+    enriched: list[dict[str, Any]] = [
+        {field: _search_field_value(msg, field, names, ch_names) for field in selected}
+        for msg in matches
+    ]
     payload: dict[str, Any] = {
         "query": query,
         "match_count": len(matches),

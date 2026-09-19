@@ -30,6 +30,16 @@ slackx search "incident" --json
 Each match includes its `channel`, `channel_name` (when cached), `ts`, `thread_ts`,
 `user`, `user_name` (when cached), `text`, and `permalink`.
 
+Use `--fields` to choose and order which fields are emitted (and which parts the
+human renderer prints). Available fields are `channel`, `channel_name`, `ts`,
+`thread_ts`, `user`, `user_name`, `text`, `permalink`, and `payload` (the raw
+match as returned by Slack):
+
+```bash
+slackx search "incident" --json --fields channel,ts,user,text
+slackx search "incident" --fields text
+```
+
 ## Full thread expansion
 
 Add `--full-threads` to fetch all replies for every thread a match belongs to:

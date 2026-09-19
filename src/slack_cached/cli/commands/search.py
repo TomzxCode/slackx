@@ -8,6 +8,11 @@ from cyclopts import Parameter
 
 from slack_cached.cli._internal import _client
 from slack_cached.cli._internal._channels import _channel_id_names
+from slack_cached.cli._internal._fields import (
+    SEARCH_DEFAULT_FIELDS,
+    SEARCH_FIELDS,
+    parse_fields,
+)
 from slack_cached.cli._internal._refs import _output_format
 from slack_cached.cli._internal._render import _render_search_human, _render_search_json
 from slack_cached.cli._internal._shared import (
@@ -16,6 +21,7 @@ from slack_cached.cli._internal._shared import (
     JsonArg,
     JsonlArg,
     LogLevelArg,
+    SearchFieldsArg,
     WorkspaceArg,
     _setup,
     _timed,
@@ -52,6 +58,7 @@ async def search(
         bool,
         Parameter(help="Also fetch all replies for every thread a match belongs to."),
     ] = False,
+    fields: SearchFieldsArg = None,
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
@@ -70,6 +77,11 @@ async def search(
 
     common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
+    try:
+        selected = parse_fields(fields, SEARCH_FIELDS, SEARCH_DEFAULT_FIELDS)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
     log.debug("cmd_search_start", query=query)
     async with _client._open_client(common) as client, _client._open_db(common, client) as conn:
@@ -101,10 +113,11 @@ async def search(
                 matches,
                 user_names,
                 channel_names,
+                selected,
                 indent=2 if fmt == "json" else None,
             )
         else:
-            output = _render_search_human(query, matches, user_names, channel_names)
+            output = _render_search_human(query, matches, user_names, channel_names, selected)
     with _timed("write_output", bytes=len(output)):
         sys.stdout.write(output)
         sys.stdout.flush()

@@ -6,6 +6,27 @@ USER_FIELDS = ("id", "name", "real_name", "fetched_at", "payload")
 USER_DEFAULT_FIELDS = ("id", "name", "real_name")
 CHANNEL_FIELDS = ("id", "name", "is_private", "display_name", "fetched_at", "payload")
 CHANNEL_DEFAULT_FIELDS = ("id", "name", "is_private")
+SEARCH_FIELDS = (
+    "channel",
+    "channel_name",
+    "ts",
+    "thread_ts",
+    "user",
+    "user_name",
+    "text",
+    "permalink",
+    "payload",
+)
+SEARCH_DEFAULT_FIELDS = (
+    "channel",
+    "channel_name",
+    "ts",
+    "thread_ts",
+    "user",
+    "user_name",
+    "text",
+    "permalink",
+)
 
 
 def parse_fields(raw: str | None, allowed: Sequence[str], default: Sequence[str]) -> list[str]:

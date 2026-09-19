@@ -1175,6 +1175,77 @@ def test_search_human_output(
     assert "1 message(s) (0 existing, 1 new)" in err
 
 
+def test_search_fields_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--fields selects and orders the keys emitted for each search match."""
+    db_path = tmp_path / "cache.db"
+    client = FakeSearchClient(
+        matches=[
+            {
+                "ts": "1700000000.000100",
+                "user": "U1",
+                "text": "hello",
+                "channel": "C1",
+                "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
+            },
+        ]
+    )
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(
+        ["search", "hello", "--json", "--fields", "text,channel,payload", "--db", str(db_path)]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    entry = payload["matches"][0]
+    assert list(entry) == ["text", "channel", "payload"]
+    assert entry["text"] == "hello"
+    assert entry["channel"] == "C1"
+    assert entry["payload"]["permalink"].endswith("p1700000000000100")
+
+
+def test_search_fields_human(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--fields restricts which parts of a match the human renderer prints."""
+    db_path = tmp_path / "cache.db"
+    client = FakeSearchClient(
+        matches=[
+            {
+                "ts": "1700000000.000100",
+                "user": "U1",
+                "text": "hello",
+                "channel": "C1",
+                "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
+            },
+        ]
+    )
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(["search", "hello", "--fields", "text", "--db", str(db_path)])
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "hello" in out
+    assert "[C1]" not in out
+    assert "acme.slack.com" not in out
+
+
+def test_search_invalid_fields(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--fields rejects unknown search fields with a non-zero exit."""
+    db_path = tmp_path / "cache.db"
+    client = FakeSearchClient(matches=[])
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(["search", "hello", "--fields", "bogus", "--db", str(db_path)])
+    assert rc == 2
+    assert "unknown field(s): bogus" in capsys.readouterr().err
+
+
 def test_search_direct_channel_hit_shows_peer_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
