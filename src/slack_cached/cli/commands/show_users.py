@@ -52,8 +52,10 @@ async def show_users(
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
+    include_payload = "payload" in selected
+
     async with _client._open_db(common) as conn:
-        users = load_users(conn)
+        users = load_users(conn, limit=limit, include_payload=include_payload)
 
     if not users and fetch:
         from slack_cached.cache import fetch_users
@@ -63,12 +65,9 @@ async def show_users(
             _client._open_client(common) as client,
             _client._open_db(common, client) as conn,
         ):
-            if not load_users(conn):
+            if not load_users(conn, limit=1):
                 await fetch_users(conn, client)
-            users = load_users(conn)
-
-    if limit > 0:
-        users = users[:limit]
+            users = load_users(conn, limit=limit, include_payload=include_payload)
 
     if fmt in ("json", "jsonl"):
         sys.stdout.write(_render_users_json(users, selected, indent=2 if fmt == "json" else None))
