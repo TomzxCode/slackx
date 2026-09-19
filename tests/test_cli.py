@@ -370,6 +370,145 @@ def test_show_users_no_fetch_empty(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "0 user(s)" in capsys.readouterr().out
 
 
+class FakeMultiListClient:
+    """Stub client returning several users and channels."""
+
+    async def iter_users(self, limit: int = 1000):
+        yield {"id": "U1", "name": "alice", "real_name": "Alice Smith"}
+        yield {"id": "U2", "name": "bob", "real_name": "Bob Jones"}
+        yield {"id": "U3", "name": "carol"}
+
+    async def iter_channels(self, types: str = "public_channel", limit: int = 1000):
+        yield {"id": "C1", "name": "general", "is_private": False}
+        yield {"id": "C2", "name": "random", "is_private": False}
+        yield {"id": "C3", "name": "secret", "is_private": True}
+
+    async def aclose(self) -> None:
+        pass
+
+
+def _populate_lists(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeMultiListClient())
+    assert cli.main(["fetch-users", "--db", str(db_path)]) == 0
+    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+
+
+def test_show_users_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--limit", "2"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "2 user(s)" in out
+    assert "U1" in out and "U2" in out
+    assert "U3" not in out
+
+
+def test_show_users_limit_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--json", "--limit", "1"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["user_count"] == 1
+    assert payload["users"][0]["id"] == "U1"
+
+
+def test_show_users_fields_human(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--fields", "id,name"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "U1  alice" in out
+    assert "Alice Smith" not in out
+
+
+def test_show_users_fields_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(
+        ["show-users", "--db", str(db_path), "--no-fetch", "--json", "--fields", "id,real_name"]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["users"][0] == {"id": "U1", "real_name": "Alice Smith"}
+
+
+def test_show_users_invalid_fields(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--fields", "bogus"])
+    assert rc == 2
+    assert "unknown field(s): bogus" in capsys.readouterr().err
+
+
+def test_show_channels_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(["show-channels", "--db", str(db_path), "--no-fetch", "--limit", "2"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "2 channel(s)" in out
+    assert "C1" in out and "C2" in out
+    assert "C3" not in out
+
+
+def test_show_channels_fields_human(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(
+        ["show-channels", "--db", str(db_path), "--no-fetch", "--fields", "id,is_private"]
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "C3  (private)" in out
+    assert "secret" not in out
+
+
+def test_show_channels_fields_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _populate_lists(monkeypatch, db_path)
+
+    rc = cli.main(
+        [
+            "show-channels",
+            "--db",
+            str(db_path),
+            "--no-fetch",
+            "--json",
+            "--fields",
+            "id,display_name",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["channels"][0] == {"id": "C1", "display_name": "general"}
+
+
 def _populate_status_db(db_path: Path) -> None:
     from slack_cached import storage
 
@@ -823,7 +962,7 @@ def test_show_channels_labels_direct_channels(
     assert rc == 0
 
     out = capsys.readouterr().out
-    assert "D1  Tom Rochette (tomzx) (direct)" in out
+    assert "D1  Tom Rochette (tomzx)  (direct)" in out
 
 
 def test_show_channel_resolves_bare_name(

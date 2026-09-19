@@ -61,9 +61,35 @@ JsonlArg = Annotated[
         "Convenient for piping into jq -c, wc -l, or appending to a .jsonl file.",
     ),
 ]
-NoFetchArg = Annotated[
+FetchArg = Annotated[
     bool,
-    Parameter(name="--no-fetch", help="Do not auto-fetch when not yet cached."),
+    Parameter(
+        name="--fetch",
+        help="Auto-fetch from Slack when the cache is empty (disable with --no-fetch).",
+    ),
+]
+LimitArg = Annotated[
+    int,
+    Parameter(
+        name="--limit",
+        help="Maximum number of entries to return (default: all; 0 for all).",
+    ),
+]
+UserFieldsArg = Annotated[
+    str | None,
+    Parameter(
+        name="--fields",
+        help="Comma-separated fields to include, in order: id, name, real_name, "
+        "fetched_at, payload (default: id,name,real_name).",
+    ),
+]
+ChannelFieldsArg = Annotated[
+    str | None,
+    Parameter(
+        name="--fields",
+        help="Comma-separated fields to include, in order: id, name, is_private, "
+        "display_name, fetched_at, payload (default: id,name,is_private).",
+    ),
 ]
 UrlArg = Annotated[
     str | None,

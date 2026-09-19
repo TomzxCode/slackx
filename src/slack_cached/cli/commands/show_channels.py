@@ -1,20 +1,25 @@
 """``slackx show-channels`` command."""
 
-import json
 import sys
-from dataclasses import asdict
 
 import structlog
 
 from slack_cached.cli._internal import _client
+from slack_cached.cli._internal._fields import (
+    CHANNEL_DEFAULT_FIELDS,
+    CHANNEL_FIELDS,
+    parse_fields,
+)
 from slack_cached.cli._internal._refs import _output_format
-from slack_cached.cli._internal._render import _render_channels_human
+from slack_cached.cli._internal._render import _render_channels_human, _render_channels_json
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
+    ChannelFieldsArg,
     DbArg,
+    FetchArg,
     JsonArg,
     JsonlArg,
-    NoFetchArg,
+    LimitArg,
     VerboseArg,
     WorkspaceArg,
     _setup,
@@ -28,7 +33,9 @@ log = structlog.get_logger(__name__)
 @app.command(name="show-channels")
 async def show_channels(
     *,
-    no_fetch: NoFetchArg = False,
+    fetch: FetchArg = True,
+    limit: LimitArg = 0,
+    fields: ChannelFieldsArg = None,
     json_output: JsonArg = False,
     jsonl_output: JsonlArg = False,
     db: DbArg = None,
@@ -39,11 +46,16 @@ async def show_channels(
     """Print cached channels to stdout (human-readable by default)."""
     common = _setup(db, api_base_url, verbose, workspace)
     fmt = _output_format(json_output, jsonl_output)
+    try:
+        selected = parse_fields(fields, CHANNEL_FIELDS, CHANNEL_DEFAULT_FIELDS)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     async with _client._open_db(common) as conn:
         channels = load_channels(conn)
-        display_names = load_channel_display_names(conn, [c.id for c in channels])
 
-    if not channels and not no_fetch:
+    if not channels and fetch:
         from slack_cached.cache import fetch_channels
 
         log.info("channels_not_cached_fetching")
@@ -54,13 +66,21 @@ async def show_channels(
             if not load_channels(conn):
                 await fetch_channels(conn, client)
             channels = load_channels(conn)
+
+    if limit > 0:
+        channels = channels[:limit]
+
+    display_names: dict[str, str] = {}
+    if {"name", "display_name"} & set(selected):
+        async with _client._open_db(common) as conn:
             display_names = load_channel_display_names(conn, [c.id for c in channels])
 
     if fmt in ("json", "jsonl"):
-        payload = {"channel_count": len(channels), "channels": [asdict(c) for c in channels]}
         sys.stdout.write(
-            json.dumps(payload, ensure_ascii=False, indent=2 if fmt == "json" else None) + "\n"
+            _render_channels_json(
+                channels, display_names, selected, indent=2 if fmt == "json" else None
+            )
         )
     else:
-        sys.stdout.write(_render_channels_human(channels, display_names))
+        sys.stdout.write(_render_channels_human(channels, display_names, selected))
     return 0

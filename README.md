@@ -171,12 +171,15 @@ slackx fetch-channels
 
 Show cached users or channels (human-readable by default, `--json` for pretty
 JSON, `--jsonl` for a single compact JSON line; both auto-fetch when empty
-unless `--no-fetch` is given):
+unless `--no-fetch` is given). Use `--limit N` to cap how many are returned and
+`--fields` to choose which fields are returned and rendered:
 
 ```bash
 slackx show-users
 slackx show-channels --json
 slackx show-channels --jsonl
+slackx show-users --limit 20 --fields id,name
+slackx show-channels --json --fields id,display_name,is_private
 ```
 
 When a thread's authors are present in the cached users, `show` renders their

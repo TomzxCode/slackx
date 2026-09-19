@@ -31,7 +31,7 @@ slackx fetch [URL] [--channel CHANNEL] [--ts TS] [--full-threads] [--last DURATI
 Print a cached thread or channel to stdout.
 
 ```bash
-slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--no-fetch] [--last DURATION]
+slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION]
 ```
 
 | Argument | Description |
@@ -41,7 +41,7 @@ slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--no-fetch] 
 | `--ts TS` | Thread root timestamp |
 | `--json` | Output as pretty-printed JSON |
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
-| `--no-fetch` | Do not auto-fetch if not cached |
+| `--no-fetch` | Do not auto-fetch if not cached (`--fetch` is on by default) |
 | `--last DURATION` | Lookback period for channel display (default: `1d`) |
 
 ### search
@@ -87,16 +87,28 @@ slackx fetch-channels
 Print cached users.
 
 ```bash
-slackx show-users [--json | --jsonl] [--no-fetch]
+slackx show-users [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
 ```
+
+| Argument | Description |
+|---|---|
+| `--limit N` | Maximum number of users to return (default: all; `0` for all) |
+| `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `real_name`, `fetched_at`, `payload` (default: `id,name,real_name`) |
+| `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
 
 ### show-channels
 
 Print cached channels.
 
 ```bash
-slackx show-channels [--json | --jsonl] [--no-fetch]
+slackx show-channels [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
 ```
+
+| Argument | Description |
+|---|---|
+| `--limit N` | Maximum number of channels to return (default: all; `0` for all) |
+| `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `is_private`, `display_name`, `fetched_at`, `payload` (default: `id,name,is_private`). `display_name` resolves direct messages to their peer's name. |
+| `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
 
 ### status
 

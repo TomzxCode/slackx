@@ -5,6 +5,7 @@ string. They are independent of argument parsing and I/O.
 """
 
 import json
+from collections.abc import Sequence
 from dataclasses import asdict
 from typing import Any
 
@@ -210,29 +211,109 @@ def _render_search_json(
 # ---------------------------------------------------------------------------
 
 
-def _render_users_human(users: list[CachedUser]) -> str:
+def _render_users_human(
+    users: list[CachedUser],
+    fields: Sequence[str] | None = None,
+) -> str:
+    selected = fields or ("id", "name", "real_name")
     lines = [f"{len(users)} user(s)", ""]
     for user in users:
-        name = user.name or "(no name)"
-        real_name = f" - {user.real_name}" if user.real_name else ""
-        lines.append(f"{user.id}  {name}{real_name}")
+        values = [_user_field_human(user, field) for field in selected]
+        lines.append("  ".join(value for value in values if value))
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _render_users_json(
+    users: list[CachedUser],
+    fields: Sequence[str] | None = None,
+    *,
+    indent: int | None = 2,
+) -> str:
+    selected = list(fields or ("id", "name", "real_name"))
+    payload = {
+        "user_count": len(users),
+        "users": [{field: _user_field_json(user, field) for field in selected} for user in users],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
+
+
+def _user_field_human(user: CachedUser, field: str) -> str:
+    if field == "id":
+        return user.id
+    if field == "name":
+        return user.name or "(no name)"
+    if field == "real_name":
+        return user.real_name or ""
+    if field == "fetched_at":
+        return _format_epoch(user.fetched_at)
+    if field == "payload":
+        return json.dumps(user.payload, ensure_ascii=False, sort_keys=True)
+    return ""
+
+
+def _user_field_json(user: CachedUser, field: str) -> Any:
+    if field == "payload":
+        return user.payload
+    return getattr(user, field)
 
 
 def _render_channels_human(
     channels: list[CachedChannel],
     display_names: dict[str, str] | None = None,
+    fields: Sequence[str] | None = None,
 ) -> str:
     names = display_names or {}
+    selected = fields or ("id", "name", "is_private")
     lines = [f"{len(channels)} channel(s)", ""]
     for channel in channels:
-        name = names.get(channel.id) or channel.name or "(no name)"
+        values = [_channel_field_human(channel, field, names) for field in selected]
+        lines.append("  ".join(value for value in values if value))
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _render_channels_json(
+    channels: list[CachedChannel],
+    display_names: dict[str, str] | None = None,
+    fields: Sequence[str] | None = None,
+    *,
+    indent: int | None = 2,
+) -> str:
+    names = display_names or {}
+    selected = list(fields or ("id", "name", "is_private"))
+    payload = {
+        "channel_count": len(channels),
+        "channels": [
+            {field: _channel_field_json(channel, field, names) for field in selected}
+            for channel in channels
+        ],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
+
+
+def _channel_field_human(channel: CachedChannel, field: str, names: dict[str, str]) -> str:
+    if field == "id":
+        return channel.id
+    if field in ("name", "display_name"):
+        return names.get(channel.id) or channel.name or "(no name)"
+    if field == "is_private":
         if channel.payload.get("is_im"):
             visibility = "direct"
         else:
             visibility = "private" if channel.is_private else "public"
-        lines.append(f"{channel.id}  {name} ({visibility})")
-    return "\n".join(lines).rstrip("\n") + "\n"
+        return f"({visibility})"
+    if field == "fetched_at":
+        return _format_epoch(channel.fetched_at)
+    if field == "payload":
+        return json.dumps(channel.payload, ensure_ascii=False, sort_keys=True)
+    return ""
+
+
+def _channel_field_json(channel: CachedChannel, field: str, names: dict[str, str]) -> Any:
+    if field == "display_name":
+        return names.get(channel.id) or channel.name
+    if field == "payload":
+        return channel.payload
+    return getattr(channel, field)
 
 
 def _render_status_human(status: DbStatus) -> str:

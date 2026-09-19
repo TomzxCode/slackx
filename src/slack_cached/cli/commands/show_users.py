@@ -1,20 +1,25 @@
 """``slackx show-users`` command."""
 
-import json
 import sys
-from dataclasses import asdict
 
 import structlog
 
 from slack_cached.cli._internal import _client
+from slack_cached.cli._internal._fields import (
+    USER_DEFAULT_FIELDS,
+    USER_FIELDS,
+    parse_fields,
+)
 from slack_cached.cli._internal._refs import _output_format
-from slack_cached.cli._internal._render import _render_users_human
+from slack_cached.cli._internal._render import _render_users_human, _render_users_json
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
     DbArg,
+    FetchArg,
     JsonArg,
     JsonlArg,
-    NoFetchArg,
+    LimitArg,
+    UserFieldsArg,
     VerboseArg,
     WorkspaceArg,
     _setup,
@@ -28,7 +33,9 @@ log = structlog.get_logger(__name__)
 @app.command(name="show-users")
 async def show_users(
     *,
-    no_fetch: NoFetchArg = False,
+    fetch: FetchArg = True,
+    limit: LimitArg = 0,
+    fields: UserFieldsArg = None,
     json_output: JsonArg = False,
     jsonl_output: JsonlArg = False,
     db: DbArg = None,
@@ -39,10 +46,16 @@ async def show_users(
     """Print cached users to stdout (human-readable by default)."""
     common = _setup(db, api_base_url, verbose, workspace)
     fmt = _output_format(json_output, jsonl_output)
+    try:
+        selected = parse_fields(fields, USER_FIELDS, USER_DEFAULT_FIELDS)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     async with _client._open_db(common) as conn:
         users = load_users(conn)
 
-    if not users and not no_fetch:
+    if not users and fetch:
         from slack_cached.cache import fetch_users
 
         log.info("users_not_cached_fetching")
@@ -54,11 +67,11 @@ async def show_users(
                 await fetch_users(conn, client)
             users = load_users(conn)
 
+    if limit > 0:
+        users = users[:limit]
+
     if fmt in ("json", "jsonl"):
-        payload = {"user_count": len(users), "users": [asdict(u) for u in users]}
-        sys.stdout.write(
-            json.dumps(payload, ensure_ascii=False, indent=2 if fmt == "json" else None) + "\n"
-        )
+        sys.stdout.write(_render_users_json(users, selected, indent=2 if fmt == "json" else None))
     else:
-        sys.stdout.write(_render_users_human(users))
+        sys.stdout.write(_render_users_human(users, selected))
     return 0
