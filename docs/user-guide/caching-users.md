@@ -16,6 +16,12 @@ processed 150 users (150 added, 150 total in db)
 
 Running it again updates existing records without duplication (upsert by user ID).
 
+Pass a user id to fetch just that user with a single `users.info` call:
+
+```bash
+slackx fetch-users U001
+```
+
 ## Showing cached users
 
 Display all cached users in human-readable format:
@@ -31,6 +37,13 @@ slackx show-users --json
 ```
 
 Users are auto-fetched if the cache is empty (unless `--no-fetch` is given).
+
+Pass a user id to show just that user; a cache miss fetches it with a single
+`users.info` call:
+
+```bash
+slackx show-users U001 --json
+```
 
 ## Display name resolution
 

@@ -16,6 +16,13 @@ processed 45 channels (45 added, 45 total in db)
 
 Running it again updates existing records without duplication.
 
+Pass a channel id (or a cached name) to fetch just that channel with a single
+`conversations.info` call:
+
+```bash
+slackx fetch-channels C001
+```
+
 ## Showing cached channels
 
 Display all cached channels in human-readable format:
@@ -33,3 +40,16 @@ slackx show-channels --json
 ```
 
 Channels are auto-fetched if the cache is empty (unless `--no-fetch` is given).
+
+## Showing a single channel
+
+Pass a channel id (or a cached name) to show just that channel:
+
+```bash
+slackx show-channels C001
+slackx show-channels C001 --json --fields id,name,is_private
+```
+
+When the channel is not cached, it is fetched from Slack with a single
+`conversations.info` call (unless `--no-fetch` is given). An unknown channel
+exits non-zero with an error.

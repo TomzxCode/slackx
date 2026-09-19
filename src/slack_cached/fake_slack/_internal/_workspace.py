@@ -61,6 +61,13 @@ class Workspace:
             seed=self.params.seed,
         )
 
+    def get_user(self, user: str) -> dict[str, Any] | None:
+        """Return the user with the given id, or None when it does not exist."""
+        for u in self.users:
+            if u["id"] == user:
+                return u
+        return None
+
     def get_users_page(
         self, cursor: str | None, limit: int
     ) -> tuple[list[dict[str, Any]], str | None]:
@@ -69,6 +76,13 @@ class Workspace:
         next_offset = offset + limit
         next_cursor = _encode_cursor(next_offset) if next_offset < len(self.users) else None
         return page, next_cursor
+
+    def get_channel(self, channel: str) -> dict[str, Any] | None:
+        """Return the channel with the given id, or None when it does not exist."""
+        for ch in self.channels:
+            if ch["id"] == channel:
+                return ch
+        return None
 
     def get_channels_page(
         self, cursor: str | None, limit: int, types: str | None

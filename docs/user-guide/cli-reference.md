@@ -69,47 +69,61 @@ Search is always a live API call. Every matched message is cached under its
 
 ### fetch-users
 
-Cache all workspace users.
+Cache all workspace users, or a single user when an id is given.
 
 ```bash
-slackx fetch-users
-```
-
-### fetch-channels
-
-Cache all visible channels.
-
-```bash
-slackx fetch-channels
-```
-
-### show-users
-
-Print cached users.
-
-```bash
-slackx show-users [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+slackx fetch-users [USER]
 ```
 
 | Argument | Description |
 |---|---|
-| `--limit N` | Maximum number of users to return (default: all; `0` for all) |
+| `USER` | Optional user id (`U001`). When given, fetch only that user via `users.info` instead of enumerating every workspace member. |
+
+### fetch-channels
+
+Cache all visible channels, or a single channel when an id is given.
+
+```bash
+slackx fetch-channels [CHANNEL]
+```
+
+| Argument | Description |
+|---|---|
+| `CHANNEL` | Optional channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). When given, fetch only that channel via `conversations.info` instead of enumerating every visible channel. |
+
+### show-users
+
+Print cached users, or a single user when an id is given.
+
+```bash
+slackx show-users [USER] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+```
+
+| Argument | Description |
+|---|---|
+| `USER` | Optional user id (`U001`). When given, show only that user instead of listing every cached user. An uncached user is fetched via `users.info` unless `--no-fetch` is given. |
+| `--limit N` | Maximum number of users to return (default: all; `0` for all; ignored when `USER` is given) |
 | `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `real_name`, `fetched_at`, `payload` (default: `id,name,real_name`) |
 | `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
 
 ### show-channels
 
-Print cached channels.
+Print cached channels, or a single channel when an id is given.
 
 ```bash
-slackx show-channels [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+slackx show-channels [CHANNEL] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
 ```
 
 | Argument | Description |
 |---|---|
-| `--limit N` | Maximum number of channels to return (default: all; `0` for all) |
+| `CHANNEL` | Optional channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). When given, show only that channel instead of listing every cached channel. |
+| `--limit N` | Maximum number of channels to return (default: all; `0` for all; ignored when `CHANNEL` is given) |
 | `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `is_private`, `display_name`, `fetched_at`, `payload` (default: `id,name,is_private`). `display_name` resolves direct messages to their peer's name. |
 | `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
+
+Listing every channel auto-fetches the full channel list when the cache is
+empty. When `CHANNEL` is given, a cache miss fetches only that channel via
+`conversations.info`; an unknown channel exits non-zero with an error.
 
 ### status
 

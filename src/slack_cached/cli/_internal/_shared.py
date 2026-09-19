@@ -120,6 +120,21 @@ ChannelArg = Annotated[
         "cached channels. Used with --ts, or alone to target a whole channel.",
     ),
 ]
+ChannelIdArg = Annotated[
+    str | None,
+    Parameter(
+        help="Optional channel id (e.g. C001), bare name (e.g. general), or "
+        "'#'-prefixed name (e.g. #general). When given, target only that channel "
+        "instead of every cached channel.",
+    ),
+]
+UserIdArg = Annotated[
+    str | None,
+    Parameter(
+        help="Optional user id (e.g. U001). When given, target only that user "
+        "instead of every cached user.",
+    ),
+]
 TsArg = Annotated[
     str | None,
     Parameter(help="Thread root ts (e.g. 1700000000.123456), used with --channel."),

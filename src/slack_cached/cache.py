@@ -21,12 +21,16 @@ import structlog
 
 from .slack_api import DEFAULT_SEARCH_LIMIT, SlackClient
 from .storage import (
+    CachedChannel,
     CachedMessage,
+    CachedUser,
     count_channel_messages,
     count_channels,
     count_messages,
     count_users,
+    get_channel,
     get_thread_state,
+    get_user,
     load_thread_messages,
     record_thread_refresh,
     transaction,
@@ -490,6 +494,25 @@ async def _stream_upsert(
     return processed
 
 
+async def fetch_user(conn: sqlite3.Connection, client: SlackClient, user: str) -> CachedUser | None:
+    """Fetch a single user's profile from Slack and cache it.
+
+    Uses ``users.info`` rather than the full ``users.list`` enumeration, so
+    retrieving one user is a single API call. Returns the cached user, or None
+    when Slack returns no user payload.
+    """
+    log.info("fetch_user_start", user=user)
+    info = await client.get_user_info(user)
+    if not info:
+        log.warning("fetch_user_empty", user=user)
+        return None
+    info.setdefault("id", user)
+    with transaction(conn):
+        upsert_users(conn, [info])
+    log.info("fetch_user_done", user=info["id"])
+    return get_user(conn, info["id"])
+
+
 async def fetch_users(conn: sqlite3.Connection, client: SlackClient) -> ListFetchResult:
     """Fetch every workspace user from Slack and cache them."""
     log.info("fetch_users_start")
@@ -500,6 +523,27 @@ async def fetch_users(conn: sqlite3.Connection, client: SlackClient) -> ListFetc
     added = total - before
     log.info("fetch_users_done", processed=processed, added=added, total=total)
     return ListFetchResult(processed=processed, added=added, total=total)
+
+
+async def fetch_channel(
+    conn: sqlite3.Connection, client: SlackClient, channel: str
+) -> CachedChannel | None:
+    """Fetch a single channel's info from Slack and cache it.
+
+    Uses ``conversations.info`` rather than the full ``conversations.list``
+    enumeration, so retrieving one channel is a single API call. Returns the
+    cached channel, or None when Slack returns no channel payload.
+    """
+    log.info("fetch_channel_start", channel=channel)
+    info = await client.get_channel_info(channel)
+    if not info:
+        log.warning("fetch_channel_empty", channel=channel)
+        return None
+    info.setdefault("id", channel)
+    with transaction(conn):
+        upsert_channels(conn, [info])
+    log.info("fetch_channel_done", channel=info["id"])
+    return get_channel(conn, info["id"])
 
 
 async def fetch_channels(conn: sqlite3.Connection, client: SlackClient) -> ListFetchResult:

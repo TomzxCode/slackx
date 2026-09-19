@@ -176,6 +176,14 @@ slackx fetch-users
 slackx fetch-channels
 ```
 
+Pass a user id to `fetch-users`, or a channel id to `fetch-channels`, to refresh
+just that one entity with a single `users.info`/`conversations.info` call:
+
+```bash
+slackx fetch-users U001
+slackx fetch-channels C001
+```
+
 Show cached users or channels (human-readable by default, `--json` for pretty
 JSON, `--jsonl` for a single compact JSON line; both auto-fetch when empty
 unless `--no-fetch` is given). Use `--limit N` to cap how many are returned and
@@ -187,6 +195,15 @@ slackx show-channels --json
 slackx show-channels --jsonl
 slackx show-users --limit 20 --fields id,name
 slackx show-channels --json --fields id,display_name,is_private
+```
+
+Pass an id to `show-users` or `show-channels` to retrieve just that user or
+channel; a cache miss fetches it with a single `users.info`/`conversations.info`
+call:
+
+```bash
+slackx show-users U001
+slackx show-channels C001
 ```
 
 When a thread's authors are present in the cached users, `show` renders their

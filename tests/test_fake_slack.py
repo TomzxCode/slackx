@@ -184,6 +184,27 @@ class TestUsersList:
         assert len(all_ids) == 20
 
 
+class TestUsersInfo:
+    def test_returns_user_by_id(self, fake_server: str) -> None:
+        listing = _get(fake_server, "/api/users.list")
+        expected = listing["members"][0]
+
+        data = _get(fake_server, "/api/users.info", {"user": expected["id"]})
+
+        assert data["ok"] is True
+        assert data["user"]["id"] == expected["id"]
+        assert data["user"]["name"] == expected["name"]
+
+    def test_unknown_user_returns_error(self, fake_server: str) -> None:
+        resp = httpx.get(
+            f"{fake_server}/api/users.info",
+            params={"user": "U9999"},
+            timeout=5,
+        )
+        assert resp.status_code == 404
+        assert resp.json()["error"] == "user_not_found"
+
+
 # ---------------------------------------------------------------------------
 # Conversations list endpoint
 # ---------------------------------------------------------------------------
@@ -228,6 +249,26 @@ class TestConversationsList:
         assert data["ok"] is True
         for ch in data["channels"]:
             assert ch.get("is_private") is True or ch["is_im"] is True
+
+
+class TestConversationsInfo:
+    def test_returns_channel_by_id(self, fake_server: str) -> None:
+        listing = _get(fake_server, "/api/conversations.list")
+        expected = listing["channels"][0]
+
+        data = _get(fake_server, "/api/conversations.info", {"channel": expected["id"]})
+
+        assert data["ok"] is True
+        assert data["channel"]["id"] == expected["id"]
+
+    def test_unknown_channel_returns_error(self, fake_server: str) -> None:
+        resp = httpx.get(
+            f"{fake_server}/api/conversations.info",
+            params={"channel": "C9999"},
+            timeout=5,
+        )
+        assert resp.status_code == 404
+        assert resp.json()["error"] == "channel_not_found"
 
 
 # ---------------------------------------------------------------------------
