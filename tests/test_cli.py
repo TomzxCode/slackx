@@ -777,6 +777,39 @@ class FakeChannelClient:
         pass
 
 
+def _threaded_channel_client() -> FakeChannelClient:
+    """Client with a threaded parent, one reply, and a standalone message."""
+    return FakeChannelClient(
+        messages=[
+            {
+                "ts": "1700000000.000100",
+                "user": "U1",
+                "text": "parent",
+                "thread_ts": "1700000000.000100",
+                "reply_count": 1,
+                "latest_reply": "1700000000.000200",
+            },
+            {"ts": "1700000000.000300", "user": "U3", "text": "standalone"},
+        ],
+        thread_replies={
+            "1700000000.000100": [
+                {
+                    "ts": "1700000000.000100",
+                    "user": "U1",
+                    "text": "parent",
+                    "thread_ts": "1700000000.000100",
+                },
+                {
+                    "ts": "1700000000.000200",
+                    "user": "U2",
+                    "text": "reply",
+                    "thread_ts": "1700000000.000100",
+                },
+            ],
+        },
+    )
+
+
 def test_fetch_channel_messages_basic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     client = FakeChannelClient(
@@ -967,6 +1000,95 @@ def test_show_channel_via_url(
     assert "hello" in out
     assert "U2" in out
     assert "world" in out
+
+
+def test_show_channel_excludes_thread_replies(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show --channel renders top-level messages only, not thread replies."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(
+        cli._internal._client, "_build_client", lambda args: _threaded_channel_client()
+    )
+
+    rc = cli.main(["fetch", "--channel", "C1", "--full-threads", "--db", str(db_path)])
+    assert rc == 0
+
+    rc = cli.main(["show", "--channel", "C1", "--db", str(db_path), "--no-fetch", "--json"])
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    texts = [m["text"] for m in payload["messages"]]
+    assert texts == ["parent", "standalone"]
+    assert "reply" not in texts
+
+
+def test_show_channel_with_thread_message_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--with-thread-message includes replies, flagged with their thread root."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(
+        cli._internal._client, "_build_client", lambda args: _threaded_channel_client()
+    )
+
+    assert cli.main(["fetch", "--channel", "C1", "--full-threads", "--db", str(db_path)]) == 0
+
+    rc = cli.main(
+        [
+            "show",
+            "--channel",
+            "C1",
+            "--with-thread-message",
+            "--db",
+            str(db_path),
+            "--no-fetch",
+            "--json",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    texts = [m["text"] for m in payload["messages"]]
+    assert texts == ["parent", "reply", "standalone"]
+
+    by_text = {m["text"]: m for m in payload["messages"]}
+    assert by_text["parent"]["thread_ts"] == "1700000000.000100"
+    assert by_text["parent"]["is_thread_reply"] is False
+    assert by_text["reply"]["thread_ts"] == "1700000000.000100"
+    assert by_text["reply"]["is_thread_reply"] is True
+    assert by_text["standalone"]["is_thread_reply"] is False
+
+
+def test_show_channel_with_thread_message_human(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The human render marks thread replies as part of their thread."""
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(
+        cli._internal._client, "_build_client", lambda args: _threaded_channel_client()
+    )
+
+    assert cli.main(["fetch", "--channel", "C1", "--full-threads", "--db", str(db_path)]) == 0
+
+    rc = cli.main(
+        [
+            "show",
+            "--channel",
+            "C1",
+            "--with-thread-message",
+            "--db",
+            str(db_path),
+            "--no-fetch",
+        ]
+    )
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "3 message(s) (1 thread replie(s))" in out
+    assert "reply" in out
+    assert "\u21b3" in out
+    assert "(thread 1700000000.000100)" in out
 
 
 def test_show_channel_without_ts_json(

@@ -1,9 +1,10 @@
 """Small formatting helpers: timestamps and user-name resolution."""
 
 import sqlite3
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from slack_cached.storage import CachedMessage, load_user_display_names
+from slack_cached.storage import CachedMessage, ChannelMessageEntry, load_user_display_names
 
 
 def _format_ts(ts: str) -> str:
@@ -25,7 +26,10 @@ def _format_epoch(value: float | None) -> str:
     return datetime.fromtimestamp(value, tz=UTC).isoformat(timespec="seconds")
 
 
-def _build_user_names(conn: sqlite3.Connection, messages: list[CachedMessage]) -> dict[str, str]:
+def _build_user_names(
+    conn: sqlite3.Connection,
+    messages: Sequence[CachedMessage | ChannelMessageEntry],
+) -> dict[str, str]:
     """Map the thread's author ids to human-readable names for rendering.
 
     Resolves names only for users that actually appear in the given messages,

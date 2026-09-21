@@ -31,18 +31,19 @@ slackx fetch [URL] [--channel CHANNEL] [--ts TS] [--full-threads] [--last DURATI
 Print a cached thread or channel to stdout.
 
 ```bash
-slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION]
+slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message]
 ```
 
 | Argument | Description |
 |---|---|
 | `URL` | Slack thread permalink URL |
-| `--channel CHANNEL` | Channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). Names are resolved against the cached channels. Shows all channel messages without `--ts`. |
+| `--channel CHANNEL` | Channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). Names are resolved against the cached channels. Without `--ts`, shows the channel's top-level messages (thread replies are not shown unless `--with-thread-message`). |
 | `--ts TS` | Thread root timestamp |
 | `--json` | Output as pretty-printed JSON |
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
 | `--no-fetch` | Do not auto-fetch if not cached (`--fetch` is on by default) |
 | `--last DURATION` | Lookback period for channel display (default: `1d`) |
+| `--with-thread-message` | Also include thread replies when showing a channel, each marked as belonging to its thread |
 
 ### search
 

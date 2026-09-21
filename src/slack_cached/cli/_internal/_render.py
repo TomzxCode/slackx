@@ -11,7 +11,13 @@ from typing import Any
 
 from slack_cached.cli._internal._fields import SEARCH_DEFAULT_FIELDS
 from slack_cached.cli._internal._format import _format_epoch, _format_ts
-from slack_cached.storage import CachedChannel, CachedMessage, CachedUser, DbStatus
+from slack_cached.storage import (
+    CachedChannel,
+    CachedMessage,
+    CachedUser,
+    ChannelMessageEntry,
+    DbStatus,
+)
 from slack_cached.urls import ThreadRef
 
 # ---------------------------------------------------------------------------
@@ -82,30 +88,39 @@ def _render_json(
 
 def _render_channel_human(
     channel: str,
-    messages: list[CachedMessage],
+    messages: list[ChannelMessageEntry],
     user_names: dict[str, str] | None = None,
     channel_name: str | None = None,
 ) -> str:
     names = user_names or {}
     header = channel_name or channel
+    reply_count = sum(1 for msg in messages if msg.thread_ts != msg.ts)
+    count_line = f"{len(messages)} message(s)"
+    if reply_count:
+        count_line += f" ({reply_count} thread replie(s))"
     lines = [
         f"Channel {header}",
-        f"{len(messages)} message(s)",
+        count_line,
         "",
     ]
     for msg in messages:
         author = names.get(msg.user, msg.user) if msg.user else "(unknown)"
         text = msg.text if msg.text is not None else ""
-        lines.append(f"[{_format_ts(msg.ts)}] {author}")
+        if msg.thread_ts != msg.ts:
+            lines.append(f"    \u21b3 [{_format_ts(msg.ts)}] {author} (thread {msg.thread_ts})")
+            indent = "        "
+        else:
+            lines.append(f"[{_format_ts(msg.ts)}] {author}")
+            indent = "    "
         for text_line in text.splitlines() or [""]:
-            lines.append(f"    {text_line}")
+            lines.append(f"{indent}{text_line}")
         lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
 def _render_channel_json(
     channel: str,
-    messages: list[CachedMessage],
+    messages: list[ChannelMessageEntry],
     user_names: dict[str, str] | None = None,
     channel_name: str | None = None,
     *,
@@ -118,7 +133,13 @@ def _render_channel_json(
     names = user_names or {}
     enriched: list[dict[str, Any]] = []
     for msg in messages:
-        d = {"ts": msg.ts, "user": msg.user, "text": msg.text}
+        d = {
+            "ts": msg.ts,
+            "user": msg.user,
+            "text": msg.text,
+            "thread_ts": msg.thread_ts,
+            "is_thread_reply": msg.thread_ts != msg.ts,
+        }
         if msg.user and msg.user in names:
             d["user_name"] = names[msg.user]
         enriched.append(d)

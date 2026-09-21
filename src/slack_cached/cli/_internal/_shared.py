@@ -72,6 +72,14 @@ FetchArg = Annotated[
         help="Auto-fetch from Slack when the cache is empty (disable with --no-fetch).",
     ),
 ]
+WithThreadMessageArg = Annotated[
+    bool,
+    Parameter(
+        name="--with-thread-message",
+        help="When showing a channel, also include thread replies, marked as "
+        "belonging to their thread (default: top-level messages only).",
+    ),
+]
 LimitArg = Annotated[
     int,
     Parameter(
@@ -104,20 +112,13 @@ SearchFieldsArg = Annotated[
         "channel,channel_name,ts,thread_ts,user,user_name,text,permalink).",
     ),
 ]
-UrlArg = Annotated[
+TargetArg = Annotated[
     str | None,
     Parameter(
-        help="Slack permalink: a thread (e.g. "
-        "https://acme.slack.com/archives/C123/p1700000000123456) or a channel "
-        "(e.g. https://acme.slack.com/archives/C123).",
-    ),
-]
-ChannelArg = Annotated[
-    str | None,
-    Parameter(
-        help="Slack channel id (e.g. C001), bare name (e.g. general), or "
-        "'#'-prefixed name (e.g. #general). Names are resolved against the "
-        "cached channels. Used with --ts, or alone to target a whole channel.",
+        help="What to query: a Slack permalink (thread or channel), a channel id "
+        "(C/G/D), a channel name (e.g. general or #general), or a user id (U001) "
+        "or @handle to target that direct message. With --ts, a channel or DM "
+        "target reads the given thread.",
     ),
 ]
 ChannelIdArg = Annotated[
@@ -137,7 +138,7 @@ UserIdArg = Annotated[
 ]
 TsArg = Annotated[
     str | None,
-    Parameter(help="Thread root ts (e.g. 1700000000.123456), used with --channel."),
+    Parameter(help="Thread root ts (e.g. 1700000000.123456) to read a thread from a channel or DM target."),
 ]
 
 

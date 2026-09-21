@@ -192,6 +192,21 @@ class ChannelSummary:
 
 
 @dataclass(frozen=True)
+class ChannelMessageEntry:
+    """A channel message plus the thread it belongs to, for channel views.
+
+    ``thread_ts`` equals ``ts`` for a top-level message and is the root's ts
+    for a thread reply, which lets renderers mark replies as threaded.
+    """
+
+    ts: str
+    user: str | None
+    text: str | None
+    thread_ts: str
+    payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class ChannelMessage:
     """A thread-root message plus aggregate thread info, for channel views."""
 
@@ -704,6 +719,19 @@ def load_user_display_names(conn: sqlite3.Connection, user_ids: Iterable[str]) -
     return names
 
 
+def find_user_by_handle(conn: sqlite3.Connection, handle: str) -> str | None:
+    """Return the id of the cached user whose handle matches ``handle``.
+
+    Matching is case-insensitive against the user's ``name`` (handle). Returns
+    None when no cached user matches.
+    """
+    row = conn.execute(
+        "SELECT id FROM users WHERE lower(name) = lower(?) LIMIT 1",
+        (handle,),
+    ).fetchone()
+    return row["id"] if row else None
+
+
 def _format_display_name(real_name: str | None, name: str | None, user_id: str) -> str:
     """Combine a user's real name and handle into "Real name (handle)".
 
@@ -805,6 +833,20 @@ def load_im_channel_ids(conn: sqlite3.Connection, channel_ids: Iterable[str]) ->
     return im_ids
 
 
+def find_im_channel_for_user(conn: sqlite3.Connection, user_id: str) -> str | None:
+    """Return the cached direct-message channel id with ``user_id``, if any.
+
+    A channel is a DM when its cached payload marks ``is_im``; the peer user is
+    stored in the payload's ``user`` field.
+    """
+    rows = conn.execute("SELECT id, payload FROM channels").fetchall()
+    for row in rows:
+        payload = json.loads(row["payload"]) if row["payload"] else {}
+        if payload.get("is_im") and payload.get("user") == user_id:
+            return row["id"]
+    return None
+
+
 def count_users(conn: sqlite3.Connection) -> int:
     """Return the number of cached users."""
     row = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()
@@ -818,28 +860,38 @@ def count_channels(conn: sqlite3.Connection) -> int:
 
 
 def load_channel_messages(
-    conn: sqlite3.Connection, channel: str, oldest: str | None = None
-) -> list[CachedMessage]:
-    """Return all cached messages for a channel (across all threads), ordered chronologically."""
+    conn: sqlite3.Connection,
+    channel: str,
+    oldest: str | None = None,
+    *,
+    include_thread_replies: bool = False,
+) -> list[ChannelMessageEntry]:
+    """Return a channel's messages, ordered chronologically.
+
+    By default only top-level messages are returned; thread replies (messages
+    whose ts differs from their thread root) are excluded so this reflects the
+    channel as it appears in Slack, not the replies nested under each message.
+    Pass ``include_thread_replies=True`` to include replies, each tagged with
+    its thread root via ``thread_ts``.
+    """
+    where = "channel = ?"
+    params: list[Any] = [channel]
+    if not include_thread_replies:
+        where += " AND ts = thread_ts"
     if oldest is not None:
-        rows = conn.execute(
-            "SELECT ts, user, text, payload FROM messages "
-            "WHERE channel = ? AND CAST(ts AS REAL) >= CAST(? AS REAL) "
-            "ORDER BY CAST(ts AS REAL) ASC",
-            (channel, oldest),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT ts, user, text, payload FROM messages "
-            "WHERE channel = ? "
-            "ORDER BY CAST(ts AS REAL) ASC",
-            (channel,),
-        ).fetchall()
+        where += " AND CAST(ts AS REAL) >= CAST(? AS REAL)"
+        params.append(oldest)
+    rows = conn.execute(
+        f"SELECT ts, user, text, thread_ts, payload FROM messages "
+        f"WHERE {where} ORDER BY CAST(ts AS REAL) ASC",
+        params,
+    ).fetchall()
     return [
-        CachedMessage(
+        ChannelMessageEntry(
             ts=row["ts"],
             user=row["user"],
             text=row["text"],
+            thread_ts=row["thread_ts"],
             payload=json.loads(row["payload"]),
         )
         for row in rows

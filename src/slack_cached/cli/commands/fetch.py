@@ -7,31 +7,28 @@ import structlog
 from cyclopts import Parameter
 
 from slack_cached.cli._internal import _client
-from slack_cached.cli._internal._channels import _resolve_channel
 from slack_cached.cli._internal._duration import _oldest_ts_from_last
-from slack_cached.cli._internal._refs import _resolve_ref
+from slack_cached.cli._internal._refs import Target, _resolve_target
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
-    ChannelArg,
     CommonArgs,
     DbArg,
     LogLevelArg,
+    TargetArg,
     TsArg,
-    UrlArg,
     WorkspaceArg,
     _setup,
     app,
 )
-from slack_cached.urls import parse_channel_url
+from slack_cached.urls import ThreadRef
 
 log = structlog.get_logger(__name__)
 
 
 @app.command
 async def fetch(
-    url: UrlArg = None,
+    target: TargetArg = None,
     *,
-    channel: ChannelArg = None,
     ts: TsArg = None,
     full_threads: Annotated[
         bool,
@@ -49,25 +46,23 @@ async def fetch(
     api_base_url: ApiBaseUrlArg = None,
     log_level: LogLevelArg = "info",
 ) -> int:
-    """Cache or refresh a Slack thread, or fetch all messages from a channel."""
+    """Cache or refresh a Slack thread, or fetch all messages from a channel or DM.
+
+    The target is a Slack permalink, a channel (id, name, or #name), or a DM
+    (user id or @handle). Without --ts, fetches the channel's messages; with
+    --ts, fetches that thread.
+    """
     common = _setup(db, api_base_url, log_level, workspace)
-    if channel:
-        channel = await _resolve_channel(common, channel)
-        if channel is None:
-            return 1
-    elif url:
-        url_channel = parse_channel_url(url)
-        if url_channel is not None:
-            channel = await _resolve_channel(common, url_channel)
-            if channel is None:
-                return 1
-            url = None
-    if channel and not ts and not url:
-        return await _fetch_channel_messages(common, channel, full_threads, last)
+
+    resolved: Target | None = await _resolve_target(common, target, ts)
+    if resolved is None:
+        return 1
+    if resolved.thread_ts is None:
+        return await _fetch_channel_messages(common, resolved.channel, full_threads, last)
 
     from slack_cached.cache import fetch_thread
 
-    ref = _resolve_ref(url, channel, ts)
+    ref = ThreadRef(resolved.channel, resolved.thread_ts)
     async with _client._open_client(common) as client, _client._open_db(common, client) as conn:
         result = await fetch_thread(conn, client, ref)
     print(

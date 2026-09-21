@@ -10,7 +10,7 @@ from slack_cached.cli._internal import _client
 from slack_cached.cli._internal._channels import _resolve_channel
 from slack_cached.cli._internal._duration import _oldest_ts_from_last
 from slack_cached.cli._internal._format import _build_user_names, _format_ts
-from slack_cached.cli._internal._refs import _output_format, _resolve_ref
+from slack_cached.cli._internal._refs import Target, _output_format, _resolve_target
 from slack_cached.cli._internal._render import (
     _render_channel_human,
     _render_channel_json,
@@ -19,40 +19,41 @@ from slack_cached.cli._internal._render import (
 )
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
-    ChannelArg,
     CommonArgs,
     DbArg,
     FetchArg,
     JsonArg,
     JsonlArg,
     LogLevelArg,
+    TargetArg,
     TsArg,
-    UrlArg,
+    WithThreadMessageArg,
     WorkspaceArg,
     _setup,
     _timed,
     app,
 )
 from slack_cached.storage import (
+    count_channel_messages,
     get_thread_state,
     load_channel_display_names,
     load_channel_messages,
     load_thread_messages,
 )
-from slack_cached.urls import parse_channel_url
+from slack_cached.urls import ThreadRef
 
 log = structlog.get_logger(__name__)
 
 
 @app.command
 async def show(
-    url: UrlArg = None,
+    target: TargetArg = None,
     *,
-    channel: ChannelArg = None,
     ts: TsArg = None,
     fetch: FetchArg = True,
     json_output: JsonArg = False,
     jsonl_output: JsonlArg = False,
+    with_thread_message: WithThreadMessageArg = False,
     last: Annotated[
         str,
         Parameter(
@@ -69,31 +70,26 @@ async def show(
 
     Fetches first if not already cached (disable with --no-fetch).
 
-    When --channel is given without --ts, shows all messages for that channel
-    (fetching first if needed, unless --no-fetch).
+    The target is a Slack permalink, a channel (id, name, or #name), or a DM
+    (user id or @handle). Without --ts, shows the channel's messages; with --ts,
+    shows that thread. Thread replies are omitted from channel output unless
+    --with-thread-message is passed, in which case they are rendered marked as
+    belonging to their thread.
     """
     common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
 
-    if channel:
-        channel = await _resolve_channel(common, channel)
-        if channel is None:
-            return 1
+    resolved: Target | None = await _resolve_target(common, target, ts)
+    if resolved is None:
+        return 1
 
-    if not channel and url:
-        url_channel = parse_channel_url(url)
-        if url_channel is not None:
-            channel = await _resolve_channel(common, url_channel)
-            if channel is None:
-                return 1
-            url = None
-
-    if channel and not ts and not url:
-        return await _show_channel(common, channel, fetch, last, fmt)
+    if resolved.thread_ts is None:
+        return await _show_channel(
+            common, resolved.channel, fetch, last, fmt, with_thread_message
+        )
 
     log.debug("cmd_show_start")
-    with _timed("resolve_ref"):
-        ref = _resolve_ref(url, channel, ts)
+    ref = ThreadRef(resolved.channel, resolved.thread_ts)
 
     # Read first from the offline-resolved workspace database; only hit the
     # network (and its auth.test-resolved workspace) on a cache miss.
@@ -154,14 +150,25 @@ def _load_thread_view(conn, ref) -> tuple[list, dict[str, str], str | None]:
     return messages, user_names, channel_name
 
 
-async def _show_channel(common: CommonArgs, channel: str, fetch: bool, last: str, fmt: str) -> int:
-    """Show all messages for a channel, fetching first if needed."""
+async def _show_channel(
+    common: CommonArgs,
+    channel: str,
+    fetch: bool,
+    last: str,
+    fmt: str,
+    with_thread_message: bool = False,
+) -> int:
+    """Show all messages for a channel, fetching first if needed.
+
+    By default only top-level messages are shown; ``with_thread_message``
+    includes thread replies, each marked with its thread root.
+    """
     oldest = _oldest_ts_from_last(last)
 
     # Read first from the offline-resolved workspace database; only hit the
     # network (and its auth.test-resolved workspace) on a cache miss.
     async with _client._open_db(common) as conn:
-        messages = load_channel_messages(conn, channel)
+        messages = load_channel_messages(conn, channel, include_thread_replies=with_thread_message)
         user_names = _build_user_names(conn, messages)
         channel_name = load_channel_display_names(conn, [channel]).get(channel)
 
@@ -172,7 +179,7 @@ async def _show_channel(common: CommonArgs, channel: str, fetch: bool, last: str
             _client._open_client(common) as client,
             _client._open_db(common, client) as conn,
         ):
-            if not load_channel_messages(conn, channel):
+            if not count_channel_messages(conn, channel):
                 log.info("channel_not_cached_fetching", channel=channel)
                 if common.log_level == "debug":
                     print(
@@ -180,7 +187,9 @@ async def _show_channel(common: CommonArgs, channel: str, fetch: bool, last: str
                         file=sys.stderr,
                     )
                 await fetch_channel_messages(conn, client, channel, oldest=oldest)
-            messages = load_channel_messages(conn, channel)
+            messages = load_channel_messages(
+                conn, channel, include_thread_replies=with_thread_message
+            )
             user_names = _build_user_names(conn, messages)
             channel_name = load_channel_display_names(conn, [channel]).get(channel)
 
