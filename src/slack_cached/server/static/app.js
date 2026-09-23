@@ -120,18 +120,16 @@
       .replace(/\]/g, '</mark>');
   }
 
-  // Render Slack mrkdwn into safe HTML. ``text`` is raw message text;
-  // ``ctx`` supplies {userNames, channelsById} for mention resolution.
-  function renderMessageHtml(msg, ctx) {
-    var text = msg.text;
-    if (!text) return '';
+  // Convert raw mrkdwn text into safe HTML. ``ctx`` supplies
+  // {userNames, channelsById} for mention resolution.
+  function mrkdwnToHtml(rawText, ctx) {
     var codes = [];
     var stash = function (html) {
       codes.push(html);
       return '\u0000' + (codes.length - 1) + '\u0000';
     };
 
-    var s = escapeHtml(text);
+    var s = escapeHtml(rawText);
 
     // Fenced and inline code first, protected from the other rules.
     s = s.replace(/```([\s\S]*?)```/g, function (_, code) {
@@ -177,6 +175,77 @@
     // Restore protected code segments.
     s = s.replace(/\u0000(\d+)\u0000/g, function (_, i) { return codes[+i]; });
     return s;
+  }
+
+  // A block text object ({type: 'mrkdwn'|'plain_text', text}).
+  function textObjectHtml(obj, ctx) {
+    if (!obj || obj.text == null) return '';
+    return obj.type === 'plain_text' ? escapeHtml(obj.text) : mrkdwnToHtml(obj.text, ctx);
+  }
+
+  // Render Slack layout blocks into HTML. Bot messages (GitHub, Jira, ...)
+  // usually carry their links only inside blocks; the raw ``text`` field is
+  // then just a plain fallback without markup.
+  function renderBlocksHtml(blocks, ctx) {
+    var out = [];
+    (blocks || []).forEach(function (b) {
+      if (!b) return;
+      if (b.type === 'section') {
+        if (b.text) out.push('<div class="block">' + textObjectHtml(b.text, ctx) + '</div>');
+        (b.fields || []).forEach(function (f) {
+          out.push('<div class="block">' + textObjectHtml(f, ctx) + '</div>');
+        });
+      } else if (b.type === 'header') {
+        out.push('<div class="block block-header">' + textObjectHtml(b.text, ctx) + '</div>');
+      } else if (b.type === 'divider') {
+        out.push('<hr class="block-divider">');
+      } else if (b.type === 'context') {
+        var parts = (b.elements || []).map(function (e) {
+          return (e && (e.type === 'plain_text' || e.type === 'mrkdwn'))
+            ? textObjectHtml(e, ctx) : '';
+        }).filter(function (p) { return p; });
+        if (parts.length) {
+          out.push('<div class="block block-context">' + parts.join(' ') + '</div>');
+        }
+      } else if (b.type === 'actions') {
+        (b.elements || []).forEach(function (e) {
+          if (e && e.type === 'button' && e.url) {
+            var label = (e.text && e.text.text) || e.url;
+            out.push('<a class="block-btn" href="' + escapeHtml(e.url) +
+              '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>');
+          }
+        });
+      }
+    });
+    return out.join('');
+  }
+
+  // Older-style attachments: linked title plus mrkdwn body text.
+  function renderAttachmentsHtml(attachments, ctx) {
+    var out = [];
+    (attachments || []).forEach(function (a) {
+      if (!a) return;
+      var parts = [];
+      if (a.title) {
+        parts.push(a.title_link
+          ? '<a href="' + escapeHtml(a.title_link) + '" target="_blank" rel="noopener noreferrer">' +
+            escapeHtml(a.title) + '</a>'
+          : escapeHtml(a.title));
+      }
+      if (a.text) parts.push(mrkdwnToHtml(a.text, ctx));
+      if (parts.length) out.push('<div class="attachment">' + parts.join('<br>') + '</div>');
+    });
+    return out.join('');
+  }
+
+  // Render a message body: blocks when present (their markup carries the
+  // links), otherwise the mrkdwn ``text`` fallback; attachments append below.
+  function renderMessageHtml(msg, ctx) {
+    var payload = msg.payload || {};
+    var html = renderBlocksHtml(payload.blocks, ctx);
+    if (!html && msg.text) html = mrkdwnToHtml(msg.text, ctx);
+    html += renderAttachmentsHtml(payload.attachments, ctx);
+    return html;
   }
 
   // Themes shipped by the daisyUI CDN stylesheet (themes.css), in menu order.

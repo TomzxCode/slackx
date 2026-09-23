@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import structlog
@@ -25,6 +26,15 @@ from slack_cached.storage import (
     upsert_messages,
     upsert_users,
 )
+
+
+def _stored_payload(conn, channel: str, thread_ts: str, ts: str) -> dict:
+    row = conn.execute(
+        "SELECT payload FROM messages WHERE channel = ? AND thread_ts = ? AND ts = ?",
+        (channel, thread_ts, ts),
+    ).fetchone()
+    assert row is not None
+    return json.loads(row["payload"])
 
 
 def test_upsert_and_load_messages(tmp_path: Path) -> None:
@@ -122,6 +132,64 @@ def test_upsert_ignores_blocks_drift_between_endpoints(tmp_path: Path) -> None:
     # Second upsert (replies) of the same logical message reports 0 writes
     # because the stable content (text, user, ts) is identical.
     assert upsert_messages(conn, "C1", "1700000000.000100", replies_shape) == 0
+    # The skipped rewrite keeps the blocks first seen (search's shape).
+    payload = _stored_payload(conn, "C1", "1700000000.000100", "1700000000.000100")
+    assert payload["blocks"] == [{"type": "rich_text", "block_id": "abcd1", "elements": []}]
+
+
+def test_upsert_stores_blocks_and_attachments(tmp_path: Path) -> None:
+    """blocks/attachments are kept in the stored payload so the web UI can
+    render the links bot messages carry only inside blocks, while an
+    identical refetch still counts as unchanged.
+    """
+    conn = connect(tmp_path / "cache.db")
+    record_thread_refresh(conn, "C1", "1700000000.000100", "1700000000.000100")
+    msg = [
+        {
+            "ts": "1700000000.000100",
+            "user": "U1",
+            "text": "requested your review",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "<https://github.com/acme/repo/pull/1|Fix it>",
+                    },
+                }
+            ],
+            "attachments": [
+                {"title": "Fix it", "title_link": "https://github.com/acme/repo/pull/1"}
+            ],
+        }
+    ]
+    assert upsert_messages(conn, "C1", "1700000000.000100", msg) == 1
+    payload = _stored_payload(conn, "C1", "1700000000.000100", "1700000000.000100")
+    assert payload["blocks"][0]["text"]["text"] == "<https://github.com/acme/repo/pull/1|Fix it>"
+    assert payload["attachments"][0]["title_link"] == "https://github.com/acme/repo/pull/1"
+    # Identical refetch: no writes.
+    assert upsert_messages(conn, "C1", "1700000000.000100", msg) == 0
+
+
+def test_upsert_backfills_blocks_for_legacy_rows(tmp_path: Path) -> None:
+    """Rows stored by older slackx versions carry no blocks. The first
+    refetch that sees blocks rewrites the row once (payload backfill), then
+    the row is stable again.
+    """
+    conn = connect(tmp_path / "cache.db")
+    record_thread_refresh(conn, "C1", "1700000000.000100", "1700000000.000100")
+    legacy = [{"ts": "1700000000.000100", "user": "U1", "text": "hi"}]
+    blocks_msg = [
+        {"ts": "1700000000.000100", "user": "U1", "text": "hi", "blocks": [{"type": "section"}]}
+    ]
+    assert upsert_messages(conn, "C1", "1700000000.000100", legacy) == 1
+    assert upsert_messages(conn, "C1", "1700000000.000100", legacy) == 0
+    # Same content plus blocks: one backfill write.
+    assert upsert_messages(conn, "C1", "1700000000.000100", blocks_msg) == 1
+    payload = _stored_payload(conn, "C1", "1700000000.000100", "1700000000.000100")
+    assert payload["blocks"] == [{"type": "section"}]
+    # Stable from here on.
+    assert upsert_messages(conn, "C1", "1700000000.000100", blocks_msg) == 0
 
 
 def test_upsert_detects_text_edit_under_stripped_fields(tmp_path: Path) -> None:
