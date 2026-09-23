@@ -452,6 +452,95 @@ def upsert_messages(
     return cursor.rowcount or 0
 
 
+def mark_channel_roots_deleted_not_in(
+    conn: sqlite3.Connection,
+    channel: str,
+    keep_ts: Iterable[str],
+    oldest: str | None = None,
+) -> int:
+    """Flag cached thread-root messages that Slack no longer returns.
+
+    Slack omits deleted messages from history responses, so absence after a
+    complete pass over the window means deletion. The rows are kept and
+    marked in their payload (``deleted: true``) instead of removed, so the
+    archive preserves what was said; the web UI renders them with a
+    "(deleted)" annotation. Only root rows (``ts = thread_ts``) in the window
+    bounded by ``oldest`` are considered, matching what the fetch covered.
+    Returns the number of rows newly marked.
+    """
+    keep = set(keep_ts)
+    sql = "SELECT ts FROM messages WHERE channel = ? AND ts = thread_ts"
+    params: list[Any] = [channel]
+    if oldest is not None:
+        sql += " AND CAST(ts AS REAL) >= CAST(? AS REAL)"
+        params.append(oldest)
+    stale = [
+        row["ts"]
+        for row in conn.execute(sql, params).fetchall()
+        if row["ts"] not in keep
+    ]
+    return _mark_messages_deleted(conn, channel, stale)
+
+
+def mark_thread_messages_deleted_not_in(
+    conn: sqlite3.Connection,
+    channel: str,
+    thread_ts: str,
+    keep_ts: Iterable[str],
+) -> int:
+    """Flag cached messages of one thread that Slack no longer returns.
+
+    Scope is every row of the thread (replies and the parent row), so this
+    must only be called after a complete fetch of the thread. Returns the
+    number of rows newly marked.
+    """
+    keep = set(keep_ts)
+    stale = [
+        row["ts"]
+        for row in conn.execute(
+            "SELECT ts FROM messages WHERE channel = ? AND thread_ts = ?",
+            (channel, thread_ts),
+        ).fetchall()
+        if row["ts"] not in keep
+    ]
+    return _mark_messages_deleted(conn, channel, stale)
+
+
+def _mark_messages_deleted(
+    conn: sqlite3.Connection,
+    channel: str,
+    ts_values: list[str],
+) -> int:
+    """Set ``deleted: true`` in the payload of the named rows.
+
+    The flag lives in the payload JSON rather than a column so no schema
+    migration is needed; content (text, blocks, ...) is preserved untouched
+    and the FTS index keeps matching the original text.
+    """
+    if not ts_values:
+        return 0
+    placeholders = ",".join("?" * len(ts_values))
+    rows = conn.execute(
+        f"SELECT ts, payload FROM messages "
+        f"WHERE channel = ? AND ts IN ({placeholders})",
+        (channel, *ts_values),
+    ).fetchall()
+    updates = []
+    for row in rows:
+        payload = json.loads(row["payload"])
+        if payload.get("deleted"):
+            continue
+        payload["deleted"] = True
+        updates.append((json.dumps(payload, ensure_ascii=False, sort_keys=True), row["ts"]))
+    if not updates:
+        return 0
+    cursor = conn.executemany(
+        "UPDATE messages SET payload = ? WHERE channel = ? AND ts = ?",
+        [(payload, channel, ts) for payload, ts in updates],
+    )
+    return cursor.rowcount or 0
+
+
 _DIFF_VALUE_PREVIEW = 160
 
 
@@ -576,10 +665,11 @@ _MESSAGE_CONTENT_FIELDS = frozenset(
 )
 
 # Fields kept in the stored payload so the web UI can render bot-message
-# links (which live only in blocks/attachments), but excluded from change
-# detection because they drift between endpoints without any content change
-# (see _MESSAGE_CONTENT_FIELDS for the endpoint-drift details).
-_RENDER_FIELDS = frozenset({"blocks", "attachments"})
+# links (which live only in blocks/attachments) and "(edited)" annotations,
+# but excluded from change detection because they drift between endpoints
+# without any content change (see _MESSAGE_CONTENT_FIELDS for the
+# endpoint-drift details).
+_RENDER_FIELDS = frozenset({"blocks", "attachments", "edited"})
 
 
 def _canonical_message_payload(msg: dict[str, Any]) -> str:

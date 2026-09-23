@@ -248,6 +248,11 @@
     return html;
   }
 
+  // How far back the automatic on-switch refresh re-reads history. Within
+  // this window new messages, edits and deletions are all picked up; older
+  // changes need the full "Refresh from Slack" button.
+  var AUTO_REFRESH_WINDOW_DAYS = 7;
+
   // Themes shipped by the daisyUI CDN stylesheet (themes.css), in menu order.
   // "System" resolves to light/dark via prefers-color-scheme.
   var THEMES = [
@@ -675,17 +680,16 @@
       // Switching conversations silently refreshes the target in the
       // background: cached messages render immediately, fresh ones replace
       // them when the fetch lands. Best effort, so failures (no
-      // credentials, unknown channel) stay quiet. The fetch is incremental
-      // (history newer than the newest cached root, no thread crawl) so it
-      // lands in one quick Slack call; the "Refresh from Slack" button
-      // remains the full history + threads refresh.
+      // credentials, unknown channel) stay quiet. The fetch re-reads the
+      // last few days of history (no thread crawl), which picks up new
+      // messages plus edits and deletions inside that window in one or two
+      // quick Slack calls; the "Refresh from Slack" button remains the full
+      // history + threads refresh.
       attemptChannelRefresh: function (channelId) {
         var self = this;
-        var query = '?full_threads=false';
-        // Messages are newest-first; the newest root bounds the fetch.
-        if (this.channelId === channelId && this.messages.length) {
-          query += '&oldest=' + encodeURIComponent(this.messages[0].ts);
-        }
+        var windowStart = Date.now() / 1000 - AUTO_REFRESH_WINDOW_DAYS * 86400;
+        var query = '?full_threads=false&oldest=' +
+          encodeURIComponent(windowStart.toFixed(6));
         this.refresh('Channel refresh',
           '/api/channels/' + encodeURIComponent(channelId) + '/refresh' + query,
           function () {
@@ -707,9 +711,11 @@
         var self = this;
         if (!this.thread) return;
         var ts = this.thread.thread_ts;
+        // full=true forces a complete fetch so deletions inside the thread
+        // are reconciled; the incremental window cannot detect them.
         this.refresh('Thread refresh',
           '/api/channels/' + encodeURIComponent(this.channelId) +
-          '/threads/' + encodeURIComponent(ts) + '/refresh',
+          '/threads/' + encodeURIComponent(ts) + '/refresh?full=true',
           function () { self.openThread(ts); });
       },
 
@@ -1014,6 +1020,10 @@
       avatar: function () {
         return (this.ctx.userAvatars && this.ctx.userAvatars[this.msg.user]) || '';
       },
+      // Archive annotations, Slack-style: content that changed or
+      // disappeared on Slack stays visible here with a marker.
+      edited: function () { return !!(this.msg.payload && this.msg.payload.edited); },
+      deleted: function () { return !!(this.msg.payload && this.msg.payload.deleted); },
       // Route target for this message. Inside an open thread each message
       // links to itself (path ts) with the thread root in thread_ts, so
       // opening the URL on page load restores the thread panel and
@@ -1043,8 +1053,10 @@
       '      <a v-if="permalink" class="text-xs opacity-50 hover:underline" :href="permalink"',
       '         :title="\'Permalink to this message\'" @click.stop.prevent="$emit(\'navigate\', linkTarget)">{{ time }}</a>',
       '      <span v-else class="text-xs opacity-50">{{ time }}</span>',
+      '      <span v-if="edited" class="text-xs italic opacity-60" title="Message was edited on Slack">(edited)</span>',
+      '      <span v-if="deleted" class="text-xs italic font-semibold text-error opacity-80" title="Message was deleted on Slack; content preserved by the cache">(deleted)</span>',
       '    </div>',
-      '    <div class="text whitespace-pre-wrap break-words" v-html="html"></div>',
+      '    <div class="text whitespace-pre-wrap break-words" :class="{ \'opacity-60\': deleted }" v-html="html"></div>',
       '    <button v-if="showThreadBar && msg.reply_count > 0" class="thread-bar btn btn-ghost btn-xs -ml-1 mt-0.5 px-1 text-primary"',
       '            @click.stop="$emit(\'open-thread\', msg)">',
       '      &#128172; {{ msg.reply_count === 1 ? \'1 reply\' : msg.reply_count + \' replies\' }}',

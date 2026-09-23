@@ -26,6 +26,7 @@ from slack_cached.storage import (
     get_thread_state,
     get_user,
     load_channels,
+    load_channel_thread_roots,
     load_thread_messages,
     load_users,
 )
@@ -438,6 +439,195 @@ def test_fetch_channel_messages_standalone_messages_use_own_ts_as_thread_ts(
 
     state = get_thread_state(conn, "C1", "1700000000.000100")
     assert state is not None
+
+
+def test_fetch_channel_messages_marks_edits_and_deletions(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    asyncio.run(
+        fetch_channel_messages(
+            conn,
+            FakeChannelClient(
+                history=[
+                    _msg("1700000000.000100", text="kept"),
+                    _msg("1700000000.000200", text="to edit"),
+                    _msg("1700000000.000300", text="to delete"),
+                ],
+            ),
+            "C1",
+        )
+    )
+
+    # Second fetch: one message edited, one deleted on Slack. The edited
+    # text overwrites the cached row; the deleted one is kept and flagged.
+    second = FakeChannelClient(
+        history=[
+            _msg("1700000000.000100", text="kept"),
+            _msg("1700000000.000200", text="edited"),
+        ],
+    )
+    result = asyncio.run(fetch_channel_messages(conn, second, "C1"))
+
+    roots = load_channel_thread_roots(conn, "C1")
+    assert [(r.ts, r.text) for r in roots] == [
+        ("1700000000.000300", "to delete"),
+        ("1700000000.000200", "edited"),
+        ("1700000000.000100", "kept"),
+    ]
+    by_ts = {r.ts: r for r in roots}
+    assert by_ts["1700000000.000300"].payload["deleted"] is True
+    assert "deleted" not in by_ts["1700000000.000100"].payload
+    assert result.deleted_messages == 1
+    assert result.total_messages == 3
+
+
+def test_fetch_channel_messages_reconcile_respects_oldest_window(
+    tmp_path: Path,
+) -> None:
+    conn = connect(tmp_path / "cache.db")
+    asyncio.run(
+        fetch_channel_messages(
+            conn,
+            FakeChannelClient(
+                history=[
+                    _msg("1700000000.000100", text="old"),
+                    _msg("1700000000.000200", text="recent"),
+                ],
+            ),
+            "C1",
+        )
+    )
+
+    # Windowed refetch starting after the old message: the recent one was
+    # deleted on Slack and gets flagged, while the old one sits outside the
+    # window and must stay unmarked even though the response lacks it.
+    second = FakeChannelClient(history=[])
+    result = asyncio.run(
+        fetch_channel_messages(conn, second, "C1", oldest="1700000000.000150")
+    )
+
+    roots = load_channel_thread_roots(conn, "C1")
+    by_ts = {r.ts: r for r in roots}
+    assert set(by_ts) == {"1700000000.000100", "1700000000.000200"}
+    assert by_ts["1700000000.000200"].payload["deleted"] is True
+    assert "deleted" not in by_ts["1700000000.000100"].payload
+    assert result.deleted_messages == 1
+
+
+def test_fetch_channel_messages_full_threads_marks_deleted_replies(
+    tmp_path: Path,
+) -> None:
+    conn = connect(tmp_path / "cache.db")
+    parent_ts = "1700000000.000200"
+    asyncio.run(
+        fetch_channel_messages(
+            conn,
+            FakeChannelClient(
+                history=[
+                    {
+                        "ts": parent_ts,
+                        "text": "parent",
+                        "user": "U1",
+                        "thread_ts": parent_ts,
+                        "reply_count": 2,
+                    },
+                ],
+                thread_replies={
+                    parent_ts: [
+                        {"ts": parent_ts, "text": "parent", "user": "U1", "thread_ts": parent_ts},
+                        _msg("1700000000.000300", text="reply1"),
+                        _msg("1700000000.000400", text="reply2"),
+                    ],
+                },
+            ),
+            "C1",
+            full_threads=True,
+        )
+    )
+
+    # reply2 was deleted on Slack: kept in the cache, flagged as deleted.
+    second = FakeChannelClient(
+        history=[
+            {
+                "ts": parent_ts,
+                "text": "parent",
+                "user": "U1",
+                "thread_ts": parent_ts,
+                "reply_count": 1,
+            },
+        ],
+        thread_replies={
+            parent_ts: [
+                {"ts": parent_ts, "text": "parent", "user": "U1", "thread_ts": parent_ts},
+                _msg("1700000000.000300", text="reply1"),
+            ],
+        },
+    )
+    result = asyncio.run(fetch_channel_messages(conn, second, "C1", full_threads=True))
+
+    messages = load_thread_messages(conn, "C1", parent_ts)
+    by_ts = {m.ts: m for m in messages}
+    assert set(by_ts) == {parent_ts, "1700000000.000300", "1700000000.000400"}
+    assert by_ts["1700000000.000400"].payload["deleted"] is True
+    assert "deleted" not in by_ts["1700000000.000300"].payload
+    assert result.deleted_messages == 1
+
+
+def test_fetch_thread_full_marks_deleted_replies(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+    client = FakeClient(
+        batches=[
+            [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
+        ]
+    )
+    asyncio.run(fetch_thread(conn, client, ref))
+
+    # force_full refetch where r1 no longer exists on Slack.
+    client = FakeClient(batches=[[_msg("1700000000.000100", text="root")]])
+    result = asyncio.run(fetch_thread(conn, client, ref, force_full=True))
+
+    messages = load_thread(conn, ref)
+    by_ts = {m.ts: m for m in messages}
+    assert set(by_ts) == {"1700000000.000100", "1700000000.000200"}
+    assert by_ts["1700000000.000200"].payload["deleted"] is True
+    assert result.incremental is False
+
+
+def test_fetch_thread_incremental_does_not_reconcile(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+    client = FakeClient(
+        batches=[
+            [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
+            # Incremental window: only the latest reply comes back; the
+            # missing root must NOT be treated as deleted.
+            [_msg("1700000000.000200", text="r1")],
+        ]
+    )
+    asyncio.run(fetch_thread(conn, client, ref))
+    asyncio.run(fetch_thread(conn, client, ref))
+
+    messages = load_thread(conn, ref)
+    assert [m.ts for m in messages] == ["1700000000.000100", "1700000000.000200"]
+    assert all("deleted" not in m.payload for m in messages)
+
+
+def test_fetch_thread_stores_edited_field(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+    client = FakeClient(
+        batches=[
+            [
+                dict(_msg("1700000000.000100", text="root"),
+                     edited={"user": "U1", "ts": "1700000000.000150"}),
+            ],
+        ]
+    )
+
+    asyncio.run(fetch_thread(conn, client, ref))
+
+    messages = load_thread(conn, ref)
+    assert messages[0].payload["edited"] == {"user": "U1", "ts": "1700000000.000150"}
 
 
 # ---------------------------------------------------------------------------

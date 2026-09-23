@@ -28,6 +28,8 @@ from .storage import (
     count_channels,
     count_messages,
     count_users,
+    mark_channel_roots_deleted_not_in,
+    mark_thread_messages_deleted_not_in,
     get_channel,
     get_thread_state,
     get_user,
@@ -135,12 +137,18 @@ class ListFetchResult:
 
 @dataclass(frozen=True)
 class ChannelFetchResult:
-    """Summary of what ``fetch_channel_messages`` did."""
+    """Summary of what ``fetch_channel_messages`` did.
+
+    ``deleted_messages`` counts cached rows flagged as deleted because the
+    fetched window no longer contains them (deletions on Slack). Their
+    content stays in the cache, annotated for the web UI.
+    """
 
     channel: str
     fetched_messages: int
     total_messages: int
     threads_with_replies_fetched: int
+    deleted_messages: int = 0
 
 
 @dataclass(frozen=True)
@@ -174,17 +182,23 @@ async def fetch_thread(
     conn: sqlite3.Connection,
     client: SlackClient,
     ref: ThreadRef,
+    force_full: bool = False,
 ) -> FetchResult:
     """Fetch a thread from Slack, doing an incremental refresh when possible.
 
     Strategy:
-    - If the thread is not cached, fetch all messages from Slack.
+    - If the thread is not cached (or ``force_full`` is set), fetch all
+      messages from Slack and reconcile: cached rows the response no longer
+      contains were deleted on Slack and are dropped.
     - If the thread is cached, ask Slack for replies with oldest=latest_reply.
       That call returns any new replies plus possibly an edit of an older one;
-      we upsert by ts so edits overwrite stale rows.
+      we upsert by ts so edits overwrite stale rows. The partial window gives
+      no deletion information, so nothing is reconciled.
     """
     state = get_thread_state(conn, ref.channel, ref.thread_ts)
-    incremental = state is not None and state.latest_reply is not None
+    incremental = (
+        state is not None and state.latest_reply is not None and not force_full
+    )
     oldest = state.latest_reply if incremental else None
 
     log.info(
@@ -214,6 +228,20 @@ async def fetch_thread(
         # Record the thread row first so the messages FK constraint is satisfied.
         record_thread_refresh(conn, ref.channel, ref.thread_ts, latest_reply)
         written = upsert_messages(conn, ref.channel, ref.thread_ts, new_messages)
+        removed = 0
+        if not incremental:
+            # Complete fetch: rows the response no longer contains were
+            # deleted on Slack.
+            removed = mark_thread_messages_deleted_not_in(
+                conn, ref.channel, ref.thread_ts, (m["ts"] for m in new_messages)
+            )
+    if removed:
+        log.info(
+            "fetch_thread_marked_deletions",
+            channel=ref.channel,
+            thread_ts=ref.thread_ts,
+            removed=removed,
+        )
 
     total = count_messages(conn, ref.channel, ref.thread_ts)
     log.info(
@@ -255,6 +283,14 @@ async def fetch_channel_messages(
 
     *oldest* limits the history scan to messages with ts >= oldest (epoch
     seconds as a string).  When None, the entire channel history is fetched.
+
+    Deleted messages are reconciled: Slack omits deleted messages from
+    history (and thread) responses, so after a complete pass every cached
+    root within the fetched window that the response no longer contains is
+    flagged as deleted, and with *full_threads* the same applies to each
+    fetched thread's rows. Content is preserved in the cache and annotated
+    (``payload.deleted``) rather than removed, so the web UI can still show
+    what was said with a "(deleted)" marker.
     """
     log.info(
         "fetch_channel_messages_start",
@@ -270,6 +306,7 @@ async def fetch_channel_messages(
     log.info("fetch_channel_history_done", channel=channel, count=len(history))
 
     written = 0
+    deleted = 0
     threads_with_replies_fetched = 0
 
     with transaction(conn):
@@ -277,6 +314,11 @@ async def fetch_channel_messages(
             thread_ts = msg.get("thread_ts") or msg["ts"]
             record_thread_refresh(conn, channel, thread_ts, None)
             written += upsert_messages(conn, channel, thread_ts, [msg])
+        # History pagination covered ts >= oldest completely, so any cached
+        # root in that window missing from the response was deleted.
+        deleted += mark_channel_roots_deleted_not_in(
+            conn, channel, (msg["ts"] for msg in history), oldest
+        )
 
     if full_threads:
         parent_tss = sorted(
@@ -302,6 +344,12 @@ async def fetch_channel_messages(
             with transaction(conn):
                 record_thread_refresh(conn, channel, thread_ts, latest)
                 written += upsert_messages(conn, channel, thread_ts, replies)
+                # Each thread was fetched in full, so rows the response no
+                # longer contains were deleted on Slack (including a deleted
+                # parent whose replies vanished with it).
+                deleted += mark_thread_messages_deleted_not_in(
+                    conn, channel, thread_ts, (msg["ts"] for msg in replies)
+                )
             threads_with_replies_fetched += 1
 
         log.info(
@@ -310,6 +358,9 @@ async def fetch_channel_messages(
             threads_fetched=threads_with_replies_fetched,
         )
 
+    if deleted:
+        log.info("fetch_channel_messages_marked_deletions", channel=channel, marked=deleted)
+
     total = count_channel_messages(conn, channel)
     log.info(
         "fetch_channel_messages_done",
@@ -317,12 +368,14 @@ async def fetch_channel_messages(
         written=written,
         total=total,
         threads_with_replies_fetched=threads_with_replies_fetched,
+        deleted=deleted,
     )
     return ChannelFetchResult(
         channel=channel,
         fetched_messages=written,
         total_messages=total,
         threads_with_replies_fetched=threads_with_replies_fetched,
+        deleted_messages=deleted,
     )
 
 

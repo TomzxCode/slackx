@@ -329,13 +329,17 @@ def create_app(
         return {"channel": asdict(result)}
 
     @fastapp.post("/api/channels/{channel_id}/threads/{thread_ts}/refresh")
-    async def refresh_thread(channel_id: str, thread_ts: str, conn: Conn) -> dict[str, Any]:
+    async def refresh_thread(
+        channel_id: str, thread_ts: str, conn: Conn, full: bool = False
+    ) -> dict[str, Any]:
         from slack_cached.cache import fetch_thread
 
         _require_channel(conn, channel_id)
         client = _client_for_refresh(fastapp.state.api_base_url, _credentials_or_503())
         try:
-            result = await fetch_thread(conn, client, ThreadRef(channel_id, thread_ts))
+            result = await fetch_thread(
+                conn, client, ThreadRef(channel_id, thread_ts), force_full=full
+            )
         finally:
             await client.aclose()
         return {"thread": asdict(result)}
