@@ -488,6 +488,7 @@
       openChannel: function (channelId, opts) {
         opts = opts || {};
         var self = this;
+        var switched = channelId !== this.channelId;
         this.view = 'channel';
         this.channelId = channelId;
         this.channel = this.channelsById[channelId] ||
@@ -507,6 +508,7 @@
             self.hasMore = body.has_more;
             self.loadingMessages = false;
             if (opts.highlight) self.scrollToMessage(opts.highlight);
+            if (switched) self.attemptChannelRefresh(channelId);
           })
           .catch(function (err) {
             self.loadingMessages = false;
@@ -640,17 +642,22 @@
 
       // -------------------------------------------------- refresh (live)
 
-      refresh: function (label, path, after) {
+      refresh: function (label, path, after, opts) {
+        opts = opts || {};
         if (this.refreshing) return;
         var self = this;
         this.refreshing = label;
         this.post(path).then(function (body) {
           self.refreshing = null;
-          self.toast(label + ' complete' + self.refreshSummary(body), 'ok');
+          if (!opts.silent) {
+            self.toast(label + ' complete' + self.refreshSummary(body), 'ok');
+          }
           if (after) after(body);
         }).catch(function (err) {
           self.refreshing = null;
-          self.toast(label + ' failed: ' + err.message, 'error');
+          if (!opts.silent) {
+            self.toast(label + ' failed: ' + err.message, 'error');
+          }
         });
       },
 
@@ -663,6 +670,29 @@
           return ' (' + s.added + ' new, ' + s.total + ' total)';
         }
         return '';
+      },
+
+      // Switching conversations silently refreshes the target in the
+      // background: cached messages render immediately, fresh ones replace
+      // them when the fetch lands. Best effort, so failures (no
+      // credentials, unknown channel) stay quiet. The fetch is incremental
+      // (history newer than the newest cached root, no thread crawl) so it
+      // lands in one quick Slack call; the "Refresh from Slack" button
+      // remains the full history + threads refresh.
+      attemptChannelRefresh: function (channelId) {
+        var self = this;
+        var query = '?full_threads=false';
+        // Messages are newest-first; the newest root bounds the fetch.
+        if (this.channelId === channelId && this.messages.length) {
+          query += '&oldest=' + encodeURIComponent(this.messages[0].ts);
+        }
+        this.refresh('Channel refresh',
+          '/api/channels/' + encodeURIComponent(channelId) + '/refresh' + query,
+          function () {
+            // Only reload if the user is still on that conversation.
+            if (self.channelId === channelId) self.openChannel(channelId);
+          },
+          { silent: true });
       },
 
       refreshChannel: function () {

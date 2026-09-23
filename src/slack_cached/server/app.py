@@ -311,7 +311,10 @@ def create_app(
 
     @fastapp.post("/api/channels/{channel_id}/refresh")
     async def refresh_channel(
-        channel_id: str, conn: Conn, full_threads: bool = True
+        channel_id: str,
+        conn: Conn,
+        full_threads: bool = True,
+        oldest: str | None = None,
     ) -> dict[str, Any]:
         from slack_cached.cache import fetch_channel_messages
 
@@ -319,7 +322,7 @@ def create_app(
         client = _client_for_refresh(fastapp.state.api_base_url, _credentials_or_503())
         try:
             result = await fetch_channel_messages(
-                conn, client, channel_id, full_threads=full_threads
+                conn, client, channel_id, full_threads=full_threads, oldest=oldest
             )
         finally:
             await client.aclose()
