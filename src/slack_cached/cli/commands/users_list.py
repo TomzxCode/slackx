@@ -26,6 +26,7 @@ from slack_cached.cli._internal._shared import (
     _setup,
     users_app,
 )
+from slack_cached.cli._internal._style import _supports_styles
 from slack_cached.storage import get_user, load_users
 
 log = structlog.get_logger(__name__)
@@ -84,7 +85,7 @@ async def list_users(
     if fmt in ("json", "jsonl"):
         sys.stdout.write(_render_users_json(users, selected, indent=2 if fmt == "json" else None))
     else:
-        sys.stdout.write(_render_users_human(users, selected))
+        sys.stdout.write(_render_users_human(users, selected, styled=_supports_styles(sys.stdout)))
     return 0
 
 

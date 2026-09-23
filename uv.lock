@@ -904,6 +904,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "python-dotenv" },
+    { name = "rich" },
     { name = "structlog" },
     { name = "uvicorn" },
 ]
@@ -922,6 +923,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "rich", specifier = ">=15.0.0" },
     { name = "structlog", specifier = ">=24.4" },
     { name = "uvicorn", specifier = ">=0.52.4" },
 ]

@@ -27,6 +27,7 @@ from slack_cached.cli._internal._shared import (
     _timed,
     conversations_app,
 )
+from slack_cached.cli._internal._style import _supports_styles
 from slack_cached.slack_api import DEFAULT_SEARCH_LIMIT
 from slack_cached.storage import load_user_display_names
 
@@ -117,7 +118,14 @@ async def search(
                 indent=2 if fmt == "json" else None,
             )
         else:
-            output = _render_search_human(query, matches, user_names, channel_names, selected)
+            output = _render_search_human(
+                query,
+                matches,
+                user_names,
+                channel_names,
+                selected,
+                styled=_supports_styles(sys.stdout),
+            )
     with _timed("write_output", bytes=len(output)):
         sys.stdout.write(output)
         sys.stdout.flush()

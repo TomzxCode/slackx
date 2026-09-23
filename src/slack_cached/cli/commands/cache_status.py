@@ -17,6 +17,7 @@ from slack_cached.cli._internal._shared import (
     _setup,
     cache_app,
 )
+from slack_cached.cli._internal._style import _supports_styles
 from slack_cached.storage import db_status
 
 
@@ -42,5 +43,5 @@ async def status(
             + "\n"
         )
     else:
-        sys.stdout.write(_render_status_human(snapshot))
+        sys.stdout.write(_render_status_human(snapshot, styled=_supports_styles(sys.stdout)))
     return 0

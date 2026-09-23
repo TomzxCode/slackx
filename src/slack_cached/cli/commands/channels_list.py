@@ -26,6 +26,7 @@ from slack_cached.cli._internal._shared import (
     _setup,
     channels_app,
 )
+from slack_cached.cli._internal._style import _supports_styles
 from slack_cached.storage import get_channel, load_channel_display_names, load_channels
 
 log = structlog.get_logger(__name__)
@@ -101,7 +102,11 @@ async def list_channels(
             )
         )
     else:
-        sys.stdout.write(_render_channels_human(channels, display_names, selected))
+        sys.stdout.write(
+            _render_channels_human(
+                channels, display_names, selected, styled=_supports_styles(sys.stdout)
+            )
+        )
     return 0
 
 

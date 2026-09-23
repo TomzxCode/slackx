@@ -62,6 +62,15 @@ explicitly, and `--api-base-url` to override the Slack API
 base URL (defaults to `https://slack.com/api`; also settable via
 `SLACK_API_BASE_URL`).
 
+Human-readable output is styled when stdout is a terminal: bold headers and
+author names, italic timestamps, clickable permalinks, and Slack message
+formatting rendered visually (bold, italics, strikethrough, code, links, and
+mentions). Message layout blocks and attachments are rendered in both modes,
+so bot-post buttons and links show up like in the web UI. Piped or redirected
+output is plain text with the raw message markup left untouched. Styling
+respects `NO_COLOR` and `TERM=dumb` (both disable it) and `FORCE_COLOR=1`
+(forces it on even when piped).
+
 ### Threads
 
 Cache or refresh a thread (no thread output, only a summary on stderr):

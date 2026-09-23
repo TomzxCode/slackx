@@ -1,7 +1,11 @@
 """Output renderers for threads, channels, search results, users, and channels.
 
 All renderers are pure functions that take already-loaded data and return a
-string. They are independent of argument parsing and I/O.
+string. They are independent of argument parsing and I/O. Human renderers
+accept a keyword-only ``styled`` flag: when true, output carries ANSI styles
+(bold, italics, dim, hyperlinks) and message text is rendered from Slack
+mrkdwn; when false (the default), output is plain text with verbatim message
+text, suitable for piping.
 """
 
 import json
@@ -9,8 +13,10 @@ from collections.abc import Sequence
 from dataclasses import asdict
 from typing import Any
 
+from slack_cached.cli._internal._blocks import _message_body_lines
 from slack_cached.cli._internal._fields import SEARCH_DEFAULT_FIELDS
 from slack_cached.cli._internal._format import _format_epoch, _format_ts
+from slack_cached.cli._internal._style import _styler
 from slack_cached.storage import (
     CachedChannel,
     CachedMessage,
@@ -29,23 +35,29 @@ def _render_human(
     ref: ThreadRef,
     messages: list[CachedMessage],
     user_names: dict[str, str] | None = None,
+    *,
+    styled: bool = False,
 ) -> str:
     """Render a thread as a human-readable string.
 
     When `user_names` maps a message's user id to a name, that name is shown
-    instead of the raw id; unknown ids fall back to the id itself.
+    instead of the raw id; unknown ids fall back to the id itself. With
+    ``styled`` the header, timestamps, and authors carry ANSI styles and
+    message text is rendered from Slack mrkdwn. Each message body renders its
+    layout blocks and attachments when present (where bot messages keep their
+    links), falling back to ``text`` otherwise.
     """
     names = user_names or {}
+    s = _styler(styled)
     lines = [
-        f"Thread {ref.channel}/{ref.thread_ts}",
-        f"{len(messages)} message(s)",
+        s.bold(f"Thread {ref.channel}/{ref.thread_ts}"),
+        s.dim(f"{len(messages)} message(s)"),
         "",
     ]
     for msg in messages:
         author = names.get(msg.user, msg.user) if msg.user else "(unknown)"
-        text = msg.text if msg.text is not None else ""
-        lines.append(f"[{_format_ts(msg.ts)}] {author}")
-        for text_line in text.splitlines() or [""]:
+        lines.append(f"{s.italic(f'[{_format_ts(msg.ts)}]')} {s.bold(author)}")
+        for text_line in _message_body_lines(msg.text, msg.payload, s):
             lines.append(f"    {text_line}")
         lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
@@ -91,28 +103,33 @@ def _render_channel_human(
     messages: list[ChannelMessageEntry],
     user_names: dict[str, str] | None = None,
     channel_name: str | None = None,
+    *,
+    styled: bool = False,
 ) -> str:
     names = user_names or {}
+    s = _styler(styled)
     header = channel_name or channel
     reply_count = sum(1 for msg in messages if msg.thread_ts != msg.ts)
     count_line = f"{len(messages)} message(s)"
     if reply_count:
         count_line += f" ({reply_count} thread replie(s))"
     lines = [
-        f"Channel {header}",
-        count_line,
+        s.bold(f"Channel {header}"),
+        s.dim(count_line),
         "",
     ]
     for msg in messages:
         author = names.get(msg.user, msg.user) if msg.user else "(unknown)"
-        text = msg.text if msg.text is not None else ""
         if msg.thread_ts != msg.ts:
-            lines.append(f"    \u21b3 [{_format_ts(msg.ts)}] {author} (thread {msg.thread_ts})")
+            lines.append(
+                f"    {s.dim('\u21b3')} {s.italic(f'[{_format_ts(msg.ts)}]')} {s.bold(author)} "
+                f"{s.dim(f'(thread {msg.thread_ts})')}"
+            )
             indent = "        "
         else:
-            lines.append(f"[{_format_ts(msg.ts)}] {author}")
+            lines.append(f"{s.italic(f'[{_format_ts(msg.ts)}]')} {s.bold(author)}")
             indent = "    "
-        for text_line in text.splitlines() or [""]:
+        for text_line in _message_body_lines(msg.text, msg.payload, s):
             lines.append(f"{indent}{text_line}")
         lines.append("")
     return "\n".join(lines).rstrip("\n") + "\n"
@@ -163,17 +180,22 @@ def _render_search_human(
     user_names: dict[str, str] | None = None,
     channel_names: dict[str, str] | None = None,
     fields: Sequence[str] | None = None,
+    *,
+    styled: bool = False,
 ) -> str:
     """Render search matches as a human-readable string.
 
     Each match is printed with its channel, an optional permalink, the author
     and the message text, in the same style as `_render_human`. ``fields``
-    restricts which parts are printed, mirroring the JSON renderer.
+    restricts which parts are printed, mirroring the JSON renderer. With
+    ``styled`` the header, channel labels, timestamps, and authors carry ANSI
+    styles and permalinks become OSC 8 hyperlinks.
     """
     selected = set(fields or SEARCH_DEFAULT_FIELDS)
     names = user_names or {}
     ch_names = channel_names or {}
-    lines = [f"Search: {query}", f"{len(matches)} match(es)", ""]
+    s = _styler(styled)
+    lines = [s.bold(f"Search: {query}"), s.dim(f"{len(matches)} match(es)"), ""]
     for msg in matches:
         channel = msg.get("channel") or "?"
         ch_label = ch_names.get(channel, channel)
@@ -183,18 +205,19 @@ def _render_search_human(
         text = msg.get("text") if msg.get("text") is not None else ""
         permalink = msg.get("permalink")
         if {"channel", "channel_name"} & selected:
-            header = f"[{ch_label}]"
+            header = s.bold(f"[{ch_label}]")
             if permalink and "permalink" in selected:
-                header = f"{header} {permalink}"
+                header = f"{header} {s.link(s.dim(permalink), permalink)}"
             lines.append(header)
         meta: list[str] = []
         if "ts" in selected:
-            meta.append(_format_ts(ts))
+            meta.append(s.italic(_format_ts(ts)))
         if {"user", "user_name"} & selected:
-            meta.append(author)
+            meta.append(s.bold(author))
         if meta:
             lines.append(f"[{' '.join(meta)}]")
         if "text" in selected:
+            text = s.mrkdwn(text) if text else text
             for text_line in text.splitlines() or [""]:
                 lines.append(f"    {text_line}")
         lines.append("")
@@ -266,11 +289,14 @@ def _render_search_json(
 def _render_users_human(
     users: list[CachedUser],
     fields: Sequence[str] | None = None,
+    *,
+    styled: bool = False,
 ) -> str:
     selected = fields or ("id", "name", "real_name")
-    lines = [f"{len(users)} user(s)", ""]
+    s = _styler(styled)
+    lines = [s.bold(f"{len(users)} user(s)"), ""]
     for user in users:
-        values = [_user_field_human(user, field) for field in selected]
+        values = [_user_field_human(user, field, s) for field in selected]
         lines.append("  ".join(value for value in values if value))
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -289,15 +315,18 @@ def _render_users_json(
     return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
 
 
-def _user_field_human(user: CachedUser, field: str) -> str:
+def _user_field_human(user: CachedUser, field: str, s: Any = None) -> str:
     if field == "id":
         return user.id
     if field == "name":
-        return user.name or "(no name)"
+        value = user.name or "(no name)"
+        return s.bold(value) if s else value
     if field == "real_name":
-        return user.real_name or ""
+        value = user.real_name or ""
+        return s.bold(value) if s and value else value
     if field == "fetched_at":
-        return _format_epoch(user.fetched_at)
+        value = _format_epoch(user.fetched_at)
+        return s.italic(value) if s else value
     if field == "payload":
         return json.dumps(user.payload, ensure_ascii=False, sort_keys=True)
     return ""
@@ -313,12 +342,15 @@ def _render_channels_human(
     channels: list[CachedChannel],
     display_names: dict[str, str] | None = None,
     fields: Sequence[str] | None = None,
+    *,
+    styled: bool = False,
 ) -> str:
     names = display_names or {}
     selected = fields or ("id", "name", "is_private")
-    lines = [f"{len(channels)} channel(s)", ""]
+    s = _styler(styled)
+    lines = [s.bold(f"{len(channels)} channel(s)"), ""]
     for channel in channels:
-        values = [_channel_field_human(channel, field, names) for field in selected]
+        values = [_channel_field_human(channel, field, names, s) for field in selected]
         lines.append("  ".join(value for value in values if value))
     return "\n".join(lines).rstrip("\n") + "\n"
 
@@ -342,19 +374,24 @@ def _render_channels_json(
     return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
 
 
-def _channel_field_human(channel: CachedChannel, field: str, names: dict[str, str]) -> str:
+def _channel_field_human(
+    channel: CachedChannel, field: str, names: dict[str, str], s: Any = None
+) -> str:
     if field == "id":
         return channel.id
     if field in ("name", "display_name"):
-        return names.get(channel.id) or channel.name or "(no name)"
+        value = names.get(channel.id) or channel.name or "(no name)"
+        return s.bold(value) if s else value
     if field == "is_private":
         if channel.payload.get("is_im"):
             visibility = "direct"
         else:
             visibility = "private" if channel.is_private else "public"
-        return f"({visibility})"
+        value = f"({visibility})"
+        return s.dim(value) if s else value
     if field == "fetched_at":
-        return _format_epoch(channel.fetched_at)
+        value = _format_epoch(channel.fetched_at)
+        return s.italic(value) if s else value
     if field == "payload":
         return json.dumps(channel.payload, ensure_ascii=False, sort_keys=True)
     return ""
@@ -368,14 +405,19 @@ def _channel_field_json(channel: CachedChannel, field: str, names: dict[str, str
     return getattr(channel, field)
 
 
-def _render_status_human(status: DbStatus) -> str:
+def _render_status_human(status: DbStatus, *, styled: bool = False) -> str:
+    s = _styler(styled)
+
     def line(label: str, count: int, updated_at: float | None) -> str:
-        return f"{count} {label}(s)  last updated {_format_epoch(updated_at)}"
+        return (
+            f"{s.bold(str(count))} {label}(s)  "
+            f"{s.dim('last updated')} {s.italic(_format_epoch(updated_at))}"
+        )
 
     lines = [
         line("channel", status.channel_count, status.channels_updated_at),
         line("user", status.user_count, status.users_updated_at),
         line("thread", status.thread_count, status.threads_updated_at),
-        f"{status.message_count} message(s)",
+        f"{s.bold(str(status.message_count))} message(s)",
     ]
     return "\n".join(lines) + "\n"

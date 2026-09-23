@@ -32,6 +32,7 @@ from slack_cached.cli._internal._shared import (
     _timed,
     conversations_app,
 )
+from slack_cached.cli._internal._style import _supports_styles
 from slack_cached.storage import (
     count_channel_messages,
     get_thread_state,
@@ -132,7 +133,7 @@ async def show(
                 indent=2 if fmt == "json" else None,
             )
         else:
-            output = _render_human(ref, messages, user_names)
+            output = _render_human(ref, messages, user_names, styled=_supports_styles(sys.stdout))
     with _timed("write_output", bytes=len(output)):
         sys.stdout.write(output)
         sys.stdout.flush()
@@ -200,7 +201,13 @@ async def _show_channel(
                 indent=2 if fmt == "json" else None,
             )
         else:
-            output = _render_channel_human(channel, messages, user_names, channel_name)
+            output = _render_channel_human(
+                channel,
+                messages,
+                user_names,
+                channel_name,
+                styled=_supports_styles(sys.stdout),
+            )
     with _timed("write_output", bytes=len(output)):
         sys.stdout.write(output)
         sys.stdout.flush()
