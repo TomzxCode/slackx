@@ -1,4 +1,4 @@
-"""``slackx fetch-channels`` command."""
+"""``slackx channels fetch`` command."""
 
 import sys
 
@@ -10,12 +10,12 @@ from slack_cached.cli._internal._shared import (
     LogLevelArg,
     WorkspaceArg,
     _setup,
-    app,
+    channels_app,
 )
 
 
-@app.command(name="fetch-channels")
-async def fetch_channels(
+@channels_app.command(name="fetch")
+async def fetch(
     channel_id: ChannelIdArg = None,
     *,
     db: DbArg = None,

@@ -1,4 +1,4 @@
-"""``slackx show-users`` command."""
+"""``slackx users list`` command."""
 
 import sys
 
@@ -24,15 +24,15 @@ from slack_cached.cli._internal._shared import (
     UserIdArg,
     WorkspaceArg,
     _setup,
-    app,
+    users_app,
 )
 from slack_cached.storage import get_user, load_users
 
 log = structlog.get_logger(__name__)
 
 
-@app.command(name="show-users")
-async def show_users(
+@users_app.command(name="list")
+async def list_users(
     user_id: UserIdArg = None,
     *,
     fetch: FetchArg = True,

@@ -73,7 +73,7 @@ Control logging verbosity with `--log-level` (`debug`, `info`, `warning`,
 `error`, or `critical`; default: `info`):
 
 ```bash
-slackx fetch --log-level debug <url>
+slackx conversations fetch --log-level debug <url>
 ```
 
 At `debug`, this outputs SQL query timings, API request details, and other

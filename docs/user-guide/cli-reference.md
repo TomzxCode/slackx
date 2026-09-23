@@ -10,34 +10,32 @@
 
 ## Subcommands
 
-### fetch
+### conversations fetch
 
 Cache or refresh a Slack thread, or fetch messages from a channel.
 
 ```bash
-slackx fetch [URL] [--channel CHANNEL] [--ts TS] [--full-threads] [--last DURATION]
+slackx conversations fetch [TARGET] [--ts TS] [--full-threads] [--last DURATION]
 ```
 
 | Argument | Description |
 |---|---|
-| `URL` | Slack thread permalink URL |
-| `--channel CHANNEL` | Channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). Names are resolved against the cached channels. Use without `--ts` for channel message fetch. |
+| `TARGET` | Slack thread permalink, channel id (`C001`), bare name (`general`), `#`-prefixed name (`#general`), or DM target (user id or `@handle`). Names are resolved against the cached channels. With `--ts`, a channel or DM target reads the given thread. |
 | `--ts TS` | Thread root timestamp |
 | `--full-threads` | Also fetch all thread replies (channel fetch only) |
 | `--last DURATION` | Lookback period for channel fetch (default: `1d`) |
 
-### show
+### conversations show
 
 Print a cached thread or channel to stdout.
 
 ```bash
-slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message]
+slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message]
 ```
 
 | Argument | Description |
 |---|---|
-| `URL` | Slack thread permalink URL |
-| `--channel CHANNEL` | Channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). Names are resolved against the cached channels. Without `--ts`, shows the channel's top-level messages (thread replies are not shown unless `--with-thread-message`). |
+| `TARGET` | Slack thread permalink, channel id (`C001`), bare name (`general`), `#`-prefixed name (`#general`), or DM target (user id or `@handle`). Names are resolved against the cached channels. Without `--ts`, shows the channel's top-level messages (thread replies are not shown unless `--with-thread-message`). |
 | `--ts TS` | Thread root timestamp |
 | `--json` | Output as pretty-printed JSON |
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
@@ -45,12 +43,12 @@ slackx show [URL] [--channel CHANNEL] [--ts TS] [--json | --jsonl] [--fetch | --
 | `--last DURATION` | Lookback period for channel display (default: `1d`) |
 | `--with-thread-message` | Also include thread replies when showing a channel, each marked as belonging to its thread |
 
-### search
+### conversations search
 
 Search Slack via `search.messages` and cache every matched message/thread.
 
 ```bash
-slackx search QUERY [--count N] [--limit N] [--sort score|timestamp] [--sort-dir asc|desc] [--full-threads] [--fields FIELDS] [--json | --jsonl]
+slackx conversations search QUERY [--count N] [--limit N] [--sort score|timestamp] [--sort-dir asc|desc] [--full-threads] [--fields FIELDS] [--json | --jsonl]
 ```
 
 | Argument | Description |
@@ -66,38 +64,38 @@ slackx search QUERY [--count N] [--limit N] [--sort score|timestamp] [--sort-dir
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
 
 Search is always a live API call. Every matched message is cached under its
-`(channel, thread_ts)` so it can be revisited later with `show`.
+`(channel, thread_ts)` so it can be revisited later with `conversations show`.
 
-### fetch-users
+### users fetch
 
 Cache all workspace users, or a single user when an id is given.
 
 ```bash
-slackx fetch-users [USER]
+slackx users fetch [USER]
 ```
 
 | Argument | Description |
 |---|---|
 | `USER` | Optional user id (`U001`). When given, fetch only that user via `users.info` instead of enumerating every workspace member. |
 
-### fetch-channels
+### channels fetch
 
 Cache all visible channels, or a single channel when an id is given.
 
 ```bash
-slackx fetch-channels [CHANNEL]
+slackx channels fetch [CHANNEL]
 ```
 
 | Argument | Description |
 |---|---|
 | `CHANNEL` | Optional channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). When given, fetch only that channel via `conversations.info` instead of enumerating every visible channel. |
 
-### show-users
+### users list
 
 Print cached users, or a single user when an id is given.
 
 ```bash
-slackx show-users [USER] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+slackx users list [USER] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
 ```
 
 | Argument | Description |
@@ -107,12 +105,12 @@ slackx show-users [USER] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-
 | `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `real_name`, `fetched_at`, `payload` (default: `id,name,real_name`) |
 | `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
 
-### show-channels
+### channels list
 
 Print cached channels, or a single channel when an id is given.
 
 ```bash
-slackx show-channels [CHANNEL] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+slackx channels list [CHANNEL] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
 ```
 
 | Argument | Description |
@@ -126,24 +124,24 @@ Listing every channel auto-fetches the full channel list when the cache is
 empty. When `CHANNEL` is given, a cache miss fetches only that channel via
 `conversations.info`; an unknown channel exits non-zero with an error.
 
-### status
+### cache status
 
 Print cache database status: counts and last update time per entity.
 
 ```bash
-slackx status [--json | --jsonl]
+slackx cache status [--json | --jsonl]
 ```
 
 Reports the number of cached channels, users, threads, and messages, plus the
 most recent update time for channels, users, and threads (threads carry the
 message-cache update time). Never fetches from Slack.
 
-### clear
+### cache clear
 
 Delete cached data: everything, messages, channels, or users.
 
 ```bash
-slackx clear [TARGET] [--yes]
+slackx cache clear [TARGET] [--yes]
 ```
 
 | Argument | Description |
@@ -151,23 +149,24 @@ slackx clear [TARGET] [--yes]
 | `TARGET` | What to clear: `all` (default), `messages`, `channels`, or `users` |
 | `--yes`, `-y` | Skip the confirmation prompt |
 
-Reads and clears the cache database directly; never calls Slack. `clear messages`
-also clears the thread metadata (the rows `show` uses to decide a thread is
-cached), so those threads are refetched on next use. Without `--yes` the command
-asks for confirmation on an interactive terminal and refuses to run otherwise.
+Reads and clears the cache database directly; never calls Slack. `cache clear messages`
+also clears the thread metadata (the rows `conversations show` uses to decide a
+thread is cached), so those threads are refetched on next use. Without `--yes`
+the command asks for confirmation on an interactive terminal and refuses to run
+otherwise.
 
 ```bash
-slackx clear messages       # drop all cached messages and threads
-slackx clear users          # drop the cached user list
-slackx clear all --yes      # wipe every cached entity
+slackx cache clear messages       # drop all cached messages and threads
+slackx cache clear users          # drop the cached user list
+slackx cache clear all --yes      # wipe every cached entity
 ```
 
-### poll
+### conversations poll
 
 Poll channels concurrently in a loop for new messages.
 
 ```bash
-slackx poll --channels CHANNELS [--interval DURATION] [--last DURATION] [--full-threads] [--concurrency N] [--json]
+slackx conversations poll --channels CHANNELS [--interval DURATION] [--last DURATION] [--full-threads] [--concurrency N] [--json]
 ```
 
 | Argument | Description |

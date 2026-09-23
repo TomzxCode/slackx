@@ -5,7 +5,7 @@
 Download all visible conversations (public channels, private channels, MPIMs, and DMs) to the local cache:
 
 ```bash
-slackx fetch-channels
+slackx channels fetch
 ```
 
 The command prints a summary to stderr:
@@ -20,7 +20,7 @@ Pass a channel id (or a cached name) to fetch just that channel with a single
 `conversations.info` call:
 
 ```bash
-slackx fetch-channels C001
+slackx channels fetch C001
 ```
 
 ## Showing cached channels
@@ -28,7 +28,7 @@ slackx fetch-channels C001
 Display all cached channels in human-readable format:
 
 ```bash
-slackx show-channels
+slackx channels list
 ```
 
 Output shows channel ID, name, and visibility (public/private).
@@ -36,7 +36,7 @@ Output shows channel ID, name, and visibility (public/private).
 Display as JSON:
 
 ```bash
-slackx show-channels --json
+slackx channels list --json
 ```
 
 Channels are auto-fetched if the cache is empty (unless `--no-fetch` is given).
@@ -46,8 +46,8 @@ Channels are auto-fetched if the cache is empty (unless `--no-fetch` is given).
 Pass a channel id (or a cached name) to show just that channel:
 
 ```bash
-slackx show-channels C001
-slackx show-channels C001 --json --fields id,name,is_private
+slackx channels list C001
+slackx channels list C001 --json --fields id,name,is_private
 ```
 
 When the channel is not cached, it is fetched from Slack with a single

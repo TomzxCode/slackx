@@ -1,4 +1,4 @@
-"""``slackx clear`` command."""
+"""``slackx cache clear`` command."""
 
 import sys
 from typing import Annotated, Literal
@@ -12,14 +12,14 @@ from slack_cached.cli._internal._shared import (
     LogLevelArg,
     WorkspaceArg,
     _setup,
-    app,
+    cache_app,
 )
 from slack_cached.storage import clear_cache
 
 ClearTarget = Literal["all", "messages", "channels", "users"]
 
 
-@app.command(name="clear")
+@cache_app.command(name="clear")
 async def clear(
     target: Annotated[
         ClearTarget,

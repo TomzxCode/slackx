@@ -46,20 +46,20 @@ Environment variables take precedence over the config file.
 Fetch a Slack thread by pasting its permalink URL:
 
 ```bash
-slackx fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
+slackx conversations fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
 
 Display the cached thread:
 
 ```bash
-slackx show "https://workspace.slack.com/archives/C01234/p1700000000123456"
+slackx conversations show "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
 
 Fetch all workspace users and channels:
 
 ```bash
-slackx fetch-users
-slackx fetch-channels
+slackx users fetch
+slackx channels fetch
 ```
 
 ## Cache location

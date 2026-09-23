@@ -38,9 +38,7 @@ def _parse_ts(channel: str, ts: str) -> str | None:
         return None
 
 
-async def _resolve_target(
-    common: CommonArgs, raw: str | None, ts: str | None
-) -> Target | None:
+async def _resolve_target(common: CommonArgs, raw: str | None, ts: str | None) -> Target | None:
     """Resolve a positional target (URL, channel, or DM) to a query target.
 
     A permalink resolves to either its channel (channel URL) or its thread

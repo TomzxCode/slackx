@@ -5,7 +5,7 @@
 Fetch all top-level messages from a channel:
 
 ```bash
-slackx fetch --channel C01234
+slackx conversations fetch C01234
 ```
 
 This uses the Slack `conversations.history` API to retrieve top-level messages (standalone messages and thread parents). Thread replies are not included unless you use `--full-threads`.
@@ -15,7 +15,7 @@ This uses the Slack `conversations.history` API to retrieve top-level messages (
 Add `--full-threads` to also fetch all replies for every threaded conversation found in the channel:
 
 ```bash
-slackx fetch --channel C01234 --full-threads
+slackx conversations fetch C01234 --full-threads
 ```
 
 The summary includes thread expansion stats:
@@ -30,13 +30,13 @@ Use `--last` to limit the lookback period. Accepts duration strings like `24h`, 
 
 ```bash
 # Last 3 days
-slackx fetch --channel C01234 --last 3d
+slackx conversations fetch C01234 --last 3d
 
 # Last 2 hours
-slackx fetch --channel C01234 --last 2h
+slackx conversations fetch C01234 --last 2h
 
 # Full history
-slackx fetch --channel C01234 --last all
+slackx conversations fetch C01234 --last all
 ```
 
 The default lookback is `1d` (one day).
@@ -46,17 +46,17 @@ The default lookback is `1d` (one day).
 Display a channel's cached top-level messages:
 
 ```bash
-slackx show --channel C01234
+slackx conversations show C01234
 ```
 
-Thread replies are not shown; `show --channel` mirrors the channel as it appears
-in Slack. Use `show --channel C01234 --ts <thread_ts>` to read a specific thread.
+Thread replies are not shown; `conversations show` mirrors the channel as it appears
+in Slack. Use `conversations show C01234 --ts <thread_ts>` to read a specific thread.
 
 To include thread replies, pass `--with-thread-message`. Replies are rendered
 indented and tagged with the thread they belong to:
 
 ```bash
-slackx show --channel C01234 --with-thread-message
+slackx conversations show C01234 --with-thread-message
 ```
 
 ```
@@ -78,13 +78,13 @@ In JSON output each message carries `thread_ts` and an `is_thread_reply` flag.
 Filter by time with `--last`:
 
 ```bash
-slackx show --channel C01234 --last 7d
+slackx conversations show C01234 --last 7d
 ```
 
 Display as JSON:
 
 ```bash
-slackx show --channel C01234 --json
+slackx conversations show C01234 --json
 ```
 
 Channel messages are auto-fetched if the cache is empty (unless `--no-fetch` is given).

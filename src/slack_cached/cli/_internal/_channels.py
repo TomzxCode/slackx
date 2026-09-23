@@ -97,7 +97,7 @@ async def _resolve_channels(common: CommonArgs, entries: Iterable[str]) -> list[
         joined = ", ".join(unresolved)
         print(
             f"error: could not resolve channel name(s): {joined} "
-            "(run 'slackx fetch-channels' or check the spelling)",
+            "(run 'slackx channels fetch' or check the spelling)",
             file=sys.stderr,
         )
         return None
@@ -187,7 +187,7 @@ async def _resolve_dm_channel(common: CommonArgs, token: str) -> str | None:
         if user_id is None:
             print(
                 f"error: could not resolve user {token!r} "
-                "(run 'slackx fetch-users' or check the spelling)",
+                "(run 'slackx users fetch' or check the spelling)",
                 file=sys.stderr,
             )
             return None

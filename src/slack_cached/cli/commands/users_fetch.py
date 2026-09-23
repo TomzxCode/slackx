@@ -1,4 +1,4 @@
-"""``slackx fetch-users`` command."""
+"""``slackx users fetch`` command."""
 
 import sys
 
@@ -10,12 +10,12 @@ from slack_cached.cli._internal._shared import (
     UserIdArg,
     WorkspaceArg,
     _setup,
-    app,
+    users_app,
 )
 
 
-@app.command(name="fetch-users")
-async def fetch_users(
+@users_app.command(name="fetch")
+async def fetch(
     user_id: UserIdArg = None,
     *,
     db: DbArg = None,

@@ -1,4 +1,4 @@
-"""``slackx search`` command."""
+"""``slackx conversations search`` command."""
 
 import sys
 from typing import Annotated, Literal
@@ -25,7 +25,7 @@ from slack_cached.cli._internal._shared import (
     WorkspaceArg,
     _setup,
     _timed,
-    app,
+    conversations_app,
 )
 from slack_cached.slack_api import DEFAULT_SEARCH_LIMIT
 from slack_cached.storage import load_user_display_names
@@ -33,7 +33,7 @@ from slack_cached.storage import load_user_display_names
 log = structlog.get_logger(__name__)
 
 
-@app.command
+@conversations_app.command(name="search")
 async def search(
     query: Annotated[
         str,

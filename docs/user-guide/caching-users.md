@@ -5,7 +5,7 @@
 Download all workspace members to the local cache:
 
 ```bash
-slackx fetch-users
+slackx users fetch
 ```
 
 The command prints a summary to stderr:
@@ -19,7 +19,7 @@ Running it again updates existing records without duplication (upsert by user ID
 Pass a user id to fetch just that user with a single `users.info` call:
 
 ```bash
-slackx fetch-users U001
+slackx users fetch U001
 ```
 
 ## Showing cached users
@@ -27,13 +27,13 @@ slackx fetch-users U001
 Display all cached users in human-readable format:
 
 ```bash
-slackx show-users
+slackx users list
 ```
 
 Display as JSON:
 
 ```bash
-slackx show-users --json
+slackx users list --json
 ```
 
 Users are auto-fetched if the cache is empty (unless `--no-fetch` is given).
@@ -42,7 +42,7 @@ Pass a user id to show just that user; a cache miss fetches it with a single
 `users.info` call:
 
 ```bash
-slackx show-users U001 --json
+slackx users list U001 --json
 ```
 
 ## Display name resolution

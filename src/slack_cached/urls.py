@@ -86,7 +86,7 @@ def parse_thread_url(url: str) -> ThreadRef:
 
 
 def parse_channel_ts(channel: str, ts: str) -> ThreadRef:
-    """Build a ThreadRef from explicit --channel/--ts arguments.
+    """Build a ThreadRef from a channel target and --ts argument.
 
     Raises ValueError when inputs are obviously malformed.
     """

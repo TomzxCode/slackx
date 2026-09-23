@@ -604,7 +604,7 @@ def test_fetch_search_reply_match_keys_thread_by_permalink_root(tmp_path: Path) 
 
     Slack returns ``thread_ts: null`` for a reply in search results, so keying
     the cache off the match's own ``ts`` would file it under the reply ts and
-    make every later ``slackx show <reply permalink>`` (which resolves the root
+    make every later ``slackx conversations show <reply permalink>`` (which resolves the root
     from the permalink) a cache miss.
     """
     conn = connect(tmp_path / "cache.db")

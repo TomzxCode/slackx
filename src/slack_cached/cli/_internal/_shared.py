@@ -20,6 +20,17 @@ app = App(
     version="0.1.0",
 )
 
+# Command groups: each noun groups related subcommands under one prefix.
+channels_app = App(name="channels", help="Fetch and list Slack channels.")
+users_app = App(name="users", help="Fetch and list Slack users.")
+conversations_app = App(
+    name="conversations", help="Fetch and show threads, channel history, and DMs."
+)
+cache_app = App(name="cache", help="Inspect and manage the local cache database.")
+
+for _group in (channels_app, users_app, conversations_app, cache_app):
+    app.command(_group)
+
 
 # ---------------------------------------------------------------------------
 # Shared parameter annotations (kept once so every command stays in sync)
@@ -138,7 +149,9 @@ UserIdArg = Annotated[
 ]
 TsArg = Annotated[
     str | None,
-    Parameter(help="Thread root ts (e.g. 1700000000.123456) to read a thread from a channel or DM target."),
+    Parameter(
+        help="Thread root ts (e.g. 1700000000.123456) to read a thread from a channel or DM target."
+    ),
 ]
 
 

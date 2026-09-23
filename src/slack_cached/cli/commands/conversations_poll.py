@@ -1,4 +1,4 @@
-"""``slackx poll`` command."""
+"""``slackx conversations poll`` command."""
 
 import sys
 from typing import Annotated
@@ -15,13 +15,13 @@ from slack_cached.cli._internal._shared import (
     LogLevelArg,
     WorkspaceArg,
     _setup,
-    app,
+    conversations_app,
 )
 
 log = structlog.get_logger(__name__)
 
 
-@app.command
+@conversations_app.command(name="poll")
 async def poll(
     *,
     channels: Annotated[

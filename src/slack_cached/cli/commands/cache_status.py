@@ -1,4 +1,4 @@
-"""``slackx status`` command."""
+"""``slackx cache status`` command."""
 
 import json
 import sys
@@ -15,12 +15,12 @@ from slack_cached.cli._internal._shared import (
     LogLevelArg,
     WorkspaceArg,
     _setup,
-    app,
+    cache_app,
 )
 from slack_cached.storage import db_status
 
 
-@app.command(name="status")
+@cache_app.command(name="status")
 async def status(
     *,
     json_output: JsonArg = False,

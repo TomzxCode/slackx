@@ -1,4 +1,4 @@
-"""``slackx show-channels`` command."""
+"""``slackx channels list`` command."""
 
 import sys
 
@@ -24,15 +24,15 @@ from slack_cached.cli._internal._shared import (
     LogLevelArg,
     WorkspaceArg,
     _setup,
-    app,
+    channels_app,
 )
 from slack_cached.storage import get_channel, load_channel_display_names, load_channels
 
 log = structlog.get_logger(__name__)
 
 
-@app.command(name="show-channels")
-async def show_channels(
+@channels_app.command(name="list")
+async def list_channels(
     channel_id: ChannelIdArg = None,
     *,
     fetch: FetchArg = True,

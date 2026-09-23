@@ -103,17 +103,17 @@ curl -s "http://localhost:8199/api/conversations.history?channel=C0001" | python
 Point the CLI at the fake server with `--api-base-url`:
 
 ```bash
-uv run slackx fetch-users --api-base-url http://localhost:8199/api
-uv run slackx fetch-channels --api-base-url http://localhost:8199/api
-uv run slackx show-users --api-base-url http://localhost:8199/api
-uv run slackx show-channels --api-base-url http://localhost:8199/api
-SLACK_TOKEN=xoxb-fake uv run slackx fetch-channel-messages --channel C0001 --api-base-url http://localhost:8199/api
-SLACK_TOKEN=xoxb-fake uv run slackx fetch-channel-messages --channel C0001 --full-threads --api-base-url http://localhost:8199/api
+uv run slackx users fetch --api-base-url http://localhost:8199/api
+uv run slackx channels fetch --api-base-url http://localhost:8199/api
+uv run slackx users list --api-base-url http://localhost:8199/api
+uv run slackx channels list --api-base-url http://localhost:8199/api
+SLACK_TOKEN=xoxb-fake uv run slackx conversations fetch C0001 --api-base-url http://localhost:8199/api
+SLACK_TOKEN=xoxb-fake uv run slackx conversations fetch C0001 --full-threads --api-base-url http://localhost:8199/api
 ```
 
 No real Slack token is needed; the fake server accepts any Authorization header.
 
-For `fetch`/`show` commands that target a specific thread, you need the
+For `conversations fetch`/`conversations show` commands that target a specific thread, you need the
 channel id and thread timestamp from the generated workspace. Inspect the
 generated data by querying the list endpoints first.
 

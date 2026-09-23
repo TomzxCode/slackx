@@ -1,4 +1,4 @@
-"""Async poll loop for the ``poll`` command."""
+"""Async poll loop for the ``conversations poll`` command."""
 
 import json
 import sys

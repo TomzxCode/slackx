@@ -1,4 +1,4 @@
-"""``slackx show`` command."""
+"""``slackx conversations show`` command."""
 
 import sys
 from typing import Annotated
@@ -7,7 +7,6 @@ import structlog
 from cyclopts import Parameter
 
 from slack_cached.cli._internal import _client
-from slack_cached.cli._internal._channels import _resolve_channel
 from slack_cached.cli._internal._duration import _oldest_ts_from_last
 from slack_cached.cli._internal._format import _build_user_names, _format_ts
 from slack_cached.cli._internal._refs import Target, _output_format, _resolve_target
@@ -31,7 +30,7 @@ from slack_cached.cli._internal._shared import (
     WorkspaceArg,
     _setup,
     _timed,
-    app,
+    conversations_app,
 )
 from slack_cached.storage import (
     count_channel_messages,
@@ -45,7 +44,7 @@ from slack_cached.urls import ThreadRef
 log = structlog.get_logger(__name__)
 
 
-@app.command
+@conversations_app.command(name="show")
 async def show(
     target: TargetArg = None,
     *,
@@ -84,9 +83,7 @@ async def show(
         return 1
 
     if resolved.thread_ts is None:
-        return await _show_channel(
-            common, resolved.channel, fetch, last, fmt, with_thread_message
-        )
+        return await _show_channel(common, resolved.channel, fetch, last, fmt, with_thread_message)
 
     log.debug("cmd_show_start")
     ref = ThreadRef(resolved.channel, resolved.thread_ts)

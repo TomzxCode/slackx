@@ -4,10 +4,10 @@
 
 Search the workspace using the same query syntax as the Slack search box. Every
 matched message is cached under its `(channel, thread_ts)` so it can be revisited
-later with `show`:
+later with `conversations show`:
 
 ```bash
-slackx search "deploy failed"
+slackx conversations search "deploy failed"
 ```
 
 Search is always a live API call against `search.messages`. It both prints the
@@ -18,13 +18,13 @@ matches and writes them to the cache.
 Human-readable by default:
 
 ```bash
-slackx search "incident"
+slackx conversations search "incident"
 ```
 
 JSON with `--json`:
 
 ```bash
-slackx search "incident" --json
+slackx conversations search "incident" --json
 ```
 
 Each match includes its `channel`, `channel_name` (when cached), `ts`, `thread_ts`,
@@ -36,8 +36,8 @@ human renderer prints). Available fields are `channel`, `channel_name`, `ts`,
 match as returned by Slack):
 
 ```bash
-slackx search "incident" --json --fields channel,ts,user,text
-slackx search "incident" --fields text
+slackx conversations search "incident" --json --fields channel,ts,user,text
+slackx conversations search "incident" --fields text
 ```
 
 ## Full thread expansion
@@ -45,7 +45,7 @@ slackx search "incident" --fields text
 Add `--full-threads` to fetch all replies for every thread a match belongs to:
 
 ```bash
-slackx search "RFC" --full-threads
+slackx conversations search "RFC" --full-threads
 ```
 
 The summary reports the breakdown of threads and messages into ones already
@@ -82,7 +82,7 @@ Control result paging and ordering:
 
 ```bash
 # Up to 5 results per page, ranked by relevance, oldest first
-slackx search "RFC" --count 5 --sort score --sort-dir asc
+slackx conversations search "RFC" --count 5 --sort score --sort-dir asc
 ```
 
 | Flag | Values | Default |
@@ -96,8 +96,8 @@ slackx search "RFC" --count 5 --sort score --sort-dir asc
 Because each match is cached, you can re-open it later without searching again:
 
 ```bash
-slackx search "outage" --json   # note the channel and thread_ts
-slackx show --channel C01234 --ts 1700000000.123456
+slackx conversations search "outage" --json   # note the channel and thread_ts
+slackx conversations show C01234 --ts 1700000000.123456
 ```
 
 When `--full-threads` was used, the entire thread (not just the matching

@@ -73,7 +73,7 @@ def _thread_ts_for_match(msg: dict[str, Any]) -> str | None:
 
     Slack returns ``thread_ts: null`` on search results for a thread reply, but
     the reply's ``permalink`` carries the true root in its ``?thread_ts=`` query
-    parameter. ``slackx show`` resolves permalinks the same way, so keying the
+    parameter. ``slackx conversations show`` resolves permalinks the same way, so keying the
     cache off the explicit field alone would file a reply under its own ts and
     make every subsequent ``show`` a cache miss. Prefer the explicit field, then
     the permalink, then the message's own ts (a standalone message or thread

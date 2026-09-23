@@ -1,4 +1,4 @@
-"""``slackx fetch`` command."""
+"""``slackx conversations fetch`` command."""
 
 import sys
 from typing import Annotated
@@ -18,14 +18,14 @@ from slack_cached.cli._internal._shared import (
     TsArg,
     WorkspaceArg,
     _setup,
-    app,
+    conversations_app,
 )
 from slack_cached.urls import ThreadRef
 
 log = structlog.get_logger(__name__)
 
 
-@app.command
+@conversations_app.command(name="fetch")
 async def fetch(
     target: TargetArg = None,
     *,

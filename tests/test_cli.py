@@ -36,6 +36,7 @@ def _populate_single_message(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> 
 
     rc = cli.main(
         [
+            "conversations",
             "fetch",
             "C0123ABCDEF",
             "--ts",
@@ -57,6 +58,7 @@ def test_show_prints_human_readable_by_default(
     # --no-fetch ensures we don't call the client again.
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C0123ABCDEF",
             "--ts",
@@ -98,10 +100,11 @@ def test_show_renders_user_name_when_cached(
             pass
 
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeUsers())
-    assert cli.main(["fetch-users", "--db", str(db_path)]) == 0
+    assert cli.main(["users", "fetch", "--db", str(db_path)]) == 0
 
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C0123ABCDEF",
             "--ts",
@@ -128,6 +131,7 @@ def test_show_prints_json_with_flag(
 
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C0123ABCDEF",
             "--ts",
@@ -157,6 +161,7 @@ def test_show_prints_jsonl_with_flag(
 
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C0123ABCDEF",
             "--ts",
@@ -187,6 +192,7 @@ def test_show_json_and_jsonl_are_mutually_exclusive(
     with pytest.raises(SystemExit):
         cli.main(
             [
+                "conversations",
                 "show",
                 "C1",
                 "--ts",
@@ -223,6 +229,7 @@ def test_fetch_with_url(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
 
     rc = cli.main(
         [
+            "conversations",
             "fetch",
             "https://acme.slack.com/archives/C0123ABCDEF/p1700000000123456",
             "--db",
@@ -275,10 +282,10 @@ def test_fetch_users_then_show(
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["fetch-users", "--db", str(db_path)])
+    rc = cli.main(["users", "fetch", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "1 user(s)" in out
@@ -290,15 +297,15 @@ def test_fetch_users_then_show(
 def test_fetch_users_single(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """fetch-users with an id fetches just that user via users.info."""
+    """users fetch with an id fetches just that user via users.info."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["fetch-users", "U1", "--db", str(db_path)])
+    rc = cli.main(["users", "fetch", "U1", "--db", str(db_path)])
     assert rc == 0
     assert "fetched user U1 (Alice Smith)" in capsys.readouterr().err
 
-    rc = cli.main(["show-users", "U1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["users", "list", "U1", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
     assert "alice" in capsys.readouterr().out
 
@@ -316,11 +323,11 @@ class UnknownUserClient:
 def test_fetch_users_single_unknown(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """fetch-users with an unknown id reports an error and exits non-zero."""
+    """users fetch with an unknown id reports an error and exits non-zero."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: UnknownUserClient())
 
-    rc = cli.main(["fetch-users", "U9", "--db", str(db_path)])
+    rc = cli.main(["users", "fetch", "U9", "--db", str(db_path)])
     assert rc == 1
     assert "error: user U9 not found" in capsys.readouterr().err
 
@@ -328,12 +335,12 @@ def test_fetch_users_single_unknown(
 def test_show_users_single_cached(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-users with an id shows only that cached user."""
+    """users list with an id shows only that cached user."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
-    assert cli.main(["fetch-users", "--db", str(db_path)]) == 0
+    assert cli.main(["users", "fetch", "--db", str(db_path)]) == 0
 
-    rc = cli.main(["show-users", "U1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["users", "list", "U1", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "1 user(s)" in out
@@ -344,11 +351,11 @@ def test_show_users_single_cached(
 def test_show_users_single_fetches_when_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-users with an uncached id fetches it via users.info."""
+    """users list with an uncached id fetches it via users.info."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["show-users", "U1", "--db", str(db_path), "--json"])
+    rc = cli.main(["users", "list", "U1", "--db", str(db_path), "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["user_count"] == 1
@@ -359,9 +366,9 @@ def test_show_users_single_fetches_when_missing(
 def test_show_users_single_unknown_no_fetch(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-users with an uncached id and --no-fetch reports an error."""
+    """users list with an uncached id and --no-fetch reports an error."""
     db_path = tmp_path / "cache.db"
-    rc = cli.main(["show-users", "U9", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["users", "list", "U9", "--db", str(db_path), "--no-fetch"])
     assert rc == 1
     assert "error: user U9 is not cached" in capsys.readouterr().err
 
@@ -372,7 +379,7 @@ def test_show_users_json(
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["show-users", "--db", str(db_path), "--json"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["user_count"] == 1
@@ -383,11 +390,11 @@ def test_show_users_json(
 def test_show_users_jsonl(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-users --jsonl emits a single compact JSON line."""
+    """users list --jsonl emits a single compact JSON line."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["show-users", "--db", str(db_path), "--jsonl"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--jsonl"])
     assert rc == 0
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1
@@ -403,10 +410,10 @@ def test_fetch_channels_then_show(
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["fetch-channels", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["show-channels", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["channels", "list", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "1 channel(s)" in out
@@ -418,15 +425,15 @@ def test_fetch_channels_then_show(
 def test_fetch_channels_single(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """fetch-channels with an id fetches just that channel via conversations.info."""
+    """channels fetch with an id fetches just that channel via conversations.info."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["fetch-channels", "C1", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "C1", "--db", str(db_path)])
     assert rc == 0
     assert "fetched channel C1 (general)" in capsys.readouterr().err
 
-    rc = cli.main(["show-channels", "C1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["channels", "list", "C1", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
     assert "general" in capsys.readouterr().out
 
@@ -444,11 +451,11 @@ class UnknownChannelClient:
 def test_fetch_channels_single_unknown(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """fetch-channels with an unknown id reports an error and exits non-zero."""
+    """channels fetch with an unknown id reports an error and exits non-zero."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: UnknownChannelClient())
 
-    rc = cli.main(["fetch-channels", "C9", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "C9", "--db", str(db_path)])
     assert rc == 1
     assert "error: channel C9 not found" in capsys.readouterr().err
 
@@ -459,7 +466,7 @@ def test_show_channels_json(
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["show-channels", "--db", str(db_path), "--json"])
+    rc = cli.main(["channels", "list", "--db", str(db_path), "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["channel_count"] == 1
@@ -470,11 +477,11 @@ def test_show_channels_json(
 def test_show_channels_jsonl(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-channels --jsonl emits a single compact JSON line."""
+    """channels list --jsonl emits a single compact JSON line."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["show-channels", "--db", str(db_path), "--jsonl"])
+    rc = cli.main(["channels", "list", "--db", str(db_path), "--jsonl"])
     assert rc == 0
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1
@@ -487,12 +494,12 @@ def test_show_channels_jsonl(
 def test_show_channels_single_cached(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-channels with an id shows only that cached channel."""
+    """channels list with an id shows only that cached channel."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
 
-    rc = cli.main(["show-channels", "C1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["channels", "list", "C1", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "1 channel(s)" in out
@@ -503,11 +510,11 @@ def test_show_channels_single_cached(
 def test_show_channels_single_fetches_when_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-channels with an uncached id fetches it via conversations.info."""
+    """channels list with an uncached id fetches it via conversations.info."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeListClient())
 
-    rc = cli.main(["show-channels", "C1", "--db", str(db_path), "--json"])
+    rc = cli.main(["channels", "list", "C1", "--db", str(db_path), "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["channel_count"] == 1
@@ -518,16 +525,16 @@ def test_show_channels_single_fetches_when_missing(
 def test_show_channels_single_unknown_no_fetch(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-channels with an uncached id and --no-fetch reports an error."""
+    """channels list with an uncached id and --no-fetch reports an error."""
     db_path = tmp_path / "cache.db"
-    rc = cli.main(["show-channels", "C9", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["channels", "list", "C9", "--db", str(db_path), "--no-fetch"])
     assert rc == 1
     assert "error: channel C9 is not cached" in capsys.readouterr().err
 
 
 def test_show_users_no_fetch_empty(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     db_path = tmp_path / "cache.db"
-    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
     assert "0 user(s)" in capsys.readouterr().out
 
@@ -536,7 +543,7 @@ def test_log_level_debug_emits_debug_logs(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     db_path = tmp_path / "cache.db"
-    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--log-level", "debug"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--no-fetch", "--log-level", "debug"])
     assert rc == 0
     assert "[debug" in capsys.readouterr().err
 
@@ -544,7 +551,7 @@ def test_log_level_debug_emits_debug_logs(
 def test_log_level_rejects_unknown_value(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     with pytest.raises(SystemExit):
-        cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--log-level", "bogus"])
+        cli.main(["users", "list", "--db", str(db_path), "--no-fetch", "--log-level", "bogus"])
 
 
 class FakeMultiListClient:
@@ -566,8 +573,8 @@ class FakeMultiListClient:
 
 def _populate_lists(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeMultiListClient())
-    assert cli.main(["fetch-users", "--db", str(db_path)]) == 0
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["users", "fetch", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
 
 
 def test_show_users_limit(
@@ -576,7 +583,7 @@ def test_show_users_limit(
     db_path = tmp_path / "cache.db"
     _populate_lists(monkeypatch, db_path)
 
-    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--limit", "2"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--no-fetch", "--limit", "2"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "2 user(s)" in out
@@ -590,7 +597,7 @@ def test_show_users_limit_json(
     db_path = tmp_path / "cache.db"
     _populate_lists(monkeypatch, db_path)
 
-    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--json", "--limit", "1"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--no-fetch", "--json", "--limit", "1"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["user_count"] == 1
@@ -603,7 +610,7 @@ def test_show_users_fields_human(
     db_path = tmp_path / "cache.db"
     _populate_lists(monkeypatch, db_path)
 
-    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--fields", "id,name"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--no-fetch", "--fields", "id,name"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "U1  alice" in out
@@ -617,7 +624,7 @@ def test_show_users_fields_json(
     _populate_lists(monkeypatch, db_path)
 
     rc = cli.main(
-        ["show-users", "--db", str(db_path), "--no-fetch", "--json", "--fields", "id,real_name"]
+        ["users", "list", "--db", str(db_path), "--no-fetch", "--json", "--fields", "id,real_name"]
     )
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -630,7 +637,7 @@ def test_show_users_invalid_fields(
     db_path = tmp_path / "cache.db"
     _populate_lists(monkeypatch, db_path)
 
-    rc = cli.main(["show-users", "--db", str(db_path), "--no-fetch", "--fields", "bogus"])
+    rc = cli.main(["users", "list", "--db", str(db_path), "--no-fetch", "--fields", "bogus"])
     assert rc == 2
     assert "unknown field(s): bogus" in capsys.readouterr().err
 
@@ -641,7 +648,7 @@ def test_show_channels_limit(
     db_path = tmp_path / "cache.db"
     _populate_lists(monkeypatch, db_path)
 
-    rc = cli.main(["show-channels", "--db", str(db_path), "--no-fetch", "--limit", "2"])
+    rc = cli.main(["channels", "list", "--db", str(db_path), "--no-fetch", "--limit", "2"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "2 channel(s)" in out
@@ -656,7 +663,7 @@ def test_show_channels_fields_human(
     _populate_lists(monkeypatch, db_path)
 
     rc = cli.main(
-        ["show-channels", "--db", str(db_path), "--no-fetch", "--fields", "id,is_private"]
+        ["channels", "list", "--db", str(db_path), "--no-fetch", "--fields", "id,is_private"]
     )
     assert rc == 0
     out = capsys.readouterr().out
@@ -672,7 +679,8 @@ def test_show_channels_fields_json(
 
     rc = cli.main(
         [
-            "show-channels",
+            "channels",
+            "list",
             "--db",
             str(db_path),
             "--no-fetch",
@@ -710,7 +718,7 @@ def test_status_human(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     db_path = tmp_path / "cache.db"
     _populate_status_db(db_path)
 
-    rc = cli.main(["status", "--db", str(db_path)])
+    rc = cli.main(["cache", "status", "--db", str(db_path)])
     assert rc == 0
     out = capsys.readouterr().out
     assert "1 channel(s)" in out
@@ -724,7 +732,7 @@ def test_status_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None
     db_path = tmp_path / "cache.db"
     _populate_status_db(db_path)
 
-    rc = cli.main(["status", "--db", str(db_path), "--json"])
+    rc = cli.main(["cache", "status", "--db", str(db_path), "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["channel_count"] == 1
@@ -740,7 +748,7 @@ def test_status_jsonl(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     """status --jsonl emits a single compact JSON line."""
     db_path = tmp_path / "cache.db"
 
-    rc = cli.main(["status", "--db", str(db_path), "--jsonl"])
+    rc = cli.main(["cache", "status", "--db", str(db_path), "--jsonl"])
     assert rc == 0
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1
@@ -813,7 +821,7 @@ def test_fetch_channel_messages_basic(monkeypatch: pytest.MonkeyPatch, tmp_path:
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["fetch", "C1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "C1", "--db", str(db_path)])
     assert rc == 0
 
 
@@ -826,14 +834,23 @@ def test_fetch_channel_via_url(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["fetch", "--url", "https://acme.slack.com/archives/C1", "--db", str(db_path)])
+    rc = cli.main(
+        [
+            "conversations",
+            "fetch",
+            "--url",
+            "https://acme.slack.com/archives/C1",
+            "--db",
+            str(db_path),
+        ]
+    )
     assert rc == 0
 
 
 def test_fetch_channel_requires_url_or_channel_ts(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     with pytest.raises(SystemExit):
-        cli.main(["fetch", "--db", str(db_path)])
+        cli.main(["conversations", "fetch", "--db", str(db_path)])
 
 
 def test_fetch_channel_messages_full_threads(
@@ -867,6 +884,7 @@ def test_fetch_channel_messages_full_threads(
 
     rc = cli.main(
         [
+            "conversations",
             "fetch",
             "C1",
             "--full-threads",
@@ -906,7 +924,7 @@ def test_fetch_channel_default_last_is_one_day(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["fetch", "C1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "C1", "--db", str(db_path)])
     assert rc == 0
     assert client.oldest_seen is not None
 
@@ -920,7 +938,7 @@ def test_fetch_channel_last_zero_fetches_all(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["fetch", "C1", "--last", "all", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "C1", "--last", "all", "--db", str(db_path)])
     assert rc == 0
     assert client.oldest_seen is None
 
@@ -955,7 +973,7 @@ def test_show_channel_without_ts_human(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["show", "C1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "show", "C1", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -977,6 +995,7 @@ def test_show_channel_via_url(
 
     rc = cli.main(
         [
+            "conversations",
             "show",
             "--url",
             "https://acme.slack.com/archives/C1",
@@ -998,16 +1017,16 @@ def test_show_channel_via_url(
 def test_show_channel_excludes_thread_replies(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show --channel renders top-level messages only, not thread replies."""
+    """conversations show --channel renders top-level messages only, not thread replies."""
     db_path = tmp_path / "cache.db"
     monkeypatch.setattr(
         cli._internal._client, "_build_client", lambda args: _threaded_channel_client()
     )
 
-    rc = cli.main(["fetch", "C1", "--full-threads", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "C1", "--full-threads", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["show", "C1", "--db", str(db_path), "--no-fetch", "--json"])
+    rc = cli.main(["conversations", "show", "C1", "--db", str(db_path), "--no-fetch", "--json"])
     assert rc == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -1025,10 +1044,11 @@ def test_show_channel_with_thread_message_json(
         cli._internal._client, "_build_client", lambda args: _threaded_channel_client()
     )
 
-    assert cli.main(["fetch", "C1", "--full-threads", "--db", str(db_path)]) == 0
+    assert cli.main(["conversations", "fetch", "C1", "--full-threads", "--db", str(db_path)]) == 0
 
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C1",
             "--with-thread-message",
@@ -1061,10 +1081,11 @@ def test_show_channel_with_thread_message_human(
         cli._internal._client, "_build_client", lambda args: _threaded_channel_client()
     )
 
-    assert cli.main(["fetch", "C1", "--full-threads", "--db", str(db_path)]) == 0
+    assert cli.main(["conversations", "fetch", "C1", "--full-threads", "--db", str(db_path)]) == 0
 
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C1",
             "--with-thread-message",
@@ -1093,7 +1114,7 @@ def test_show_channel_without_ts_json(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["show", "C1", "--db", str(db_path), "--json"])
+    rc = cli.main(["conversations", "show", "C1", "--db", str(db_path), "--json"])
     assert rc == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -1105,7 +1126,7 @@ def test_show_channel_without_ts_json(
 def test_show_channel_without_ts_jsonl(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """`show --channel --jsonl` emits a single compact JSON line."""
+    """`conversations show --channel --jsonl` emits a single compact JSON line."""
     db_path = tmp_path / "cache.db"
     client = FakeChannelClient(
         messages=[
@@ -1115,7 +1136,7 @@ def test_show_channel_without_ts_jsonl(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["show", "C1", "--db", str(db_path), "--jsonl"])
+    rc = cli.main(["conversations", "show", "C1", "--db", str(db_path), "--jsonl"])
     assert rc == 0
 
     lines = capsys.readouterr().out.splitlines()
@@ -1138,7 +1159,7 @@ def test_show_channel_without_ts_uses_cached(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["fetch", "C1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "C1", "--db", str(db_path)])
     assert rc == 0
 
     class NoCallClient:
@@ -1150,7 +1171,7 @@ def test_show_channel_without_ts_uses_cached(
 
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: NoCallClient())
 
-    rc = cli.main(["show", "C1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["conversations", "show", "C1", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1168,13 +1189,13 @@ def test_show_channel_with_name(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["fetch-channels", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["fetch", "C1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "C1", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["show", "C1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["conversations", "show", "C1", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1202,14 +1223,14 @@ def test_show_direct_channel_resolves_peer_name(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: client)
 
-    rc = cli.main(["fetch-users", "--db", str(db_path)])
+    rc = cli.main(["users", "fetch", "--db", str(db_path)])
     assert rc == 0
-    rc = cli.main(["fetch-channels", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "--db", str(db_path)])
     assert rc == 0
-    rc = cli.main(["fetch", "D1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "D1", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["show", "D1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["conversations", "show", "D1", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1226,14 +1247,14 @@ def test_show_direct_channel_json_resolves_peer_name(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: client)
 
-    rc = cli.main(["fetch-users", "--db", str(db_path)])
+    rc = cli.main(["users", "fetch", "--db", str(db_path)])
     assert rc == 0
-    rc = cli.main(["fetch-channels", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "--db", str(db_path)])
     assert rc == 0
-    rc = cli.main(["fetch", "D1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "D1", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["show", "D1", "--db", str(db_path), "--no-fetch", "--json"])
+    rc = cli.main(["conversations", "show", "D1", "--db", str(db_path), "--no-fetch", "--json"])
     assert rc == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -1244,17 +1265,17 @@ def test_show_direct_channel_json_resolves_peer_name(
 def test_show_channels_labels_direct_channels(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show-channels renders direct channels with their peer's name."""
+    """channels list renders direct channels with their peer's name."""
     db_path = tmp_path / "cache.db"
     client = DirectChannelClient()
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: client)
 
-    rc = cli.main(["fetch-users", "--db", str(db_path)])
+    rc = cli.main(["users", "fetch", "--db", str(db_path)])
     assert rc == 0
-    rc = cli.main(["fetch-channels", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["show-channels", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(["channels", "list", "--db", str(db_path), "--no-fetch"])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1264,17 +1285,17 @@ def test_show_channels_labels_direct_channels(
 def test_show_channel_resolves_bare_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show --channel <name> resolves the name to an id via the cached channels."""
+    """conversations show --channel <name> resolves the name to an id via the cached channels."""
     db_path = tmp_path / "cache.db"
     client = FakeChannelClient(
         messages=[{"ts": "1700000000.000100", "user": "U1", "text": "hello"}]
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()  # clear seeding output
 
-    rc = cli.main(["show", "general", "--db", str(db_path)])
+    rc = cli.main(["conversations", "show", "general", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1287,17 +1308,17 @@ def test_show_channel_resolves_bare_name(
 def test_show_channel_resolves_hash_prefixed_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show --channel #<name> resolves the '#'-prefixed name to an id."""
+    """conversations show --channel #<name> resolves the '#'-prefixed name to an id."""
     db_path = tmp_path / "cache.db"
     client = FakeChannelClient(
         messages=[{"ts": "1700000000.000100", "user": "U1", "text": "hello"}]
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()
 
-    rc = cli.main(["show", "#general", "--db", str(db_path)])
+    rc = cli.main(["conversations", "show", "#general", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1308,17 +1329,17 @@ def test_show_channel_resolves_hash_prefixed_name(
 def test_fetch_channel_resolves_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """fetch --channel <name> resolves the name and fetches that channel."""
+    """conversations fetch --channel <name> resolves the name and fetches that channel."""
     db_path = tmp_path / "cache.db"
     client = FakeChannelClient(
         messages=[{"ts": "1700000000.000100", "user": "U1", "text": "hello"}]
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()
 
-    rc = cli.main(["fetch", "general", "--db", str(db_path)])
+    rc = cli.main(["conversations", "fetch", "general", "--db", str(db_path)])
     assert rc == 0
 
     err = capsys.readouterr().err
@@ -1329,7 +1350,7 @@ def test_fetch_channel_resolves_name(
 def test_fetch_thread_resolves_channel_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """fetch --channel <name> --ts <ts> resolves the name before fetching the thread."""
+    """conversations fetch <name> --ts <ts> resolves the name before fetching the thread."""
 
     class FakeThreadClient:
         async def iter_thread_replies(self, channel, thread_ts, oldest=None, limit=200):
@@ -1346,11 +1367,12 @@ def test_fetch_thread_resolves_channel_name(
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: FakeThreadClient())
 
     db_path = tmp_path / "cache.db"
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()
 
     rc = cli.main(
         [
+            "conversations",
             "fetch",
             "#general",
             "--ts",
@@ -1365,7 +1387,7 @@ def test_fetch_thread_resolves_channel_name(
 def test_show_channel_unresolved_name_errors(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """show --channel <unknown> errors out and returns 1."""
+    """conversations show --channel <unknown> errors out and returns 1."""
 
     class EmptyClient:
         async def iter_channels(self, types="public_channel", limit=1000):
@@ -1378,7 +1400,7 @@ def test_show_channel_unresolved_name_errors(
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: EmptyClient())
 
     db_path = tmp_path / "cache.db"
-    rc = cli.main(["show", "#nope", "--db", str(db_path)])
+    rc = cli.main(["conversations", "show", "#nope", "--db", str(db_path)])
     assert rc == 1
     err = capsys.readouterr().err
     assert "could not resolve" in err
@@ -1436,7 +1458,7 @@ def test_search_human_output(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hello", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hello", "--db", str(db_path)])
     assert rc == 0
 
     captured = capsys.readouterr()
@@ -1474,7 +1496,16 @@ def test_search_fields_json(
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
     rc = cli.main(
-        ["search", "hello", "--json", "--fields", "text,channel,payload", "--db", str(db_path)]
+        [
+            "conversations",
+            "search",
+            "hello",
+            "--json",
+            "--fields",
+            "text,channel,payload",
+            "--db",
+            str(db_path),
+        ]
     )
     assert rc == 0
 
@@ -1504,7 +1535,7 @@ def test_search_fields_human(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hello", "--fields", "text", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hello", "--fields", "text", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1521,7 +1552,7 @@ def test_search_invalid_fields(
     client = FakeSearchClient(matches=[])
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hello", "--fields", "bogus", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hello", "--fields", "bogus", "--db", str(db_path)])
     assert rc == 2
     assert "unknown field(s): bogus" in capsys.readouterr().err
 
@@ -1553,11 +1584,11 @@ def test_search_direct_channel_hit_shows_peer_name(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["fetch-channels", "--db", str(db_path)])
+    rc = cli.main(["channels", "fetch", "--db", str(db_path)])
     assert rc == 0
-    rc = cli.main(["fetch-users", "--db", str(db_path)])
+    rc = cli.main(["users", "fetch", "--db", str(db_path)])
     assert rc == 0
-    rc = cli.main(["search", "hello", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hello", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1583,7 +1614,7 @@ def test_search_json_output(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hello", "--json", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hello", "--json", "--db", str(db_path)])
     assert rc == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -1620,7 +1651,7 @@ def test_search_jsonl_output(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hello", "--jsonl", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hello", "--jsonl", "--db", str(db_path)])
     assert rc == 0
 
     lines = capsys.readouterr().out.splitlines()
@@ -1640,6 +1671,7 @@ def test_search_passes_count_sort_flags(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
     rc = cli.main(
         [
+            "conversations",
             "search",
             "deploy",
             "--count",
@@ -1671,7 +1703,7 @@ def test_search_passes_limit_flag(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hi", "--limit", "2", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hi", "--limit", "2", "--db", str(db_path)])
     assert rc == 0
     assert client.search_calls[0]["limit"] == 2
     assert "2 match(es)" in capsys.readouterr().out
@@ -1685,7 +1717,7 @@ def test_search_defaults_limit_to_cap(monkeypatch: pytest.MonkeyPatch, tmp_path:
     client = FakeSearchClient(matches=[])
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hi", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hi", "--db", str(db_path)])
     assert rc == 0
     assert client.search_calls[0]["limit"] == DEFAULT_SEARCH_LIMIT
 
@@ -1693,7 +1725,7 @@ def test_search_defaults_limit_to_cap(monkeypatch: pytest.MonkeyPatch, tmp_path:
 def test_search_caches_matches_for_show(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A message found by search is afterwards retrievable via show --no-fetch."""
+    """A message found by search is afterwards retrievable via conversations show --no-fetch."""
     db_path = tmp_path / "cache.db"
     client = FakeSearchClient(
         matches=[
@@ -1708,11 +1740,12 @@ def test_search_caches_matches_for_show(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    assert cli.main(["search", "cached", "--db", str(db_path)]) == 0
+    assert cli.main(["conversations", "search", "cached", "--db", str(db_path)]) == 0
     capsys.readouterr()
 
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C1",
             "--ts",
@@ -1744,8 +1777,8 @@ def test_search_renders_cached_user_and_channel_names(
             pass
 
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: SeedClient())
-    assert cli.main(["fetch-users", "--db", str(db_path)]) == 0
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["users", "fetch", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()
 
     client = FakeSearchClient(
@@ -1760,7 +1793,7 @@ def test_search_renders_cached_user_and_channel_names(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["search", "hello", "--json", "--db", str(db_path)])
+    rc = cli.main(["conversations", "search", "hello", "--json", "--db", str(db_path)])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["matches"][0]["user_name"] == "Alice Smith (alice)"
@@ -1847,6 +1880,7 @@ def test_poll_single_cycle(
 
     rc = cli.main(
         [
+            "conversations",
             "poll",
             "--channels",
             "C1,C2",
@@ -1883,6 +1917,7 @@ def test_poll_json_output(
 
     rc = cli.main(
         [
+            "conversations",
             "poll",
             "--channels",
             "C1",
@@ -1922,6 +1957,7 @@ def test_poll_multiple_cycles(
 
     rc = cli.main(
         [
+            "conversations",
             "poll",
             "--channels",
             "C1",
@@ -1943,7 +1979,7 @@ def test_poll_multiple_cycles(
 def test_poll_requires_channels(tmp_path: Path) -> None:
     """Poll exits with error if --channels is empty."""
     db_path = tmp_path / "cache.db"
-    rc = cli.main(["poll", "--channels", "", "--db", str(db_path)])
+    rc = cli.main(["conversations", "poll", "--channels", "", "--db", str(db_path)])
     assert rc == 1
 
 
@@ -1962,7 +1998,7 @@ def test_poll_resolves_channel_names(
             pass
 
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: ChannelsClient())
-    assert cli.main(["fetch-channels", "--db", str(db_path)]) == 0
+    assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()  # clear seeding output
 
     class TestClient(FakeAsyncPollClient):
@@ -1978,6 +2014,7 @@ def test_poll_resolves_channel_names(
 
     rc = cli.main(
         [
+            "conversations",
             "poll",
             "--channels",
             "#general,random,C3",
@@ -2016,6 +2053,7 @@ def test_poll_unresolved_channel_name_errors(
 
     rc = cli.main(
         [
+            "conversations",
             "poll",
             "--channels",
             "#nope",
@@ -2040,6 +2078,7 @@ def test_poll_rejects_interval_all(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     rc = cli.main(
         [
+            "conversations",
             "poll",
             "--channels",
             "C1",
@@ -2073,6 +2112,7 @@ def test_poll_handles_channel_error(
 
     rc = cli.main(
         [
+            "conversations",
             "poll",
             "--channels",
             "C_BAD,C_OK",
@@ -2150,7 +2190,7 @@ def test_fetch_targets_workspace_directory(monkeypatch: pytest.MonkeyPatch, tmp_
         {"ok": True, "url": "https://acme.slack.com/", "team_id": "TACME"},
     )
 
-    rc = cli.main(["fetch", "C0123ABCDEF", "--ts", "1700000000.000100"])
+    rc = cli.main(["conversations", "fetch", "C0123ABCDEF", "--ts", "1700000000.000100"])
 
     assert rc == 0
     assert (tmp_path / "slackx" / "acme" / "threads.db").exists()
@@ -2170,12 +2210,13 @@ def test_show_reads_last_workspace_offline(
         monkeypatch,
         {"ok": True, "url": "https://acme.slack.com/", "team_id": "TACME"},
     )
-    rc = cli.main(["fetch", "C0123ABCDEF", "--ts", "1700000000.000100"])
+    rc = cli.main(["conversations", "fetch", "C0123ABCDEF", "--ts", "1700000000.000100"])
     assert rc == 0
 
     monkeypatch.setattr(cli._internal._client, "_build_client", fail_build)
     rc = cli.main(
         [
+            "conversations",
             "show",
             "C0123ABCDEF",
             "--ts",
@@ -2211,6 +2252,7 @@ def test_workspace_flag_selects_database(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     rc = cli.main(
         [
+            "conversations",
             "fetch",
             "C0123ABCDEF",
             "--ts",
@@ -2239,6 +2281,7 @@ def test_show_requires_workspace_when_ambiguous(
     with pytest.raises(SystemExit, match="alpha, beta"):
         cli.main(
             [
+                "conversations",
                 "show",
                 "C0123ABCDEF",
                 "--ts",
@@ -2273,7 +2316,7 @@ def test_auth_test_runs_once_per_credentials(
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: CountingClient())
 
     for _ in range(2):
-        rc = cli.main(["fetch", "C0123ABCDEF", "--ts", "1700000000.000100"])
+        rc = cli.main(["conversations", "fetch", "C0123ABCDEF", "--ts", "1700000000.000100"])
         assert rc == 0
 
     assert len(auth_calls) == 1
@@ -2370,7 +2413,7 @@ def test_clear_requires_confirmation_without_yes(
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    rc = cli.main(["clear", "--db", str(db_path)])
+    rc = cli.main(["cache", "clear", "--db", str(db_path)])
 
     assert rc == 1
     assert "pass --yes" in capsys.readouterr().err
@@ -2386,7 +2429,7 @@ def test_clear_defaults_to_everything(tmp_path: Path, capsys: pytest.CaptureFixt
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    rc = cli.main(["clear", "--yes", "--db", str(db_path)])
+    rc = cli.main(["cache", "clear", "--yes", "--db", str(db_path)])
 
     assert rc == 0
     assert "messages=1 threads=1 channels=1 users=1" in capsys.readouterr().err
@@ -2403,7 +2446,7 @@ def test_clear_messages_also_clears_threads_and_keeps_the_rest(
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    rc = cli.main(["clear", "messages", "--yes", "--db", str(db_path)])
+    rc = cli.main(["cache", "clear", "messages", "--yes", "--db", str(db_path)])
 
     assert rc == 0
     counts = _status_counts(db_path)
@@ -2417,7 +2460,7 @@ def test_clear_channels_keeps_messages_and_users(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    rc = cli.main(["clear", "channels", "--yes", "--db", str(db_path)])
+    rc = cli.main(["cache", "clear", "channels", "--yes", "--db", str(db_path)])
 
     assert rc == 0
     counts = _status_counts(db_path)
@@ -2431,7 +2474,7 @@ def test_clear_users_keeps_messages_and_channels(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    rc = cli.main(["clear", "users", "--yes", "--db", str(db_path)])
+    rc = cli.main(["cache", "clear", "users", "--yes", "--db", str(db_path)])
 
     assert rc == 0
     counts = _status_counts(db_path)
@@ -2448,7 +2491,7 @@ def test_clear_messages_reopens_thread_for_refetch(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    assert cli.main(["clear", "messages", "--yes", "--db", str(db_path)]) == 0
+    assert cli.main(["cache", "clear", "messages", "--yes", "--db", str(db_path)]) == 0
 
     conn = connect(db_path)
     try:

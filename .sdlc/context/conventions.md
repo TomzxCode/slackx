@@ -8,7 +8,7 @@
 - **Classes:** PascalCase (e.g. `SlackClient`, `CachedMessage`, `ThreadRef`, `FetchResult`)
 - **Constants:** UPPER_SNAKE_CASE (e.g. `SCHEMA`, `DEFAULT_LIMIT`, `MAX_RETRIES`, `CHANNEL_PREFIXES`)
 - **Private helpers:** prefixed with underscore (e.g. `_build_client`, `_format_ts`, `_latest_ts`)
-- **CLI subcommands:** kebab-case (e.g. `fetch-users`, `show-channels`)
+- **CLI subcommands:** noun-verb groups (e.g. `users fetch`, `channels list`)
 
 ## Directory Structure
 

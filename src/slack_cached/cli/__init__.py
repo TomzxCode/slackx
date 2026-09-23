@@ -1,8 +1,10 @@
 """Command-line interface for slackx.
 
 Subcommands:
-- fetch: cache or refresh a Slack thread silently.
-- show: print a cached thread to stdout (human-readable by default, --json for JSON).
+- conversations fetch: cache or refresh a Slack thread silently.
+- conversations show: print a cached thread to stdout (human-readable by default, --json for JSON).
+- conversations search: search Slack and cache the matches.
+- conversations poll: poll channels in a loop for new messages.
 - serve: browse the cache through a local web UI.
 """
 
@@ -12,17 +14,17 @@ from slack_cached.cli._internal._shared import app
 
 # Import command modules so their @app.command decorators register them.
 from slack_cached.cli.commands import (  # noqa: F401
-    clear,
-    fetch,
-    fetch_channels,
-    fetch_users,
-    poll,
-    search,
+    cache_clear,
+    cache_status,
+    channels_fetch,
+    channels_list,
+    conversations_fetch,
+    conversations_poll,
+    conversations_search,
+    conversations_show,
     serve,
-    show,
-    show_channels,
-    show_users,
-    status,
+    users_fetch,
+    users_list,
 )
 
 __all__ = ["app", "main"]

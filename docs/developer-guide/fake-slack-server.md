@@ -48,7 +48,7 @@ Point slackx at the fake server using `--api-base-url`:
 
 ```bash
 slack-fake-server &
-slackx --api-base-url http://localhost:8199/api fetch --channel C00000001
+slackx --api-base-url http://localhost:8199/api conversations fetch C00000001
 ```
 
 When using a non-default API base URL, credentials are not required.
