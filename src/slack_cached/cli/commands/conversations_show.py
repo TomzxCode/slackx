@@ -21,6 +21,7 @@ from slack_cached.cli._internal._shared import (
     CommonArgs,
     DbArg,
     FetchArg,
+    IdentifierArg,
     JsonArg,
     JsonlArg,
     LogLevelArg,
@@ -36,9 +37,12 @@ from slack_cached.cli._internal._style import _supports_styles
 from slack_cached.storage import (
     count_channel_messages,
     get_thread_state,
+    latest_message_ts,
     load_channel_display_names,
     load_channel_messages,
     load_thread_messages,
+    set_last_read,
+    transaction,
 )
 from slack_cached.urls import ThreadRef
 
@@ -61,6 +65,7 @@ async def show(
             "(e.g. 24h, 2d5h30m, 90m; default: 1d, use 'all' for full history).",
         ),
     ] = "1d",
+    identifier: IdentifierArg = "default",
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
@@ -75,6 +80,11 @@ async def show(
     shows that thread. Thread replies are omitted from channel output unless
     --with-thread-message is passed, in which case they are rendered marked as
     belonging to their thread.
+
+    After printing, the --identifier's read pointer for the shown channel or
+    thread is advanced to the newest cached message, so showing is reading.
+    Several consumers can read the same cache without affecting each other's
+    pointers.
     """
     common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
@@ -84,7 +94,10 @@ async def show(
         return 1
 
     if resolved.thread_ts is None:
-        return await _show_channel(common, resolved.channel, fetch, last, fmt, with_thread_message)
+        rc = await _show_channel(common, resolved.channel, fetch, last, fmt, with_thread_message)
+        if rc == 0:
+            await _mark_read(common, resolved.channel, None, identifier)
+        return rc
 
     log.debug("cmd_show_start")
     ref = ThreadRef(resolved.channel, resolved.thread_ts)
@@ -137,7 +150,40 @@ async def show(
     with _timed("write_output", bytes=len(output)):
         sys.stdout.write(output)
         sys.stdout.flush()
+
+    await _mark_read(common, ref.channel, ref.thread_ts, identifier)
     return 0
+
+
+async def _mark_read(
+    common: CommonArgs,
+    channel: str,
+    thread_ts: str | None,
+    identifier: str,
+) -> None:
+    """Advance ``identifier``'s read pointer to the newest cached message shown.
+
+    Showing a channel or thread means the consumer has read it, so the pointer
+    is advanced after the output is written. Identifiers are independent, so
+    this never moves another consumer's position. A blank identifier or an empty
+    scope (nothing cached) is left unmarked.
+    """
+    identifier = identifier.strip()
+    if not identifier:
+        return
+    async with _client._open_db(common) as conn:
+        marker_ts = latest_message_ts(conn, channel, thread_ts)
+        if marker_ts is None:
+            return
+        with transaction(conn):
+            set_last_read(conn, identifier, channel, marker_ts, thread_ts)
+        log.debug(
+            "read_marker_advanced",
+            identifier=identifier,
+            channel=channel,
+            thread_ts=thread_ts,
+            last_read_ts=marker_ts,
+        )
 
 
 def _load_thread_view(conn, ref) -> tuple[list, dict[str, str], str | None]:

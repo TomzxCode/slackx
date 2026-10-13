@@ -32,8 +32,12 @@ read_app = App(
     help="Track per-consumer last-read pointers for channels and threads.",
 )
 
-for _group in (channels_app, users_app, conversations_app, cache_app, read_app):
+for _group in (channels_app, users_app, conversations_app, cache_app):
     app.command(_group)
+
+# The read group lives under conversations, next to the show command that
+# advances the same pointers.
+conversations_app.command(read_app)
 
 
 # ---------------------------------------------------------------------------

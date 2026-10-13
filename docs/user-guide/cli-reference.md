@@ -30,7 +30,7 @@ slackx conversations fetch [TARGET] [--ts TS] [--full-threads] [--last DURATION]
 Print a cached thread or channel to stdout.
 
 ```bash
-slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message]
+slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message] [--identifier ID]
 ```
 
 | Argument | Description |
@@ -42,6 +42,12 @@ slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-
 | `--no-fetch` | Do not auto-fetch if not cached (`--fetch` is on by default) |
 | `--last DURATION` | Lookback period for channel display (default: `1d`) |
 | `--with-thread-message` | Also include thread replies when showing a channel, each marked as belonging to its thread |
+| `--identifier ID` | Consumer whose last-read pointer is advanced after printing (default: `default`) |
+
+After printing, the pointer for the shown channel or thread is advanced to the
+newest cached message, so showing is reading. Identifiers are independent, so
+several consumers can read the same cache without affecting each other's
+pointers. See [Tracking last read](tracking-last-read.md).
 
 ### conversations search
 
@@ -162,12 +168,12 @@ slackx cache clear read           # drop every last-read pointer
 slackx cache clear all --yes      # wipe every cached entity
 ```
 
-### read mark
+### conversations read mark
 
 Record that a consumer has read a channel or a thread up to a message.
 
 ```bash
-slackx read mark TARGET [--ts THREAD_TS] [--identifier ID] [--last-read TS]
+slackx conversations read mark TARGET [--ts THREAD_TS] [--identifier ID] [--last-read TS]
 ```
 
 | Argument | Description |
@@ -178,14 +184,15 @@ slackx read mark TARGET [--ts THREAD_TS] [--identifier ID] [--last-read TS]
 | `--last-read TS` | Explicit timestamp to store; defaults to the newest cached message in scope |
 
 Each identifier keeps its own independent set of markers. Marking a target with
-no cached messages fails unless `--last-read` is given.
+no cached messages fails unless `--last-read` is given. `conversations show`
+advances the same pointers automatically.
 
-### read show
+### conversations read show
 
 Print stored last-read pointers (human-readable by default).
 
 ```bash
-slackx read show [--identifier ID] [--channel CHANNEL] [--json | --jsonl]
+slackx conversations read show [--identifier ID] [--channel CHANNEL] [--json | --jsonl]
 ```
 
 | Argument | Description |
@@ -197,12 +204,12 @@ slackx read show [--identifier ID] [--channel CHANNEL] [--json | --jsonl]
 
 Never calls Slack.
 
-### read clear
+### conversations read clear
 
 Delete stored last-read pointers for one identifier.
 
 ```bash
-slackx read clear --identifier ID [--channel CHANNEL] [--ts THREAD_TS]
+slackx conversations read clear --identifier ID [--channel CHANNEL] [--ts THREAD_TS]
 ```
 
 | Argument | Description |

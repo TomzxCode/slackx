@@ -29,9 +29,9 @@ message anywhere in the channel for a channel marker.
 ## Marking read
 
 ```bash
-slackx read mark C0123ABCDEF --identifier web
-slackx read mark C0123ABCDEF --ts 1700000000.123456 --identifier web
-slackx read mark C0123ABCDEF --identifier poll --last-read 1700000000.000050
+slackx conversations read mark C0123ABCDEF --identifier web
+slackx conversations read mark C0123ABCDEF --ts 1700000000.123456 --identifier web
+slackx conversations read mark C0123ABCDEF --identifier poll --last-read 1700000000.000050
 ```
 
 | Argument | Description |
@@ -42,13 +42,16 @@ slackx read mark C0123ABCDEF --identifier poll --last-read 1700000000.000050
 | `--last-read TS` | Explicit timestamp to store. Defaults to the newest cached message in scope. |
 
 Marking a target with no cached messages fails unless you pass `--last-read`.
+Showing a channel or thread with `conversations show` does not need a separate
+call: it advances the same pointer for the chosen `--identifier` (default
+`default`) after printing.
 
 ## Showing pointers
 
 ```bash
-slackx read show
-slackx read show --identifier web
-slackx read show --channel C0123ABCDEF --json
+slackx conversations read show
+slackx conversations read show --identifier web
+slackx conversations read show --channel C0123ABCDEF --json
 ```
 
 With no `--identifier`, every consumer's pointers are listed.
@@ -59,9 +62,9 @@ output.
 ## Clearing pointers
 
 ```bash
-slackx read clear --identifier web --channel C0123ABCDEF
-slackx read clear --identifier web --channel C0123ABCDEF --ts 1700000000.123456
-slackx read clear --identifier web
+slackx conversations read clear --identifier web --channel C0123ABCDEF
+slackx conversations read clear --identifier web --channel C0123ABCDEF --ts 1700000000.123456
+slackx conversations read clear --identifier web
 ```
 
 Deleting is scoped: `--channel` (without `--ts`) removes every pointer for that

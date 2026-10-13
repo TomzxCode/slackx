@@ -2517,7 +2517,9 @@ def test_read_mark_channel_defaults_to_latest(
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    rc = cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)])
+    rc = cli.main(
+        ["conversations", "read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]
+    )
 
     assert rc == 0
     assert "marked 'web'" in capsys.readouterr().err
@@ -2532,7 +2534,7 @@ def test_read_mark_default_identifier(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    assert cli.main(["read", "mark", "C1", "--db", str(db_path)]) == 0
+    assert cli.main(["conversations", "read", "mark", "C1", "--db", str(db_path)]) == 0
     markers = _read_markers(db_path, "default")
     assert markers[0].last_read_ts == "1700000000.000100"
 
@@ -2544,6 +2546,7 @@ def test_read_mark_thread_scope(tmp_path: Path) -> None:
 
     rc = cli.main(
         [
+            "conversations",
             "read",
             "mark",
             "C1",
@@ -2570,6 +2573,7 @@ def test_read_mark_explicit_last_read(tmp_path: Path) -> None:
 
     rc = cli.main(
         [
+            "conversations",
             "read",
             "mark",
             "C1",
@@ -2592,7 +2596,9 @@ def test_read_mark_without_cached_messages_errors(
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
 
-    rc = cli.main(["read", "mark", "CNOPE", "--identifier", "web", "--db", str(db_path)])
+    rc = cli.main(
+        ["conversations", "read", "mark", "CNOPE", "--identifier", "web", "--db", str(db_path)]
+    )
 
     assert rc == 1
     assert "no cached messages" in capsys.readouterr().err
@@ -2601,10 +2607,16 @@ def test_read_mark_without_cached_messages_errors(
 def test_read_show_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
-    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    assert (
+        cli.main(
+            ["conversations", "read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]
+        )
+        == 0
+    )
     assert (
         cli.main(
             [
+                "conversations",
                 "read",
                 "mark",
                 "C1",
@@ -2620,7 +2632,9 @@ def test_read_show_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     )
     capsys.readouterr()
 
-    rc = cli.main(["read", "show", "--identifier", "web", "--json", "--db", str(db_path)])
+    rc = cli.main(
+        ["conversations", "read", "show", "--identifier", "web", "--json", "--db", str(db_path)]
+    )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -2629,7 +2643,7 @@ def test_read_show_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert payload["markers"][0]["thread_ts"] is None
 
     # With no --identifier every consumer's pointers are listed.
-    assert cli.main(["read", "show", "--json", "--db", str(db_path)]) == 0
+    assert cli.main(["conversations", "read", "show", "--json", "--db", str(db_path)]) == 0
     all_markers = json.loads(capsys.readouterr().out)
     assert {m["identifier"] for m in all_markers["markers"]} == {"web", "poll"}
 
@@ -2637,10 +2651,15 @@ def test_read_show_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
 def test_read_show_human(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
-    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    assert (
+        cli.main(
+            ["conversations", "read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]
+        )
+        == 0
+    )
     capsys.readouterr()
 
-    rc = cli.main(["read", "show", "--identifier", "web", "--db", str(db_path)])
+    rc = cli.main(["conversations", "read", "show", "--identifier", "web", "--db", str(db_path)])
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -2652,10 +2671,16 @@ def test_read_show_human(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
 def test_read_clear_scopes(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
-    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    assert (
+        cli.main(
+            ["conversations", "read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]
+        )
+        == 0
+    )
     assert (
         cli.main(
             [
+                "conversations",
                 "read",
                 "mark",
                 "C1",
@@ -2674,6 +2699,7 @@ def test_read_clear_scopes(tmp_path: Path) -> None:
     assert (
         cli.main(
             [
+                "conversations",
                 "read",
                 "clear",
                 "--identifier",
@@ -2694,7 +2720,19 @@ def test_read_clear_scopes(tmp_path: Path) -> None:
 
     # --channel alone drops every pointer for that channel.
     assert (
-        cli.main(["read", "clear", "--identifier", "web", "--channel", "C1", "--db", str(db_path)])
+        cli.main(
+            [
+                "conversations",
+                "read",
+                "clear",
+                "--identifier",
+                "web",
+                "--channel",
+                "C1",
+                "--db",
+                str(db_path),
+            ]
+        )
         == 0
     )
     assert _read_markers(db_path, "web") == []
@@ -2703,10 +2741,20 @@ def test_read_clear_scopes(tmp_path: Path) -> None:
 def test_read_clear_all_for_identifier(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
-    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
-    assert cli.main(["read", "mark", "C1", "--identifier", "poll", "--db", str(db_path)]) == 0
+    assert (
+        cli.main(
+            ["conversations", "read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]
+        )
+        == 0
+    )
+    assert (
+        cli.main(
+            ["conversations", "read", "mark", "C1", "--identifier", "poll", "--db", str(db_path)]
+        )
+        == 0
+    )
 
-    rc = cli.main(["read", "clear", "--identifier", "web", "--db", str(db_path)])
+    rc = cli.main(["conversations", "read", "clear", "--identifier", "web", "--db", str(db_path)])
 
     assert rc == 0
     assert _read_markers(db_path, "web") == []
@@ -2716,7 +2764,12 @@ def test_read_clear_all_for_identifier(tmp_path: Path) -> None:
 def test_clear_read_markers_target(tmp_path: Path) -> None:
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
-    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    assert (
+        cli.main(
+            ["conversations", "read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]
+        )
+        == 0
+    )
 
     rc = cli.main(["cache", "clear", "read", "--yes", "--db", str(db_path)])
 
@@ -2725,3 +2778,78 @@ def test_clear_read_markers_target(tmp_path: Path) -> None:
     assert counts.read_marker_count == 0
     # Other data is untouched.
     assert counts.message_count == 1
+
+
+def test_show_advances_read_marker(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Showing a thread or channel advances that consumer's pointer."""
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    assert (
+        cli.main(
+            [
+                "conversations",
+                "show",
+                "C1",
+                "--ts",
+                "1700000000.000100",
+                "--no-fetch",
+                "--identifier",
+                "web",
+                "--db",
+                str(db_path),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    markers = _read_markers(db_path, "web")
+    assert [(m.thread_ts, m.last_read_ts) for m in markers] == [
+        ("1700000000.000100", "1700000000.000100")
+    ]
+
+    assert (
+        cli.main(
+            [
+                "conversations",
+                "show",
+                "C1",
+                "--no-fetch",
+                "--identifier",
+                "web",
+                "--db",
+                str(db_path),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    markers = _read_markers(db_path, "web")
+    assert {(m.thread_ts, m.last_read_ts) for m in markers} == {
+        ("1700000000.000100", "1700000000.000100"),
+        (None, "1700000000.000100"),
+    }
+
+
+def test_show_uses_default_identifier(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    assert cli.main(["conversations", "show", "C1", "--no-fetch", "--db", str(db_path)]) == 0
+    capsys.readouterr()
+
+    markers = _read_markers(db_path, "default")
+    assert len(markers) == 1
+    assert markers[0].thread_ts is None
+
+
+def test_show_without_cached_messages_leaves_no_marker(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    assert cli.main(["conversations", "show", "CNOPE", "--no-fetch", "--db", str(db_path)]) == 0
+    capsys.readouterr()
+
+    assert _read_markers(db_path, "default") == []
