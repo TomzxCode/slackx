@@ -91,6 +91,16 @@ FetchArg = Annotated[
         help="Auto-fetch from Slack when the cache is empty (disable with --no-fetch).",
     ),
 ]
+ShowFetchArg = Annotated[
+    bool | None,
+    Parameter(
+        name="--fetch",
+        negative="--no-fetch",
+        help="Fetch from Slack before printing: --fetch refreshes even a cached "
+        "thread or channel, --no-fetch never fetches. Default: fetch only when "
+        "the target is not cached.",
+    ),
+]
 WithThreadMessageArg = Annotated[
     bool,
     Parameter(

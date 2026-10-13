@@ -62,6 +62,9 @@ Out of scope: channel message fetching, search, polling, read markers, the web A
 | TC-33 | A message cached by search is shown by show --no-fetch | Run search, then show the thread with --no-fetch | Cached text is printed | tests/test_cli.py::test_search_caches_matches_for_show |
 | TC-34 | Show --json and --jsonl are mutually exclusive | Run show with both flags | SystemExit with "mutually exclusive" on stderr | tests/test_cli.py::test_show_json_and_jsonl_are_mutually_exclusive |
 | TC-35 | Fetch prints a summary to stderr with the resolved channel | Fetch a channel by name | Stderr reports "for C1" | tests/test_cli.py::test_fetch_channel_resolves_name |
+| TC-42 | Default show does not re-fetch a cached thread | Fetch a thread, then show it without flags using a client that would raise | Exit 0, cached text printed, no client call | tests/test_cli.py::test_show_default_does_not_refetch_cached_thread |
+| TC-43 | show --fetch refreshes a cached thread | Fetch a thread, then show --fetch with a client returning a new reply | Exit 0, new reply printed, incremental fetch (oldest=latest reply) | tests/test_cli.py::test_show_fetch_refreshes_cached_thread |
+| TC-44 | show --fetch refreshes a cached channel | Fetch a channel, then show --fetch with a client returning a new message | Exit 0, new message printed | tests/test_cli.py::test_show_channel_fetch_refreshes_cached |
 
 ## Edge Cases and Failure Scenarios
 
@@ -97,7 +100,7 @@ Out of scope: channel message fetching, search, polling, read markers, the web A
 | FR-06 | TC-14, TC-15, TC-16 |
 | FR-07 | TC-20 |
 | FR-08 | TC-22, TC-23, TC-28, TC-41 |
-| FR-09 | TC-29, TC-38 (channel scope; thread auto-fetch has no direct test) |
+| FR-09 | TC-29, TC-38, TC-42, TC-43, TC-44 |
 | FR-10 | TC-21 |
 | FR-11 | TC-12 (covers the shared cursor loop; iter_thread_replies has no direct test) |
 | FR-12 | No dedicated test |

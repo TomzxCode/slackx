@@ -76,8 +76,9 @@ No REST API is exposed. The CLI subcommands serve as the interface:
 
 ### show
 
-- Input: URL or --channel/--ts, optional --db, optional --json, optional --no-fetch, optional --oldest (duration), optional -v
+- Input: URL or --channel/--ts, optional --db, optional --json, optional --fetch/--no-fetch, optional --oldest (duration), optional -v
 - When --channel is given without --ts: displays all cached messages for the channel, auto-fetching if needed
+- --fetch forces an incremental refresh even when the thread or channel is already cached; --no-fetch never contacts Slack; the default fetches only on a cache miss
 - Output (stdout): human-readable text or JSON (includes channel_name and resolved user names)
 - Exit code: 0 on success
 

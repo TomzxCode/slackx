@@ -39,7 +39,8 @@ slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-
 | `--ts TS` | Thread root timestamp |
 | `--json` | Output as pretty-printed JSON |
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
-| `--no-fetch` | Do not auto-fetch if not cached (`--fetch` is on by default) |
+| `--no-fetch` | Never fetch from Slack, even if the target is not cached |
+| `--fetch` | Force a refresh from Slack even if the target is already cached |
 | `--last DURATION` | Lookback period for channel display (default: `1d`) |
 | `--with-thread-message` | Also include thread replies when showing a channel, each marked as belonging to its thread |
 | `--reader ID` | Reader whose last-read pointer is advanced after printing (default: `default`) |

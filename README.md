@@ -87,7 +87,8 @@ slackx conversations fetch C0123ABCDEF --ts 1700000000.123456
 
 Show a cached thread (human-readable by default; use `--json` for JSON, or
 `--jsonl` for the whole payload as a single compact JSON line). It auto-fetches
-if the thread is missing; pass `--no-fetch` to disable that:
+if the thread is missing; pass `--no-fetch` to disable that, or `--fetch` to
+refresh the cached thread before printing:
 
 ```bash
 slackx conversations show https://acme.slack.com/archives/C0123ABCDEF/p1700000000123456

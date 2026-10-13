@@ -87,4 +87,4 @@ Display as JSON:
 slackx conversations show C01234 --json
 ```
 
-Channel messages are auto-fetched if the cache is empty (unless `--no-fetch` is given).
+Channel messages are auto-fetched if the cache is empty (unless `--no-fetch` is given). `--fetch` refreshes an already-cached channel before printing, and `--no-fetch` never contacts Slack.

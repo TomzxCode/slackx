@@ -59,3 +59,13 @@ The `conversations show` command automatically fetches a thread if it is not yet
 ```bash
 slackx conversations show --no-fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
+
+## Refresh before showing
+
+`show` does not re-fetch a thread that is already cached, so its output can be stale. Pass `--fetch` to refresh the cached thread (incrementally, like `conversations fetch`) before printing:
+
+```bash
+slackx conversations show --fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
+```
+
+Without `--fetch` or `--no-fetch`, `show` fetches only when the thread is missing from the cache.

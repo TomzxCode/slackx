@@ -20,11 +20,11 @@ from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
     CommonArgs,
     DbArg,
-    FetchArg,
     JsonArg,
     JsonlArg,
     LogLevelArg,
     ReaderArg,
+    ShowFetchArg,
     TargetArg,
     TsArg,
     WithThreadMessageArg,
@@ -54,7 +54,7 @@ async def show(
     target: TargetArg = None,
     *,
     ts: TsArg = None,
-    fetch: FetchArg = True,
+    fetch: ShowFetchArg = None,
     json_output: JsonArg = False,
     jsonl_output: JsonlArg = False,
     with_thread_message: WithThreadMessageArg = False,
@@ -73,7 +73,8 @@ async def show(
 ) -> int:
     """Print a cached thread or channel to stdout (human-readable by default).
 
-    Fetches first if not already cached (disable with --no-fetch).
+    Fetches first if not already cached. --fetch forces a refresh even when
+    cached; --no-fetch never fetches.
 
     The target is a Slack permalink, a channel (id, name, or #name), or a DM
     (user id or @handle). Without --ts, shows the channel's messages; with --ts,
@@ -103,13 +104,16 @@ async def show(
     ref = ThreadRef(resolved.channel, resolved.thread_ts)
 
     # Read first from the offline-resolved workspace database; only hit the
-    # network (and its auth.test-resolved workspace) on a cache miss.
+    # network (and its auth.test-resolved workspace) on a cache miss or an
+    # explicit --fetch refresh.
     need_fetch = False
+    cached = False
     async with _client._open_db(common) as conn:
-        if get_thread_state(conn, ref.channel, ref.thread_ts) is not None or not fetch:
-            messages, user_names, channel_name = _load_thread_view(conn, ref)
-        else:
+        cached = get_thread_state(conn, ref.channel, ref.thread_ts) is not None
+        if _should_fetch(fetch, cached):
             need_fetch = True
+        else:
+            messages, user_names, channel_name = _load_thread_view(conn, ref)
 
     if need_fetch:
         # Imported lazily so the cached-read path does not pull in the
@@ -120,18 +124,22 @@ async def show(
             _client._open_client(common) as client,
             _client._open_db(common, client) as conn,
         ):
-            if get_thread_state(conn, ref.channel, ref.thread_ts) is None:
-                log.info(
-                    "thread_not_cached_fetching",
-                    channel=ref.channel,
-                    thread_ts=ref.thread_ts,
-                    thread_ts_iso=_format_ts(ref.thread_ts),
-                )
-                if log_level == "debug":
-                    print(
-                        f"fetching thread {ref.channel}/{ref.thread_ts} from Slack...",
-                        file=sys.stderr,
+            # An explicit --fetch always refreshes; the default only fetches
+            # when the thread is still missing (re-checked here in case another
+            # process cached it in the meantime).
+            if fetch is True or get_thread_state(conn, ref.channel, ref.thread_ts) is None:
+                if not cached:
+                    log.info(
+                        "thread_not_cached_fetching",
+                        channel=ref.channel,
+                        thread_ts=ref.thread_ts,
+                        thread_ts_iso=_format_ts(ref.thread_ts),
                     )
+                    if log_level == "debug":
+                        print(
+                            f"fetching thread {ref.channel}/{ref.thread_ts} from Slack...",
+                            file=sys.stderr,
+                        )
                 await fetch_thread(conn, client, ref)
             messages, user_names, channel_name = _load_thread_view(conn, ref)
 
@@ -194,10 +202,21 @@ def _load_thread_view(conn, ref) -> tuple[list, dict[str, str], str | None]:
     return messages, user_names, channel_name
 
 
+def _should_fetch(fetch: bool | None, cached: bool) -> bool:
+    """Decide whether to hit Slack given the --fetch flag and cache state.
+
+    ``--fetch`` (True) always fetches, ``--no-fetch`` (False) never does, and
+    the default (None) fetches only when the target is not cached.
+    """
+    if fetch is None:
+        return not cached
+    return fetch
+
+
 async def _show_channel(
     common: CommonArgs,
     channel: str,
-    fetch: bool,
+    fetch: bool | None,
     last: str,
     fmt: str,
     with_thread_message: bool = False,
@@ -210,26 +229,42 @@ async def _show_channel(
     oldest = _oldest_ts_from_last(last)
 
     # Read first from the offline-resolved workspace database; only hit the
-    # network (and its auth.test-resolved workspace) on a cache miss.
+    # network (and its auth.test-resolved workspace) on a cache miss or an
+    # explicit --fetch refresh.
+    need_fetch = False
+    cached = False
+    messages: list = []
+    user_names: dict[str, str] = {}
+    channel_name: str | None = None
     async with _client._open_db(common) as conn:
-        messages = load_channel_messages(conn, channel, include_thread_replies=with_thread_message)
-        user_names = _build_user_names(conn, messages)
-        channel_name = load_channel_display_names(conn, [channel]).get(channel)
+        cached = count_channel_messages(conn, channel) > 0
+        if _should_fetch(fetch, cached):
+            need_fetch = True
+        else:
+            messages = load_channel_messages(
+                conn, channel, include_thread_replies=with_thread_message
+            )
+            user_names = _build_user_names(conn, messages)
+            channel_name = load_channel_display_names(conn, [channel]).get(channel)
 
-    if not messages and fetch:
+    if need_fetch:
         from slack_cached.cache import fetch_channel_messages
 
         async with (
             _client._open_client(common) as client,
             _client._open_db(common, client) as conn,
         ):
-            if not count_channel_messages(conn, channel):
-                log.info("channel_not_cached_fetching", channel=channel)
-                if common.log_level == "debug":
-                    print(
-                        f"fetching messages for {channel} from Slack...",
-                        file=sys.stderr,
-                    )
+            # An explicit --fetch always refreshes; the default only fetches
+            # when the channel is still empty (re-checked here in case another
+            # process cached it in the meantime).
+            if fetch is True or not count_channel_messages(conn, channel):
+                if not cached:
+                    log.info("channel_not_cached_fetching", channel=channel)
+                    if common.log_level == "debug":
+                        print(
+                            f"fetching messages for {channel} from Slack...",
+                            file=sys.stderr,
+                        )
                 await fetch_channel_messages(conn, client, channel, oldest=oldest)
             messages = load_channel_messages(
                 conn, channel, include_thread_replies=with_thread_message

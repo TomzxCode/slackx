@@ -80,6 +80,132 @@ def test_show_prints_human_readable_by_default(
     assert "hello" in out
 
 
+def test_show_default_does_not_refetch_cached_thread(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Default show reads a cached thread without calling Slack."""
+    db_path = tmp_path / "cache.db"
+    _populate_single_message(monkeypatch, db_path)
+
+    class NoCallClient:
+        async def iter_thread_replies(self, *args, **kwargs):
+            raise AssertionError("default show must not fetch a cached thread")
+            yield  # pragma: no cover - makes this an async generator
+
+        async def aclose(self) -> None:
+            pass
+
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: NoCallClient())
+
+    rc = cli.main(
+        [
+            "conversations",
+            "show",
+            "C0123ABCDEF",
+            "--ts",
+            "1700000000.000100",
+            "--db",
+            str(db_path),
+        ]
+    )
+    assert rc == 0
+    assert "hello" in capsys.readouterr().out
+
+
+def test_show_fetch_refreshes_cached_thread(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show --fetch re-fetches a cached thread and prints new replies."""
+    db_path = tmp_path / "cache.db"
+    calls: list[str | None] = []
+
+    class FakeClient:
+        async def iter_thread_replies(
+            self,
+            channel: str,
+            thread_ts: str,
+            oldest: str | None = None,
+            limit: int = 200,
+        ):
+            calls.append(oldest)
+            yield {"ts": "1700000000.000100", "user": "U1", "text": "hello"}
+            if oldest is not None:
+                yield {"ts": "1700000005.000100", "user": "U2", "text": "a new reply"}
+
+        async def aclose(self) -> None:
+            pass
+
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeClient())
+
+    rc = cli.main(
+        [
+            "conversations",
+            "fetch",
+            "C0123ABCDEF",
+            "--ts",
+            "1700000000.000100",
+            "--db",
+            str(db_path),
+        ]
+    )
+    assert rc == 0
+    assert calls == [None]
+
+    rc = cli.main(
+        [
+            "conversations",
+            "show",
+            "C0123ABCDEF",
+            "--ts",
+            "1700000000.000100",
+            "--fetch",
+            "--db",
+            str(db_path),
+        ]
+    )
+    assert rc == 0
+    # The cached thread triggered an incremental refresh (oldest=latest reply).
+    assert calls == [None, "1700000000.000100"]
+
+    out = capsys.readouterr().out
+    assert "2 message(s)" in out
+    assert "a new reply" in out
+
+
+def test_show_channel_fetch_refreshes_cached(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """show --fetch on a cached channel re-fetches its history."""
+    db_path = tmp_path / "cache.db"
+    calls: list[str | None] = []
+
+    class FakeChannelClient:
+        async def iter_channel_history(self, channel, oldest=None, latest=None, limit=200):
+            calls.append(oldest)
+            yield {"ts": "1700000000.000100", "user": "U1", "text": "cached_msg"}
+            if len(calls) > 1:
+                yield {"ts": "1700000005.000100", "user": "U2", "text": "refreshed"}
+
+        async def iter_thread_replies(self, *args, **kwargs):
+            return
+            yield  # pragma: no cover - makes this an async generator
+
+        async def aclose(self) -> None:
+            pass
+
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda _: FakeChannelClient())
+
+    rc = cli.main(["conversations", "fetch", "C1", "--db", str(db_path)])
+    assert rc == 0
+
+    rc = cli.main(["conversations", "show", "C1", "--fetch", "--db", str(db_path)])
+    assert rc == 0
+
+    out = capsys.readouterr().out
+    assert "cached_msg" in out
+    assert "refreshed" in out
+
+
 def test_show_renders_user_name_when_cached(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
