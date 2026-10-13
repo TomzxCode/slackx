@@ -25,8 +25,8 @@ from slack_cached.storage import (
     get_channel,
     get_thread_state,
     get_user,
-    load_channels,
     load_channel_thread_roots,
+    load_channels,
     load_thread_messages,
     load_users,
 )
@@ -501,9 +501,7 @@ def test_fetch_channel_messages_reconcile_respects_oldest_window(
     # deleted on Slack and gets flagged, while the old one sits outside the
     # window and must stay unmarked even though the response lacks it.
     second = FakeChannelClient(history=[])
-    result = asyncio.run(
-        fetch_channel_messages(conn, second, "C1", oldest="1700000000.000150")
-    )
+    result = asyncio.run(fetch_channel_messages(conn, second, "C1", oldest="1700000000.000150"))
 
     roots = load_channel_thread_roots(conn, "C1")
     by_ts = {r.ts: r for r in roots}
@@ -618,8 +616,10 @@ def test_fetch_thread_stores_edited_field(tmp_path: Path) -> None:
     client = FakeClient(
         batches=[
             [
-                dict(_msg("1700000000.000100", text="root"),
-                     edited={"user": "U1", "ts": "1700000000.000150"}),
+                dict(
+                    _msg("1700000000.000100", text="root"),
+                    edited={"user": "U1", "ts": "1700000000.000150"},
+                ),
             ],
         ]
     )

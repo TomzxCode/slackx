@@ -52,8 +52,7 @@ def _render_blocks(blocks: list[Any], s: _Styler) -> list[str]:
             parts = [
                 _text_object(element, s)
                 for element in block.get("elements") or []
-                if isinstance(element, dict)
-                and element.get("type") in ("plain_text", "mrkdwn")
+                if isinstance(element, dict) and element.get("type") in ("plain_text", "mrkdwn")
             ]
             if any(parts):
                 lines.append("  ".join(part for part in parts if part))
@@ -65,9 +64,7 @@ def _render_blocks(blocks: list[Any], s: _Styler) -> list[str]:
                 if not url:
                     continue
                 label = element.get("text")
-                label_text = (
-                    label.get("text") if isinstance(label, dict) else None
-                ) or url
+                label_text = (label.get("text") if isinstance(label, dict) else None) or url
                 lines.append(_link_line(label_text, str(url), s))
     return lines
 
@@ -90,9 +87,7 @@ def _render_attachments(attachments: list[Any], s: _Styler) -> list[str]:
     return lines
 
 
-def _message_body_lines(
-    text: str | None, payload: dict[str, Any] | None, s: _Styler
-) -> list[str]:
+def _message_body_lines(text: str | None, payload: dict[str, Any] | None, s: _Styler) -> list[str]:
     """Return a message's body lines: blocks, else text, plus attachments."""
     payload = payload or {}
     body = _render_blocks(payload.get("blocks") or [], s)

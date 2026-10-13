@@ -28,12 +28,12 @@ from .storage import (
     count_channels,
     count_messages,
     count_users,
-    mark_channel_roots_deleted_not_in,
-    mark_thread_messages_deleted_not_in,
     get_channel,
     get_thread_state,
     get_user,
     load_thread_messages,
+    mark_channel_roots_deleted_not_in,
+    mark_thread_messages_deleted_not_in,
     record_thread_refresh,
     transaction,
     upsert_channels,
@@ -196,9 +196,7 @@ async def fetch_thread(
       no deletion information, so nothing is reconciled.
     """
     state = get_thread_state(conn, ref.channel, ref.thread_ts)
-    incremental = (
-        state is not None and state.latest_reply is not None and not force_full
-    )
+    incremental = state is not None and state.latest_reply is not None and not force_full
     oldest = state.latest_reply if incremental else None
 
     log.info(

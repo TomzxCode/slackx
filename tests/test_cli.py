@@ -240,11 +240,6 @@ def test_fetch_with_url(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
     assert calls == [None]
 
 
-def test_resolve_ref_requires_url_or_channel_ts() -> None:
-    with pytest.raises(SystemExit):
-        cli._internal._refs._resolve_ref(None, None, None)
-
-
 def test_fetch_result_dataclass_fields() -> None:
     result = FetchResult(
         channel="C1", thread_ts="1.000", fetched_messages=1, total_messages=2, incremental=True
@@ -838,7 +833,6 @@ def test_fetch_channel_via_url(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         [
             "conversations",
             "fetch",
-            "--url",
             "https://acme.slack.com/archives/C1",
             "--db",
             str(db_path),
@@ -997,7 +991,6 @@ def test_show_channel_via_url(
         [
             "conversations",
             "show",
-            "--url",
             "https://acme.slack.com/archives/C1",
             "--db",
             str(db_path),
