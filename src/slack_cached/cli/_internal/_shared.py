@@ -161,19 +161,19 @@ TsArg = Annotated[
         help="Thread root ts (e.g. 1700000000.123456) to read a thread from a channel or DM target."
     ),
 ]
-IdentifierArg = Annotated[
+ReaderArg = Annotated[
     str,
     Parameter(
-        name="--identifier",
-        help="Name of the consumer owning these read pointers, so several "
-        "readers can each track their own (e.g. 'web', 'poll').",
+        name="--reader",
+        help="Name of the reader that owns these read pointers, so several "
+        "consumers can each keep their own (e.g. 'web', 'poll').",
     ),
 ]
-OptionalIdentifierArg = Annotated[
+OptionalReaderArg = Annotated[
     str | None,
     Parameter(
-        name="--identifier",
-        help="Restrict to one consumer's read pointers (default: every identifier).",
+        name="--reader",
+        help="Restrict to one reader's read pointers (default: every reader).",
     ),
 ]
 LastReadArg = Annotated[

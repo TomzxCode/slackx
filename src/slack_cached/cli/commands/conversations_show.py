@@ -21,10 +21,10 @@ from slack_cached.cli._internal._shared import (
     CommonArgs,
     DbArg,
     FetchArg,
-    IdentifierArg,
     JsonArg,
     JsonlArg,
     LogLevelArg,
+    ReaderArg,
     TargetArg,
     TsArg,
     WithThreadMessageArg,
@@ -65,7 +65,7 @@ async def show(
             "(e.g. 24h, 2d5h30m, 90m; default: 1d, use 'all' for full history).",
         ),
     ] = "1d",
-    identifier: IdentifierArg = "default",
+    reader: ReaderArg = "default",
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
@@ -81,7 +81,7 @@ async def show(
     --with-thread-message is passed, in which case they are rendered marked as
     belonging to their thread.
 
-    After printing, the --identifier's read pointer for the shown channel or
+    After printing, the --reader's read pointer for the shown channel or
     thread is advanced to the newest cached message, so showing is reading.
     Several consumers can read the same cache without affecting each other's
     pointers.
@@ -96,7 +96,7 @@ async def show(
     if resolved.thread_ts is None:
         rc = await _show_channel(common, resolved.channel, fetch, last, fmt, with_thread_message)
         if rc == 0:
-            await _mark_read(common, resolved.channel, None, identifier)
+            await _mark_read(common, resolved.channel, None, reader)
         return rc
 
     log.debug("cmd_show_start")
@@ -151,7 +151,7 @@ async def show(
         sys.stdout.write(output)
         sys.stdout.flush()
 
-    await _mark_read(common, ref.channel, ref.thread_ts, identifier)
+    await _mark_read(common, ref.channel, ref.thread_ts, reader)
     return 0
 
 
@@ -159,27 +159,27 @@ async def _mark_read(
     common: CommonArgs,
     channel: str,
     thread_ts: str | None,
-    identifier: str,
+    reader: str,
 ) -> None:
-    """Advance ``identifier``'s read pointer to the newest cached message shown.
+    """Advance ``reader``'s read pointer to the newest cached message shown.
 
-    Showing a channel or thread means the consumer has read it, so the pointer
-    is advanced after the output is written. Identifiers are independent, so
-    this never moves another consumer's position. A blank identifier or an empty
-    scope (nothing cached) is left unmarked.
+    Showing a channel or thread means the reader has read it, so the pointer is
+    advanced after the output is written. Readers are independent, so this never
+    moves another consumer's position. A blank reader or an empty scope (nothing
+    cached) is left unmarked.
     """
-    identifier = identifier.strip()
-    if not identifier:
+    reader = reader.strip()
+    if not reader:
         return
     async with _client._open_db(common) as conn:
         marker_ts = latest_message_ts(conn, channel, thread_ts)
         if marker_ts is None:
             return
         with transaction(conn):
-            set_last_read(conn, identifier, channel, marker_ts, thread_ts)
+            set_last_read(conn, reader, channel, marker_ts, thread_ts)
         log.debug(
             "read_marker_advanced",
-            identifier=identifier,
+            reader=reader,
             channel=channel,
             thread_ts=thread_ts,
             last_read_ts=marker_ts,

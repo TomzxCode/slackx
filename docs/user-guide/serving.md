@@ -98,11 +98,11 @@ remember how far each reader has read:
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/read?identifier=web&channel=C123` | List pointers, optionally filtered. |
-| `PUT /api/read` | Create or advance a pointer (body: `identifier`, `channel`, optional `thread_ts`, optional `last_read_ts`). |
-| `DELETE /api/read/{identifier}` | Delete all pointers for an identifier (optional `?channel=`). |
-| `DELETE /api/read/{identifier}/{channel}` | Delete the channel-level pointer. |
-| `DELETE /api/read/{identifier}/{channel}/{thread_ts}` | Delete one thread pointer. |
+| `GET /api/read?reader=web&channel=C123` | List pointers, optionally filtered. |
+| `PUT /api/read` | Create or advance a pointer (body: `reader`, `channel`, optional `thread_ts`, optional `last_read_ts`). |
+| `DELETE /api/read/{reader}` | Delete all pointers for a reader (optional `?channel=`). |
+| `DELETE /api/read/{reader}/{channel}` | Delete the channel-level pointer. |
+| `DELETE /api/read/{reader}/{channel}/{thread_ts}` | Delete one thread pointer. |
 
 ## Notes
 

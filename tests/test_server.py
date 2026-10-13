@@ -248,23 +248,23 @@ def test_slack_style_archive_routes_serve_ui(client: TestClient) -> None:
 
 
 def test_read_marker_put_defaults_to_latest_and_lists(client: TestClient) -> None:
-    response = client.put("/api/read", json={"identifier": "web", "channel": "C1"})
+    response = client.put("/api/read", json={"reader": "web", "channel": "C1"})
     assert response.status_code == 200
     marker = response.json()["marker"]
     assert marker["thread_ts"] is None
     # Newest cached message anywhere in the channel (the reply).
     assert marker["last_read_ts"] == "1700000100.000003"
 
-    listed = client.get("/api/read", params={"identifier": "web"}).json()
+    listed = client.get("/api/read", params={"reader": "web"}).json()
     assert listed["read_count"] == 1
-    assert listed["markers"][0]["identifier"] == "web"
+    assert listed["markers"][0]["reader"] == "web"
 
 
 def test_read_marker_thread_and_explicit_value(client: TestClient) -> None:
     client.put(
         "/api/read",
         json={
-            "identifier": "web",
+            "reader": "web",
             "channel": "C1",
             "thread_ts": "1700000100.000002",
             "last_read_ts": "1700000100000002",
@@ -277,28 +277,28 @@ def test_read_marker_thread_and_explicit_value(client: TestClient) -> None:
 
 
 def test_read_marker_put_unknown_channel_is_404(client: TestClient) -> None:
-    response = client.put("/api/read", json={"identifier": "web", "channel": "CNOPE"})
+    response = client.put("/api/read", json={"reader": "web", "channel": "CNOPE"})
     assert response.status_code == 404
 
 
-def test_read_marker_put_blank_identifier_is_422(client: TestClient) -> None:
-    response = client.put("/api/read", json={"identifier": "   ", "channel": "C1"})
+def test_read_marker_put_blank_reader_is_422(client: TestClient) -> None:
+    response = client.put("/api/read", json={"reader": "   ", "channel": "C1"})
     assert response.status_code == 422
 
 
 def test_read_marker_delete_scopes(client: TestClient) -> None:
-    client.put("/api/read", json={"identifier": "web", "channel": "C1"})
+    client.put("/api/read", json={"reader": "web", "channel": "C1"})
     client.put(
         "/api/read",
-        json={"identifier": "web", "channel": "C1", "thread_ts": "1700000100.000002"},
+        json={"reader": "web", "channel": "C1", "thread_ts": "1700000100.000002"},
     )
-    client.put("/api/read", json={"identifier": "poll", "channel": "C1"})
+    client.put("/api/read", json={"reader": "poll", "channel": "C1"})
 
     # Delete one thread pointer.
     assert client.delete("/api/read/web/C1/1700000100.000002").json() == {"deleted": 1}
     # Delete the channel-level pointer only.
     assert client.delete("/api/read/web/C1").json() == {"deleted": 1}
     assert client.get("/api/read", params={"channel": "C1"}).json()["read_count"] == 1
-    # Delete everything for the identifier.
+    # Delete everything for the reader.
     assert client.delete("/api/read/poll").json() == {"deleted": 1}
     assert client.get("/api/read").json()["read_count"] == 0

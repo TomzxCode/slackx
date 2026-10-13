@@ -16,7 +16,7 @@ from slack_cached.cli._internal._shared import (
     JsonArg,
     JsonlArg,
     LogLevelArg,
-    OptionalIdentifierArg,
+    OptionalReaderArg,
     WorkspaceArg,
     _setup,
     read_app,
@@ -30,7 +30,7 @@ log = structlog.get_logger(__name__)
 @read_app.command(name="show")
 async def show(
     *,
-    identifier: OptionalIdentifierArg = None,
+    reader: OptionalReaderArg = None,
     channel: ChannelIdArg = None,
     json_output: JsonArg = False,
     jsonl_output: JsonlArg = False,
@@ -41,9 +41,9 @@ async def show(
 ) -> int:
     """Print stored last-read pointers (human-readable by default).
 
-    With --identifier only that consumer's pointers are shown; otherwise every
-    consumer's are. --channel limits output to one channel (id, name, or
-    #name). Never calls Slack.
+    With --reader only that reader's pointers are shown; otherwise every
+    reader's are. --channel limits output to one channel (id, name, or #name).
+    Never calls Slack.
     """
     common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
@@ -58,7 +58,7 @@ async def show(
         channel_id = resolved
 
     async with _client._open_db(common) as conn:
-        markers = load_read_markers(conn, identifier, channel=channel_id)
+        markers = load_read_markers(conn, reader, channel=channel_id)
 
     if fmt in ("json", "jsonl"):
         payload = {

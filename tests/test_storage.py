@@ -686,8 +686,8 @@ def test_set_last_read_replaces_existing(tmp_path: Path) -> None:
     assert count_read_markers(conn) == 1
 
 
-def test_read_markers_are_per_identifier(tmp_path: Path) -> None:
-    """Each identifier keeps its own pointer for the same scope."""
+def test_read_markers_are_per_reader(tmp_path: Path) -> None:
+    """Each reader keeps its own pointer for the same scope."""
     conn = connect(tmp_path / "cache.db")
     set_last_read(conn, "web", "C1", "1700000000.000100")
     set_last_read(conn, "poll", "C1", "1700000000.000400")
@@ -707,7 +707,7 @@ def test_load_read_markers_filters_and_orders(tmp_path: Path) -> None:
     conn.commit()
 
     all_markers = load_read_markers(conn)
-    assert [(m.identifier, m.channel, m.thread_ts) for m in all_markers] == [
+    assert [(m.reader, m.channel, m.thread_ts) for m in all_markers] == [
         ("poll", "C1", None),
         ("web", "C1", None),
         ("web", "C1", "1700000000.000100"),
@@ -716,7 +716,7 @@ def test_load_read_markers_filters_and_orders(tmp_path: Path) -> None:
 
     web = load_read_markers(conn, "web")
     assert len(web) == 3
-    assert all(m.identifier == "web" for m in web)
+    assert all(m.reader == "web" for m in web)
 
     web_c1 = load_read_markers(conn, "web", channel="C1")
     assert [(m.channel, m.thread_ts) for m in web_c1] == [
@@ -739,12 +739,12 @@ def test_delete_read_marker_and_markers(tmp_path: Path) -> None:
     # Deleting a missing marker is a no-op.
     assert delete_read_marker(conn, "web", "C1", "1700000000.000100") == 0
 
-    # Delete one channel's markers for one identifier, leaving others alone.
+    # Delete one channel's markers for one reader, leaving others alone.
     assert delete_read_markers(conn, "web", channel="C1") == 1
     assert get_read_marker(conn, "web", "C1") is None
     assert get_read_marker(conn, "poll", "C1") is not None
 
-    # Delete every marker owned by the identifier.
+    # Delete every marker owned by the reader.
     assert delete_read_markers(conn, "web") == 1
     assert load_read_markers(conn, "web") == []
     assert count_read_markers(conn) == 1

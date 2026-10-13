@@ -182,16 +182,16 @@ Record how far each consumer has read in a channel or a thread, so several
 programs can share one cache without overwriting each other's position:
 
 ```bash
-slackx conversations read mark C0123ABCDEF --identifier web
-slackx conversations read mark C0123ABCDEF --ts 1700000000.123456 --identifier web
-slackx conversations read show --identifier web
-slackx conversations read clear --identifier web --channel C0123ABCDEF
+slackx conversations read mark C0123ABCDEF --reader web
+slackx conversations read mark C0123ABCDEF --ts 1700000000.123456 --reader web
+slackx conversations read show --reader web
+slackx conversations read clear --reader web --channel C0123ABCDEF
 ```
 
-Each `--identifier` (default `default`) owns an independent set of pointers: a
+Each `--reader` (default `default`) owns an independent set of pointers: a
 channel-level pointer plus one per thread. The value defaults to the newest
 cached message in scope; pass `--last-read TS` to set it explicitly. Showing a
-channel or thread with `conversations show --identifier ID` advances the same
+channel or thread with `conversations show --reader ID` advances the same
 pointer automatically, so showing is reading. The `serve` web API exposes the
 pointers under `/api/read`. Use `slackx cache clear read` to drop every pointer.
 

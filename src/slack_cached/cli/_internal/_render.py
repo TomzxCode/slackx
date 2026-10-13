@@ -437,7 +437,7 @@ def _render_read_markers_human(
 ) -> str:
     """Render last-read pointers as a human-readable string.
 
-    Each line shows the identifier, the channel, the scope (``channel`` or the
+    Each line shows the reader, the channel, the scope (``channel`` or the
     thread root ts), the last-read ts, and when the pointer was last updated.
     """
     s = _styler(styled)
@@ -445,7 +445,7 @@ def _render_read_markers_human(
     for marker in markers:
         scope = s.dim("(channel)") if marker.thread_ts is None else f"thread {marker.thread_ts}"
         lines.append(
-            f"{s.bold(marker.identifier)}  {marker.channel}  {scope}  "
+            f"{s.bold(marker.reader)}  {marker.channel}  {scope}  "
             f"{s.italic(_format_ts(marker.last_read_ts))}  "
             f"{s.dim(f'updated {_format_epoch(marker.updated_at)}')}"
         )

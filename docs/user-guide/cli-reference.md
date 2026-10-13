@@ -30,7 +30,7 @@ slackx conversations fetch [TARGET] [--ts TS] [--full-threads] [--last DURATION]
 Print a cached thread or channel to stdout.
 
 ```bash
-slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message] [--identifier ID]
+slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message] [--reader ID]
 ```
 
 | Argument | Description |
@@ -42,10 +42,10 @@ slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-
 | `--no-fetch` | Do not auto-fetch if not cached (`--fetch` is on by default) |
 | `--last DURATION` | Lookback period for channel display (default: `1d`) |
 | `--with-thread-message` | Also include thread replies when showing a channel, each marked as belonging to its thread |
-| `--identifier ID` | Consumer whose last-read pointer is advanced after printing (default: `default`) |
+| `--reader ID` | Reader whose last-read pointer is advanced after printing (default: `default`) |
 
 After printing, the pointer for the shown channel or thread is advanced to the
-newest cached message, so showing is reading. Identifiers are independent, so
+newest cached message, so showing is reading. Readers are independent, so
 several consumers can read the same cache without affecting each other's
 pointers. See [Tracking last read](tracking-last-read.md).
 
@@ -170,20 +170,20 @@ slackx cache clear all --yes      # wipe every cached entity
 
 ### conversations read mark
 
-Record that a consumer has read a channel or a thread up to a message.
+Record that a reader has read a channel or a thread up to a message.
 
 ```bash
-slackx conversations read mark TARGET [--ts THREAD_TS] [--identifier ID] [--last-read TS]
+slackx conversations read mark TARGET [--ts THREAD_TS] [--reader ID] [--last-read TS]
 ```
 
 | Argument | Description |
 |---|---|
 | `TARGET` | Slack permalink, channel id (`C001`), bare name (`general`), `#`-prefixed name (`#general`), or DM target (user id or `@handle`). |
 | `--ts TS` | Thread root timestamp. When given, the thread marker is advanced instead of the channel marker. |
-| `--identifier ID` | Consumer owning the marker, so several readers can each track their own (default: `default`) |
+| `--reader ID` | Reader owning the marker, so several consumers can each track their own (default: `default`) |
 | `--last-read TS` | Explicit timestamp to store; defaults to the newest cached message in scope |
 
-Each identifier keeps its own independent set of markers. Marking a target with
+Each reader keeps its own independent set of markers. Marking a target with
 no cached messages fails unless `--last-read` is given. `conversations show`
 advances the same pointers automatically.
 
@@ -192,12 +192,12 @@ advances the same pointers automatically.
 Print stored last-read pointers (human-readable by default).
 
 ```bash
-slackx conversations read show [--identifier ID] [--channel CHANNEL] [--json | --jsonl]
+slackx conversations read show [--reader ID] [--channel CHANNEL] [--json | --jsonl]
 ```
 
 | Argument | Description |
 |---|---|
-| `--identifier ID` | Restrict to one consumer's pointers (default: every identifier) |
+| `--reader ID` | Restrict to one reader's pointers (default: every reader) |
 | `--channel CHANNEL` | Restrict to one channel (id, name, or `#name`) |
 | `--json` | Output as pretty-printed JSON |
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
@@ -206,20 +206,20 @@ Never calls Slack.
 
 ### conversations read clear
 
-Delete stored last-read pointers for one identifier.
+Delete stored last-read pointers for one reader.
 
 ```bash
-slackx conversations read clear --identifier ID [--channel CHANNEL] [--ts THREAD_TS]
+slackx conversations read clear --reader ID [--channel CHANNEL] [--ts THREAD_TS]
 ```
 
 | Argument | Description |
 |---|---|
-| `--identifier ID` | Consumer whose pointers are deleted (required) |
+| `--reader ID` | Reader whose pointers are deleted (required) |
 | `--channel CHANNEL` | Restrict deletion to one channel (id, name, or `#name`) |
 | `--ts TS` | Delete just this thread's pointer (requires `--channel`) |
 
 With `--channel` (and no `--ts`) every pointer for that channel is removed; with
-neither option every pointer owned by the identifier is removed. Never calls
+neither option every pointer owned by the reader is removed. Never calls
 Slack.
 
 ### conversations poll

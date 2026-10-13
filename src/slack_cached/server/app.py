@@ -48,7 +48,7 @@ class ReadMarkerInput(BaseModel):
     scope, so a browser can mark a channel or thread read without knowing it.
     """
 
-    identifier: str
+    reader: str
     channel: str
     thread_ts: str | None = None
     last_read_ts: str | None = None
@@ -299,11 +299,11 @@ def create_app(
     @fastapp.get("/api/read")
     async def list_read_markers(
         conn: Conn,
-        identifier: str | None = None,
+        reader: str | None = None,
         channel: str | None = None,
     ) -> dict[str, Any]:
-        """List last-read pointers, optionally filtered by identifier/channel."""
-        markers = storage.load_read_markers(conn, identifier, channel=channel)
+        """List last-read pointers, optionally filtered by reader/channel."""
+        markers = storage.load_read_markers(conn, reader, channel=channel)
         return {"read_count": len(markers), "markers": [asdict(m) for m in markers]}
 
     @fastapp.put("/api/read")
@@ -313,9 +313,9 @@ def create_app(
         ``last_read_ts`` defaults to the newest cached message in scope, so a
         consumer can mark a channel or thread read without knowing the ts.
         """
-        identifier = payload.identifier.strip()
-        if not identifier:
-            raise HTTPException(status_code=422, detail="identifier must not be empty")
+        reader = payload.reader.strip()
+        if not reader:
+            raise HTTPException(status_code=422, detail="reader must not be empty")
         last_read = payload.last_read_ts
         if last_read is None:
             last_read = storage.latest_message_ts(conn, payload.channel, payload.thread_ts)
@@ -326,35 +326,35 @@ def create_app(
                 )
         with storage.transaction(conn):
             marker = storage.set_last_read(
-                conn, identifier, payload.channel, last_read, payload.thread_ts
+                conn, reader, payload.channel, last_read, payload.thread_ts
             )
         return {"marker": asdict(marker)}
 
-    @fastapp.delete("/api/read/{identifier}")
+    @fastapp.delete("/api/read/{reader}")
     async def delete_read_markers(
-        identifier: str, conn: Conn, channel: str | None = None
+        reader: str, conn: Conn, channel: str | None = None
     ) -> dict[str, Any]:
-        """Delete an identifier's pointers, optionally only one channel's."""
+        """Delete a reader's pointers, optionally only one channel's."""
         with storage.transaction(conn):
-            deleted = storage.delete_read_markers(conn, identifier, channel=channel)
+            deleted = storage.delete_read_markers(conn, reader, channel=channel)
         return {"deleted": deleted}
 
-    @fastapp.delete("/api/read/{identifier}/{channel_id}/{thread_ts}")
+    @fastapp.delete("/api/read/{reader}/{channel_id}/{thread_ts}")
     async def delete_thread_read_marker(
-        identifier: str, channel_id: str, thread_ts: str, conn: Conn
+        reader: str, channel_id: str, thread_ts: str, conn: Conn
     ) -> dict[str, Any]:
         """Delete just one thread's read pointer."""
         with storage.transaction(conn):
-            deleted = storage.delete_read_marker(conn, identifier, channel_id, thread_ts)
+            deleted = storage.delete_read_marker(conn, reader, channel_id, thread_ts)
         return {"deleted": deleted}
 
-    @fastapp.delete("/api/read/{identifier}/{channel_id}")
+    @fastapp.delete("/api/read/{reader}/{channel_id}")
     async def delete_channel_read_marker(
-        identifier: str, channel_id: str, conn: Conn
+        reader: str, channel_id: str, conn: Conn
     ) -> dict[str, Any]:
         """Delete the channel-level read pointer (thread pointers are kept)."""
         with storage.transaction(conn):
-            deleted = storage.delete_read_marker(conn, identifier, channel_id)
+            deleted = storage.delete_read_marker(conn, reader, channel_id)
         return {"deleted": deleted}
 
     # ------------------------------------------------------------------

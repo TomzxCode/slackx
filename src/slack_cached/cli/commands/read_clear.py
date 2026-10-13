@@ -9,8 +9,8 @@ from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
     ChannelIdArg,
     DbArg,
-    IdentifierArg,
     LogLevelArg,
+    ReaderArg,
     TsArg,
     WorkspaceArg,
     _setup,
@@ -24,7 +24,7 @@ log = structlog.get_logger(__name__)
 @read_app.command(name="clear")
 async def clear(
     *,
-    identifier: IdentifierArg,
+    reader: ReaderArg,
     channel: ChannelIdArg = None,
     ts: TsArg = None,
     db: DbArg = None,
@@ -32,18 +32,18 @@ async def clear(
     api_base_url: ApiBaseUrlArg = None,
     log_level: LogLevelArg = "info",
 ) -> int:
-    """Delete stored last-read pointers for one identifier.
+    """Delete stored last-read pointers for one reader.
 
     Deleting is scoped so a consumer can forget a channel without touching the
     rest: with --channel (and no --ts) every pointer for that channel is
     removed; with --channel and --ts just that thread's pointer is removed;
-    with neither, every pointer owned by the identifier is removed. Never calls
+    with neither, every pointer owned by the reader is removed. Never calls
     Slack.
     """
     common = _setup(db, api_base_url, log_level, workspace)
-    identifier = identifier.strip()
-    if not identifier:
-        print("error: --identifier must not be empty", file=sys.stderr)
+    reader = reader.strip()
+    if not reader:
+        print("error: --reader must not be empty", file=sys.stderr)
         return 2
 
     if ts is not None and channel is None:
@@ -62,11 +62,11 @@ async def clear(
     async with _client._open_db(common) as conn:
         with transaction(conn):
             if channel_id is None:
-                deleted = delete_read_markers(conn, identifier)
+                deleted = delete_read_markers(conn, reader)
             elif ts is None:
-                deleted = delete_read_markers(conn, identifier, channel=channel_id)
+                deleted = delete_read_markers(conn, reader, channel=channel_id)
             else:
-                deleted = delete_read_marker(conn, identifier, channel_id, ts)
+                deleted = delete_read_marker(conn, reader, channel_id, ts)
 
     print(f"deleted {deleted} read marker(s)", file=sys.stderr)
     return 0

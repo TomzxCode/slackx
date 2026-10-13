@@ -9,9 +9,9 @@ from slack_cached.cli._internal._refs import _resolve_target
 from slack_cached.cli._internal._shared import (
     ApiBaseUrlArg,
     DbArg,
-    IdentifierArg,
     LastReadArg,
     LogLevelArg,
+    ReaderArg,
     TargetArg,
     TsArg,
     WorkspaceArg,
@@ -28,28 +28,28 @@ async def mark(
     target: TargetArg = None,
     *,
     ts: TsArg = None,
-    identifier: IdentifierArg = "default",
+    reader: ReaderArg = "default",
     last_read: LastReadArg = None,
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
     log_level: LogLevelArg = "info",
 ) -> int:
-    """Record that a consumer has read a channel or thread up to a message.
+    """Record that a reader has read a channel or thread up to a message.
 
     TARGET is a Slack permalink, a channel (id, name, or #name), or a DM (user
     id or @handle). Without --ts the channel-level pointer is advanced; with
     --ts the pointer for that thread is advanced. The pointer value defaults to
     the newest cached message in scope; pass --last-read to set it explicitly.
 
-    Pointers are namespaced by --identifier, so several consumers (a web UI, a
+    Pointers are namespaced by --reader, so several consumers (a web UI, a
     poll watcher, ad-hoc scripts) each keep their own last-read position over
     the same cache.
     """
     common = _setup(db, api_base_url, log_level, workspace)
-    identifier = identifier.strip()
-    if not identifier:
-        print("error: --identifier must not be empty", file=sys.stderr)
+    reader = reader.strip()
+    if not reader:
+        print("error: --reader must not be empty", file=sys.stderr)
         return 2
 
     resolved = await _resolve_target(common, target, ts)
@@ -72,9 +72,7 @@ async def mark(
             )
             return 1
         with transaction(conn):
-            marker = set_last_read(
-                conn, identifier, resolved.channel, marker_ts, resolved.thread_ts
-            )
+            marker = set_last_read(conn, reader, resolved.channel, marker_ts, resolved.thread_ts)
 
     scope = (
         f"thread {marker.channel}/{marker.thread_ts}"
@@ -82,7 +80,7 @@ async def mark(
         else f"channel {marker.channel}"
     )
     print(
-        f"marked {identifier!r} read in {scope} up to {marker.last_read_ts}",
+        f"marked {reader!r} read in {scope} up to {marker.last_read_ts}",
         file=sys.stderr,
     )
     return 0
