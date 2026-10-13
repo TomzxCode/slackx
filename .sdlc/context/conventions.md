@@ -1,76 +1,96 @@
+<!-- session_link: http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ -->
 # Conventions
 
 ## Naming
 
-- **Files:** snake_case for Python modules (e.g. `slack_api.py`, `cache.py`, `test_cli.py`)
-- **Variables:** snake_case (e.g. `thread_ts`, `latest_reply`, `user_names`)
-- **Functions / Methods:** snake_case (e.g. `fetch_thread`, `load_thread_messages`, `_build_client`)
-- **Classes:** PascalCase (e.g. `SlackClient`, `CachedMessage`, `ThreadRef`, `FetchResult`)
-- **Constants:** UPPER_SNAKE_CASE (e.g. `SCHEMA`, `DEFAULT_LIMIT`, `MAX_RETRIES`, `CHANNEL_PREFIXES`)
-- **Private helpers:** prefixed with underscore (e.g. `_build_client`, `_format_ts`, `_latest_ts`)
-- **CLI subcommands:** noun-verb groups (e.g. `users fetch`, `channels list`)
+- **Files:** snake_case for Python modules.
+  - Modules ending in `_fetch`, `_list`, `_show`, `_search`, `_poll`, `_mark`, `_clear`, `_status`, or `_serve` name one CLI command each.
+  - Modules starting with `_` are package-private helpers.
+  - Test files are `test_<module>.py` matching the module under test.
+- **Variables:** snake_case (e.g. `thread_ts`, `latest_reply`, `user_names`).
+- **Functions / Methods:** snake_case (e.g. `fetch_thread`, `load_thread_messages`, `fetch_search`).
+- **Classes:** PascalCase, value objects as frozen dataclasses (e.g. `SlackClient`, `CachedMessage`, `ThreadRef`, `FetchResult`, `Credentials`).
+- **Constants:** UPPER_SNAKE_CASE (e.g. `SCHEMA`, `SEARCH_SCHEMA`, `DEFAULT_LIMIT`, `MAX_RETRIES`, `CHANNEL_PREFIXES`).
+- **Private helpers:** prefixed with an underscore (e.g. `_build_client`, `_format_ts`, `_latest_ts`, `_log_sql`).
+- **CLI subcommands:** noun-verb groups built with cyclopts (e.g. `conversations fetch`, `channels list`, `users fetch`, `conversations read mark`).
 
 ## Directory Structure
 
+The package is `slack_cached`, exposed through two console scripts: `slackx` and `slack-fake-server`.
+
 ```
-slack-cached/
+slackx/
   src/
-    slack_cached/          # Main package
-      __init__.py          # Empty (package marker)
-      cli.py               # CLI entry point (main, subcommand handlers)
-      cache.py             # Fetch/load orchestration
-      config.py            # Credential, path, and API base URL configuration
-      fake_slack.py        # Fake Slack API server for testing (standalone entry point)
-      slack_api.py         # Slack Web API HTTP client
-      storage.py           # SQLite schema and data access
-      urls.py              # URL parsing utilities
-      workspace.py         # Per-workspace cache database resolution
+    slack_cached/
+      __init__.py
+      cache.py               # Async fetch orchestration and result dataclasses
+      config.py              # Credentials, XDG paths, credential resolution
+      slack_api.py           # Async Slack Web API client (httpx)
+      storage.py             # SQLite schema, CRUD, FTS5 search, read markers
+      urls.py                # Permalink parsing into ThreadRef
+      workspace.py           # Per-workspace cache database resolution
+      cli/
+        __init__.py          # main entry point, registers command modules
+        commands/            # One module per command (cache_clear, channels_fetch, ...)
+        _internal/           # Shared app, args, client, rendering helpers (_render, _blocks, _mrkdwn, _style, _format, _fields, _refs, _poll, _duration, _channels, _client, _shared)
+      server/
+        app.py               # FastAPI JSON API and static SPA serving
+        static/              # Served SPA assets
+      fake_slack/
+        __init__.py          # slack-fake-server entry point
+        commands/            # run command
+        _internal/           # Fake Slack API internals (_config, _constants, _cursor, _data_pools, _generate, _handler, _rate_limiter, _server, _workspace)
   tests/
-    test_cache.py          # Tests for cache orchestration
-    test_cli.py            # Tests for CLI surface
-    test_config.py         # Tests for config resolution
-    test_fake_slack.py     # Tests for fake Slack server
-    test_slack_api.py      # Tests for Slack API client
-    test_storage.py        # Tests for SQLite storage
-    test_urls.py           # Tests for URL parsing
-    test_workspace.py      # Tests for per-workspace database resolution
-  pyproject.toml           # Project metadata, deps, tool config
-  README.md                # User-facing documentation
+    test_blocks.py           # Tests for rich block rendering
+    test_cache.py            # Tests for cache orchestration
+    test_cli.py              # Tests for CLI surface
+    test_config.py           # Tests for config resolution
+    test_fake_slack.py       # Tests for fake Slack server
+    test_mrkdwn.py           # Tests for mrkdwn rendering
+    test_server.py           # Tests for FastAPI JSON API
+    test_slack_api.py        # Tests for Slack API client
+    test_storage.py          # Tests for SQLite storage
+    test_style.py            # Tests for terminal style rendering
+    test_urls.py             # Tests for URL parsing
+    test_workspace.py        # Tests for per-workspace database resolution
+  docs/                      # mkdocs user guide, developer guide, and SDLC feature docs
+  web/dist/                  # Built SPA served by the serve command
+  .sdlc/                     # SDLC context, features, and templates
+  pyproject.toml             # Project metadata, deps, tool config
+  README.md                  # User-facing documentation
 ```
 
 ## Coding Standards
 
-- Use frozen dataclasses for all value objects (ThreadRef, Credentials, FetchResult, etc.)
-- Use structlog for all logging; never use the stdlib logging module directly
-- Use `from __future__ import annotations` at the top of every module for modern type syntax
-- Import SlackClient and cache functions lazily in CLI to avoid loading requests when not needed
-- Use context managers for database connections and transactions
-- All public functions should have docstrings
-- Private helpers should have brief docstrings when behavior is non-obvious
-- Use TYPE_CHECKING guard for type-only imports
-- Test with pytest; use tmp_path fixture for temporary databases
-- Use monkeypatch for environment variable and dependency injection in tests
-- Run ruff check and ruff format before committing
+- Use frozen dataclasses for value objects (ThreadRef, Credentials, FetchResult, and similar).
+- Use structlog for all logging; never use the stdlib logging module directly.
+- Use `from __future__ import annotations` in modules that use modern type syntax.
+- Import the Slack client and cache functions lazily in CLI commands to avoid loading httpx when it is not needed.
+- Use cyclopts for the CLI, with shared `Annotated` argument types in `cli/_internal/_shared.py`.
+- Use context managers for database connections and transactions.
+- Give public functions docstrings, and add brief docstrings to private helpers with non-obvious behavior.
+- Use a TYPE_CHECKING guard for type-only imports.
+- Keep `__init__.py` files minimal, for package initialization and entry points.
+- Test with pytest; use the `tmp_path` fixture for temporary databases and `monkeypatch` for environment and dependency injection.
+- Run `ruff check` and `ruff format` before committing; line length is 100 and lint selects E, F, I, B, UP, SIM.
 
 ## Commit Messages
 
-Based on the 10-commit git history:
-- Short, imperative descriptions without conventional-commits prefixes (most commits)
-- One commit uses `feat:` prefix (`feat: add fetch-channel-messages...`)
-- Common patterns: "Add support for...", "Implement...", "Merge...", "Update..."
-- Examples: "Add support for show --channel without --ts", "Implement rate limits in fake slack server"
-
-No formal commit message convention is enforced.
+- Most commits use a short, imperative description without a prefix (e.g. "Move read tracking under conversations and mark read on show", "Group CLI commands into noun-verb subcommands").
+- Some commits use a Conventional Commits prefix with an optional scope (e.g. `feat(web): ...`, `feat(cli): ...`, `chore: ...`).
+- No prefix style is enforced; the repository mixes both forms.
 
 ## Branching
 
-Two branches observed: `main` (default) and `sdlc` (current work). No formal
-branching convention is documented or evident from the history.
+- `main` is the default branch and what remote tracking points to.
+- Work happens on named branches merged back into `main`, for example `sdlc`, `rich-output`, `serve-render-links`, and `spa`.
+- Dependabot opens branches under `dependabot/...`.
+- No branch name prefix convention is enforced.
 
 ## SDLC Documentation Style
 
-- One sentence per line in markdown files for easier diff and review
-- Use sentence case for headings, not title case
-- Prefer bullet lists over prose paragraphs
-- Use tables for structured data (requirements, specifications, etc.)
-- Keep overview paragraphs to one or two sentences
+- One sentence per line in markdown files for easier diff and review.
+- Use sentence case for headings, not title case.
+- Prefer bullet lists over prose paragraphs.
+- Use tables for structured data (requirements, specifications, and similar).
+- Keep overview paragraphs to one or two sentences.

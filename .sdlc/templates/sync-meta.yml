@@ -1,0 +1,6 @@
+# SDLC Sync Metadata
+# Tracks which version of agents was used for the last sync.
+# Used by sync-sdlc to detect process/template changes and migrate existing files.
+agents_ref: null         # Git SHA of agents repo at last sync
+agents_remote: null      # Remote URL of agents repo (e.g. https://github.com/user/agents)
+last_synced: null            # ISO 8601 date of last sync (e.g. 2026-06-12)

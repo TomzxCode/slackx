@@ -1,6 +1,7 @@
 ---
 title: "Configuration and Credential Management"
-status: draft
+status: done
+session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 ---
 
 # Specification: Configuration and Credential Management

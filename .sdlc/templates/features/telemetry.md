@@ -1,6 +1,7 @@
 ---
 title: "<Feature Name>"
 status: draft
+session_link: "<filled by skill>"
 ---
 
 # Telemetry: <Feature Name>
@@ -16,6 +17,15 @@ status: draft
 | <metric name> | <target value or threshold> | <how it is computed> | <over what period> |
 
 ## User Funnel
+
+```mermaid
+flowchart TD
+    S1["1. <step name><br/><entry event>"] --> S2["2. <step name><br/><event>"]
+    S2 --> S3["3. <step name><br/><exit event>"]
+```
+
+One node per funnel step, labeled with the event that marks reaching it.
+A step with no entry event, or a dangling node no path reaches, is easy to spot.
 
 | Step | Event | Entry Criteria | Exit Criteria |
 |---|---|---|---|
