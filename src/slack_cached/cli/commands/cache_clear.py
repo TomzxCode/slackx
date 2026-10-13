@@ -16,14 +16,14 @@ from slack_cached.cli._internal._shared import (
 )
 from slack_cached.storage import clear_cache
 
-ClearTarget = Literal["all", "messages", "channels", "users"]
+ClearTarget = Literal["all", "messages", "channels", "users", "read"]
 
 
 @cache_app.command(name="clear")
 async def clear(
     target: Annotated[
         ClearTarget,
-        Parameter(help="What to clear: all (default), messages, channels, or users."),
+        Parameter(help="What to clear: all (default), messages, channels, users, or read."),
     ] = "all",
     *,
     yes: Annotated[
@@ -35,7 +35,7 @@ async def clear(
     api_base_url: ApiBaseUrlArg = None,
     log_level: LogLevelArg = "info",
 ) -> int:
-    """Delete cached data: everything, messages, channels, or users.
+    """Delete cached data: everything, messages, channels, users, or read markers.
 
     Reads and clears the cache database directly; never calls Slack. Clearing
     messages also clears their thread metadata, so the threads are refetched on
@@ -53,11 +53,13 @@ async def clear(
             messages=target in ("all", "messages"),
             channels=target in ("all", "channels"),
             users=target in ("all", "users"),
+            read_markers=target in ("all", "read"),
         )
 
     print(
         f"cleared messages={cleared.messages} threads={cleared.threads} "
-        f"channels={cleared.channels} users={cleared.users}",
+        f"channels={cleared.channels} users={cleared.users} "
+        f"read_markers={cleared.read_markers}",
         file=sys.stderr,
     )
     return 0

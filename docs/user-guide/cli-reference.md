@@ -146,7 +146,7 @@ slackx cache clear [TARGET] [--yes]
 
 | Argument | Description |
 |---|---|
-| `TARGET` | What to clear: `all` (default), `messages`, `channels`, or `users` |
+| `TARGET` | What to clear: `all` (default), `messages`, `channels`, `users`, or `read` |
 | `--yes`, `-y` | Skip the confirmation prompt |
 
 Reads and clears the cache database directly; never calls Slack. `cache clear messages`
@@ -158,8 +158,62 @@ otherwise.
 ```bash
 slackx cache clear messages       # drop all cached messages and threads
 slackx cache clear users          # drop the cached user list
+slackx cache clear read           # drop every last-read pointer
 slackx cache clear all --yes      # wipe every cached entity
 ```
+
+### read mark
+
+Record that a consumer has read a channel or a thread up to a message.
+
+```bash
+slackx read mark TARGET [--ts THREAD_TS] [--identifier ID] [--last-read TS]
+```
+
+| Argument | Description |
+|---|---|
+| `TARGET` | Slack permalink, channel id (`C001`), bare name (`general`), `#`-prefixed name (`#general`), or DM target (user id or `@handle`). |
+| `--ts TS` | Thread root timestamp. When given, the thread marker is advanced instead of the channel marker. |
+| `--identifier ID` | Consumer owning the marker, so several readers can each track their own (default: `default`) |
+| `--last-read TS` | Explicit timestamp to store; defaults to the newest cached message in scope |
+
+Each identifier keeps its own independent set of markers. Marking a target with
+no cached messages fails unless `--last-read` is given.
+
+### read show
+
+Print stored last-read pointers (human-readable by default).
+
+```bash
+slackx read show [--identifier ID] [--channel CHANNEL] [--json | --jsonl]
+```
+
+| Argument | Description |
+|---|---|
+| `--identifier ID` | Restrict to one consumer's pointers (default: every identifier) |
+| `--channel CHANNEL` | Restrict to one channel (id, name, or `#name`) |
+| `--json` | Output as pretty-printed JSON |
+| `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
+
+Never calls Slack.
+
+### read clear
+
+Delete stored last-read pointers for one identifier.
+
+```bash
+slackx read clear --identifier ID [--channel CHANNEL] [--ts THREAD_TS]
+```
+
+| Argument | Description |
+|---|---|
+| `--identifier ID` | Consumer whose pointers are deleted (required) |
+| `--channel CHANNEL` | Restrict deletion to one channel (id, name, or `#name`) |
+| `--ts TS` | Delete just this thread's pointer (requires `--channel`) |
+
+With `--channel` (and no `--ts`) every pointer for that channel is removed; with
+neither option every pointer owned by the identifier is removed. Never calls
+Slack.
 
 ### conversations poll
 

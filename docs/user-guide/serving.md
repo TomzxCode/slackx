@@ -90,10 +90,24 @@ file, see [Configuration](configuration.md)) the refresh buttons report an
 error instead of fetching. Browsing the existing cache works without any
 credentials.
 
+## Last-read pointers
+
+The server exposes the read markers described in
+[Tracking last read](tracking-last-read.md) over JSON, so a browser client can
+remember how far each reader has read:
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/read?identifier=web&channel=C123` | List pointers, optionally filtered. |
+| `PUT /api/read` | Create or advance a pointer (body: `identifier`, `channel`, optional `thread_ts`, optional `last_read_ts`). |
+| `DELETE /api/read/{identifier}` | Delete all pointers for an identifier (optional `?channel=`). |
+| `DELETE /api/read/{identifier}/{channel}` | Delete the channel-level pointer. |
+| `DELETE /api/read/{identifier}/{channel}/{thread_ts}` | Delete one thread pointer. |
+
 ## Notes
 
 - The UI is served from static assets bundled in the package; Vue is loaded
   from a CDN, so the browser needs internet access on first load.
 - All data is served from the local SQLite cache; nothing is sent anywhere.
 - The JSON API under `/api/*` (summary, users, channels, messages, threads,
-  search) can be used directly, e.g. for scripting.
+  search, read) can be used directly, e.g. for scripting.

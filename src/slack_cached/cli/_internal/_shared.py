@@ -27,8 +27,12 @@ conversations_app = App(
     name="conversations", help="Fetch and show threads, channel history, and DMs."
 )
 cache_app = App(name="cache", help="Inspect and manage the local cache database.")
+read_app = App(
+    name="read",
+    help="Track per-consumer last-read pointers for channels and threads.",
+)
 
-for _group in (channels_app, users_app, conversations_app, cache_app):
+for _group in (channels_app, users_app, conversations_app, cache_app, read_app):
     app.command(_group)
 
 
@@ -151,6 +155,29 @@ TsArg = Annotated[
     str | None,
     Parameter(
         help="Thread root ts (e.g. 1700000000.123456) to read a thread from a channel or DM target."
+    ),
+]
+IdentifierArg = Annotated[
+    str,
+    Parameter(
+        name="--identifier",
+        help="Name of the consumer owning these read pointers, so several "
+        "readers can each track their own (e.g. 'web', 'poll').",
+    ),
+]
+OptionalIdentifierArg = Annotated[
+    str | None,
+    Parameter(
+        name="--identifier",
+        help="Restrict to one consumer's read pointers (default: every identifier).",
+    ),
+]
+LastReadArg = Annotated[
+    str | None,
+    Parameter(
+        name="--last-read",
+        help="Explicit last-read ts to store. Defaults to the newest cached "
+        "message in the targeted channel or thread.",
     ),
 ]
 

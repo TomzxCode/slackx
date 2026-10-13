@@ -23,6 +23,7 @@ import structlog
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from slack_cached import storage
 from slack_cached.config import Credentials, default_db_path, load_api_base_url, load_credentials
@@ -37,6 +38,20 @@ NO_CREDENTIALS_DETAIL = (
     "Set SLACK_TOKEN (and SLACK_COOKIE for xoxc- tokens), or add them to the "
     "slackx config file, then restart the server."
 )
+
+
+class ReadMarkerInput(BaseModel):
+    """Body for setting a last-read pointer via the API.
+
+    ``thread_ts`` is None for the channel-level pointer, or a thread root ts for
+    a thread pointer. ``last_read_ts`` defaults to the newest cached message in
+    scope, so a browser can mark a channel or thread read without knowing it.
+    """
+
+    identifier: str
+    channel: str
+    thread_ts: str | None = None
+    last_read_ts: str | None = None
 
 
 async def _db_conn(request: Request) -> AsyncIterator[sqlite3.Connection]:
@@ -276,6 +291,71 @@ def create_app(
                 for h in hits
             ],
         }
+
+    # ------------------------------------------------------------------
+    # Read markers (last-read pointers per consumer)
+    # ------------------------------------------------------------------
+
+    @fastapp.get("/api/read")
+    async def list_read_markers(
+        conn: Conn,
+        identifier: str | None = None,
+        channel: str | None = None,
+    ) -> dict[str, Any]:
+        """List last-read pointers, optionally filtered by identifier/channel."""
+        markers = storage.load_read_markers(conn, identifier, channel=channel)
+        return {"read_count": len(markers), "markers": [asdict(m) for m in markers]}
+
+    @fastapp.put("/api/read")
+    async def set_read_marker(payload: ReadMarkerInput, conn: Conn) -> dict[str, Any]:
+        """Create or advance a last-read pointer.
+
+        ``last_read_ts`` defaults to the newest cached message in scope, so a
+        consumer can mark a channel or thread read without knowing the ts.
+        """
+        identifier = payload.identifier.strip()
+        if not identifier:
+            raise HTTPException(status_code=422, detail="identifier must not be empty")
+        last_read = payload.last_read_ts
+        if last_read is None:
+            last_read = storage.latest_message_ts(conn, payload.channel, payload.thread_ts)
+            if last_read is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No cached messages for channel {payload.channel!r}",
+                )
+        with storage.transaction(conn):
+            marker = storage.set_last_read(
+                conn, identifier, payload.channel, last_read, payload.thread_ts
+            )
+        return {"marker": asdict(marker)}
+
+    @fastapp.delete("/api/read/{identifier}")
+    async def delete_read_markers(
+        identifier: str, conn: Conn, channel: str | None = None
+    ) -> dict[str, Any]:
+        """Delete an identifier's pointers, optionally only one channel's."""
+        with storage.transaction(conn):
+            deleted = storage.delete_read_markers(conn, identifier, channel=channel)
+        return {"deleted": deleted}
+
+    @fastapp.delete("/api/read/{identifier}/{channel_id}/{thread_ts}")
+    async def delete_thread_read_marker(
+        identifier: str, channel_id: str, thread_ts: str, conn: Conn
+    ) -> dict[str, Any]:
+        """Delete just one thread's read pointer."""
+        with storage.transaction(conn):
+            deleted = storage.delete_read_marker(conn, identifier, channel_id, thread_ts)
+        return {"deleted": deleted}
+
+    @fastapp.delete("/api/read/{identifier}/{channel_id}")
+    async def delete_channel_read_marker(
+        identifier: str, channel_id: str, conn: Conn
+    ) -> dict[str, Any]:
+        """Delete the channel-level read pointer (thread pointers are kept)."""
+        with storage.transaction(conn):
+            deleted = storage.delete_read_marker(conn, identifier, channel_id)
+        return {"deleted": deleted}
 
     # ------------------------------------------------------------------
     # Live fetches (POST). Each raises 503 when no credentials are set.

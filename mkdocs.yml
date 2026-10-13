@@ -48,6 +48,7 @@ nav:
     - Caching users: user-guide/caching-users.md
     - Caching channels: user-guide/caching-channels.md
     - Serving the web UI: user-guide/serving.md
+    - Tracking last read: user-guide/tracking-last-read.md
     - Configuration: user-guide/configuration.md
     - CLI reference: user-guide/cli-reference.md
   - Developer Guide:

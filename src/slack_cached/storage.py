@@ -36,6 +36,14 @@ Schema:
     payload        TEXT    not null    full JSON-encoded Slack channel
     PRIMARY KEY (id)
 
+  read_markers
+    identifier     TEXT    not null    the consumer owning this pointer (e.g. 'web')
+    channel        TEXT    not null    the channel/conversation the pointer is for
+    thread_ts      TEXT    not null    thread root ts, or '' for a channel-level pointer
+    last_read_ts   TEXT    not null    ts of the newest message read in scope
+    updated_at     REAL    not null    unix epoch seconds of the last update
+    PRIMARY KEY (identifier, channel, thread_ts)
+
   messages_fts
     FTS5 virtual table over messages.text (external content), kept in sync by
     triggers; see SEARCH_SCHEMA and ensure_search_index(). Optional: absent
@@ -107,6 +115,18 @@ CREATE TABLE IF NOT EXISTS meta (
     value  TEXT NOT NULL,
     PRIMARY KEY (key)
 );
+
+CREATE TABLE IF NOT EXISTS read_markers (
+    identifier    TEXT NOT NULL,
+    channel       TEXT NOT NULL,
+    thread_ts     TEXT NOT NULL,
+    last_read_ts  TEXT NOT NULL,
+    updated_at    REAL NOT NULL,
+    PRIMARY KEY (identifier, channel, thread_ts)
+);
+
+CREATE INDEX IF NOT EXISTS idx_read_markers_identifier
+    ON read_markers (identifier, channel);
 """
 
 # Full-text search index over message text, kept in sync with the messages
@@ -232,6 +252,23 @@ class SearchHit:
 
 
 @dataclass(frozen=True)
+class ReadMarker:
+    """A consumer's last-read pointer for a channel or a thread.
+
+    ``thread_ts`` is None for the channel-level pointer (the consumer has read
+    the channel up to ``last_read_ts``) or a thread root ts for a thread
+    pointer. Identifiers are independent, so several consumers can each keep
+    their own pointers over the same cache.
+    """
+
+    identifier: str
+    channel: str
+    thread_ts: str | None
+    last_read_ts: str
+    updated_at: float
+
+
+@dataclass(frozen=True)
 class DbStatus:
     """Aggregate counts and last-update times for the cache database.
 
@@ -248,6 +285,7 @@ class DbStatus:
     channels_updated_at: float | None
     users_updated_at: float | None
     threads_updated_at: float | None
+    read_marker_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -258,6 +296,7 @@ class ClearedCounts:
     threads: int
     channels: int
     users: int
+    read_markers: int = 0
 
 
 def _normalize_sql(statement: str) -> str:
@@ -1081,6 +1120,7 @@ def clear_cache(
     messages: bool = False,
     channels: bool = False,
     users: bool = False,
+    read_markers: bool = False,
 ) -> ClearedCounts:
     """Delete cached rows for the requested entities; returns what was removed.
 
@@ -1093,6 +1133,7 @@ def clear_cache(
     cleared_threads = 0
     cleared_channels = 0
     cleared_users = 0
+    cleared_read_markers = 0
     with transaction(conn):
         if messages:
             cleared_messages = conn.execute("DELETE FROM messages").rowcount
@@ -1101,11 +1142,14 @@ def clear_cache(
             cleared_channels = conn.execute("DELETE FROM channels").rowcount
         if users:
             cleared_users = conn.execute("DELETE FROM users").rowcount
+        if read_markers:
+            cleared_read_markers = conn.execute("DELETE FROM read_markers").rowcount
     return ClearedCounts(
         messages=cleared_messages,
         threads=cleared_threads,
         channels=cleared_channels,
         users=cleared_users,
+        read_markers=cleared_read_markers,
     )
 
 
@@ -1117,6 +1161,7 @@ def db_status(conn: sqlite3.Connection) -> DbStatus:
         "(SELECT COUNT(*) FROM users) AS user_count, "
         "(SELECT COUNT(*) FROM threads) AS thread_count, "
         "(SELECT COUNT(*) FROM messages) AS message_count, "
+        "(SELECT COUNT(*) FROM read_markers) AS read_marker_count, "
         "(SELECT MAX(fetched_at) FROM channels) AS channels_updated_at, "
         "(SELECT MAX(fetched_at) FROM users) AS users_updated_at, "
         "(SELECT MAX(last_fetched) FROM threads) AS threads_updated_at"
@@ -1129,6 +1174,7 @@ def db_status(conn: sqlite3.Connection) -> DbStatus:
         channels_updated_at=row["channels_updated_at"],
         users_updated_at=row["users_updated_at"],
         threads_updated_at=row["threads_updated_at"],
+        read_marker_count=row["read_marker_count"],
     )
 
 
@@ -1290,6 +1336,168 @@ def load_channel_thread_roots(
     ]
 
 
+# ---------------------------------------------------------------------------
+# Read markers
+# ---------------------------------------------------------------------------
+
+# Stored in place of a thread root ts to represent the channel-level pointer.
+_CHANNEL_MARKER = ""
+
+
+def _marker_scope(thread_ts: str | None) -> str:
+    """Map a thread root ts (or None for the whole channel) to its stored value."""
+    return thread_ts or _CHANNEL_MARKER
+
+
+def set_last_read(
+    conn: sqlite3.Connection,
+    identifier: str,
+    channel: str,
+    last_read_ts: str,
+    thread_ts: str | None = None,
+    *,
+    now: float | None = None,
+) -> ReadMarker:
+    """Record that ``identifier`` has read up to ``last_read_ts`` in scope.
+
+    ``thread_ts`` is None to advance the channel-level pointer, or a thread
+    root ts to advance that thread's pointer. Each identifier keeps its own
+    pointers, so consumers do not overwrite each other. Callers own the
+    transaction (see ``transaction``).
+    """
+    updated_at = time.time() if now is None else now
+    conn.execute(
+        "INSERT INTO read_markers "
+        "(identifier, channel, thread_ts, last_read_ts, updated_at) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(identifier, channel, thread_ts) DO UPDATE SET "
+        "  last_read_ts = excluded.last_read_ts, "
+        "  updated_at = excluded.updated_at",
+        (identifier, channel, _marker_scope(thread_ts), last_read_ts, updated_at),
+    )
+    return ReadMarker(
+        identifier=identifier,
+        channel=channel,
+        thread_ts=thread_ts,
+        last_read_ts=last_read_ts,
+        updated_at=updated_at,
+    )
+
+
+def get_read_marker(
+    conn: sqlite3.Connection,
+    identifier: str,
+    channel: str,
+    thread_ts: str | None = None,
+) -> ReadMarker | None:
+    """Return one read pointer, or None when it was never set."""
+    row = conn.execute(
+        "SELECT identifier, channel, thread_ts, last_read_ts, updated_at "
+        "FROM read_markers "
+        "WHERE identifier = ? AND channel = ? AND thread_ts = ?",
+        (identifier, channel, _marker_scope(thread_ts)),
+    ).fetchone()
+    return _row_to_read_marker(row) if row is not None else None
+
+
+def get_last_read(
+    conn: sqlite3.Connection,
+    identifier: str,
+    channel: str,
+    thread_ts: str | None = None,
+) -> str | None:
+    """Return the last-read ts for one scope, or None when never set."""
+    marker = get_read_marker(conn, identifier, channel, thread_ts)
+    return marker.last_read_ts if marker is not None else None
+
+
+def load_read_markers(
+    conn: sqlite3.Connection,
+    identifier: str | None = None,
+    *,
+    channel: str | None = None,
+) -> list[ReadMarker]:
+    """Return read pointers, optionally filtered by identifier and/or channel.
+
+    With no identifier every consumer's pointers are returned, ordered by
+    identifier, channel, then scope (the channel-level pointer sorts first).
+    """
+    where: list[str] = []
+    params: list[Any] = []
+    if identifier is not None:
+        where.append("identifier = ?")
+        params.append(identifier)
+    if channel is not None:
+        where.append("channel = ?")
+        params.append(channel)
+    sql = "SELECT identifier, channel, thread_ts, last_read_ts, updated_at FROM read_markers"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY identifier ASC, channel ASC, thread_ts ASC"
+    rows = conn.execute(sql, params).fetchall()
+    return [_row_to_read_marker(row) for row in rows]
+
+
+def delete_read_marker(
+    conn: sqlite3.Connection,
+    identifier: str,
+    channel: str,
+    thread_ts: str | None = None,
+) -> int:
+    """Delete one read pointer; returns the number of rows removed."""
+    cursor = conn.execute(
+        "DELETE FROM read_markers WHERE identifier = ? AND channel = ? AND thread_ts = ?",
+        (identifier, channel, _marker_scope(thread_ts)),
+    )
+    return cursor.rowcount or 0
+
+
+def delete_read_markers(
+    conn: sqlite3.Connection,
+    identifier: str,
+    *,
+    channel: str | None = None,
+) -> int:
+    """Delete an identifier's read pointers, optionally only those of one channel.
+
+    Returns the number of rows removed.
+    """
+    sql = "DELETE FROM read_markers WHERE identifier = ?"
+    params: list[Any] = [identifier]
+    if channel is not None:
+        sql += " AND channel = ?"
+        params.append(channel)
+    cursor = conn.execute(sql, params)
+    return cursor.rowcount or 0
+
+
+def count_read_markers(conn: sqlite3.Connection) -> int:
+    """Return the number of stored read pointers."""
+    row = conn.execute("SELECT COUNT(*) AS n FROM read_markers").fetchone()
+    return int(row["n"]) if row else 0
+
+
+def latest_message_ts(
+    conn: sqlite3.Connection,
+    channel: str,
+    thread_ts: str | None = None,
+) -> str | None:
+    """Return the newest cached message ts in a channel or thread, or None.
+
+    Used to default a read pointer to "everything cached so far": for a thread
+    scope this is the newest message of that thread, for a channel scope the
+    newest message anywhere in the channel.
+    """
+    sql = "SELECT ts FROM messages WHERE channel = ?"
+    params: list[Any] = [channel]
+    if thread_ts is not None:
+        sql += " AND thread_ts = ?"
+        params.append(thread_ts)
+    sql += " ORDER BY CAST(ts AS REAL) DESC LIMIT 1"
+    row = conn.execute(sql, params).fetchone()
+    return row["ts"] if row is not None else None
+
+
 def _bool_to_int(value: Any) -> int | None:
     """Map a Slack boolean-ish value to 0/1, preserving None."""
     if value is None:
@@ -1315,4 +1523,14 @@ def _row_to_channel(row: sqlite3.Row, *, include_payload: bool = True) -> Cached
         is_private=None if is_private is None else bool(is_private),
         fetched_at=row["fetched_at"],
         payload=json.loads(row["payload"]) if include_payload else {},
+    )
+
+
+def _row_to_read_marker(row: sqlite3.Row) -> ReadMarker:
+    return ReadMarker(
+        identifier=row["identifier"],
+        channel=row["channel"],
+        thread_ts=row["thread_ts"] or None,
+        last_read_ts=row["last_read_ts"],
+        updated_at=row["updated_at"],
     )

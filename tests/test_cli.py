@@ -2498,3 +2498,230 @@ def test_clear_messages_reopens_thread_for_refetch(tmp_path: Path) -> None:
         assert get_thread_state(conn, "C1", "1700000000.000100") is None
     finally:
         conn.close()
+
+
+def _read_markers(db_path: Path, identifier: str | None = None):
+    from slack_cached.storage import connect, load_read_markers
+
+    conn = connect(db_path)
+    try:
+        return load_read_markers(conn, identifier)
+    finally:
+        conn.close()
+
+
+def test_read_mark_channel_defaults_to_latest(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Marking a channel without --last-read points at the newest cached message."""
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)])
+
+    assert rc == 0
+    assert "marked 'web'" in capsys.readouterr().err
+    markers = _read_markers(db_path, "web")
+    assert len(markers) == 1
+    assert markers[0].thread_ts is None
+    assert markers[0].last_read_ts == "1700000000.000100"
+
+
+def test_read_mark_default_identifier(tmp_path: Path) -> None:
+    """--identifier defaults to 'default'."""
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    assert cli.main(["read", "mark", "C1", "--db", str(db_path)]) == 0
+    markers = _read_markers(db_path, "default")
+    assert markers[0].last_read_ts == "1700000000.000100"
+
+
+def test_read_mark_thread_scope(tmp_path: Path) -> None:
+    """--ts targets the thread pointer rather than the channel pointer."""
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(
+        [
+            "read",
+            "mark",
+            "C1",
+            "--ts",
+            "1700000000.000100",
+            "--identifier",
+            "web",
+            "--db",
+            str(db_path),
+        ]
+    )
+
+    assert rc == 0
+    markers = _read_markers(db_path, "web")
+    assert len(markers) == 1
+    assert markers[0].thread_ts == "1700000000.000100"
+    assert markers[0].last_read_ts == "1700000000.000100"
+
+
+def test_read_mark_explicit_last_read(tmp_path: Path) -> None:
+    """--last-read overrides the newest-cached-message default."""
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(
+        [
+            "read",
+            "mark",
+            "C1",
+            "--identifier",
+            "poll",
+            "--last-read",
+            "1700000000.000050",
+            "--db",
+            str(db_path),
+        ]
+    )
+
+    assert rc == 0
+    assert _read_markers(db_path, "poll")[0].last_read_ts == "1700000000.000050"
+
+
+def test_read_mark_without_cached_messages_errors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+
+    rc = cli.main(["read", "mark", "CNOPE", "--identifier", "web", "--db", str(db_path)])
+
+    assert rc == 1
+    assert "no cached messages" in capsys.readouterr().err
+
+
+def test_read_show_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    assert (
+        cli.main(
+            [
+                "read",
+                "mark",
+                "C1",
+                "--ts",
+                "1700000000.000100",
+                "--identifier",
+                "poll",
+                "--db",
+                str(db_path),
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    rc = cli.main(["read", "show", "--identifier", "web", "--json", "--db", str(db_path)])
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["read_count"] == 1
+    assert payload["markers"][0]["identifier"] == "web"
+    assert payload["markers"][0]["thread_ts"] is None
+
+    # With no --identifier every consumer's pointers are listed.
+    assert cli.main(["read", "show", "--json", "--db", str(db_path)]) == 0
+    all_markers = json.loads(capsys.readouterr().out)
+    assert {m["identifier"] for m in all_markers["markers"]} == {"web", "poll"}
+
+
+def test_read_show_human(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    capsys.readouterr()
+
+    rc = cli.main(["read", "show", "--identifier", "web", "--db", str(db_path)])
+
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "1 read marker(s)" in out
+    assert "web" in out
+    assert "(channel)" in out
+
+
+def test_read_clear_scopes(tmp_path: Path) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    assert (
+        cli.main(
+            [
+                "read",
+                "mark",
+                "C1",
+                "--ts",
+                "1700000000.000100",
+                "--identifier",
+                "web",
+                "--db",
+                str(db_path),
+            ]
+        )
+        == 0
+    )
+
+    # --channel with --ts drops just the thread pointer.
+    assert (
+        cli.main(
+            [
+                "read",
+                "clear",
+                "--identifier",
+                "web",
+                "--channel",
+                "C1",
+                "--ts",
+                "1700000000.000100",
+                "--db",
+                str(db_path),
+            ]
+        )
+        == 0
+    )
+    remaining = _read_markers(db_path, "web")
+    assert len(remaining) == 1
+    assert remaining[0].thread_ts is None
+
+    # --channel alone drops every pointer for that channel.
+    assert (
+        cli.main(["read", "clear", "--identifier", "web", "--channel", "C1", "--db", str(db_path)])
+        == 0
+    )
+    assert _read_markers(db_path, "web") == []
+
+
+def test_read_clear_all_for_identifier(tmp_path: Path) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+    assert cli.main(["read", "mark", "C1", "--identifier", "poll", "--db", str(db_path)]) == 0
+
+    rc = cli.main(["read", "clear", "--identifier", "web", "--db", str(db_path)])
+
+    assert rc == 0
+    assert _read_markers(db_path, "web") == []
+    assert len(_read_markers(db_path, "poll")) == 1
+
+
+def test_clear_read_markers_target(tmp_path: Path) -> None:
+    db_path = tmp_path / "cache.db"
+    _seed_all_entities(db_path)
+    assert cli.main(["read", "mark", "C1", "--identifier", "web", "--db", str(db_path)]) == 0
+
+    rc = cli.main(["cache", "clear", "read", "--yes", "--db", str(db_path)])
+
+    assert rc == 0
+    counts = _status_counts(db_path)
+    assert counts.read_marker_count == 0
+    # Other data is untouched.
+    assert counts.message_count == 1

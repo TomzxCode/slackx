@@ -23,6 +23,7 @@ from slack_cached.storage import (
     CachedUser,
     ChannelMessageEntry,
     DbStatus,
+    ReadMarker,
 )
 from slack_cached.urls import ThreadRef
 
@@ -419,5 +420,33 @@ def _render_status_human(status: DbStatus, *, styled: bool = False) -> str:
         line("user", status.user_count, status.users_updated_at),
         line("thread", status.thread_count, status.threads_updated_at),
         f"{s.bold(str(status.message_count))} message(s)",
+        f"{s.bold(str(status.read_marker_count))} read marker(s)",
     ]
     return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Read marker renderers
+# ---------------------------------------------------------------------------
+
+
+def _render_read_markers_human(
+    markers: list[ReadMarker],
+    *,
+    styled: bool = False,
+) -> str:
+    """Render last-read pointers as a human-readable string.
+
+    Each line shows the identifier, the channel, the scope (``channel`` or the
+    thread root ts), the last-read ts, and when the pointer was last updated.
+    """
+    s = _styler(styled)
+    lines = [s.bold(f"{len(markers)} read marker(s)"), ""]
+    for marker in markers:
+        scope = s.dim("(channel)") if marker.thread_ts is None else f"thread {marker.thread_ts}"
+        lines.append(
+            f"{s.bold(marker.identifier)}  {marker.channel}  {scope}  "
+            f"{s.italic(_format_ts(marker.last_read_ts))}  "
+            f"{s.dim(f'updated {_format_epoch(marker.updated_at)}')}"
+        )
+    return "\n".join(lines).rstrip("\n") + "\n"

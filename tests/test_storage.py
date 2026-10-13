@@ -11,17 +11,25 @@ from slack_cached.storage import (
     connect,
     count_channels,
     count_messages,
+    count_read_markers,
     count_users,
+    delete_read_marker,
+    delete_read_markers,
     get_channel,
+    get_last_read,
+    get_read_marker,
     get_thread_state,
     get_user,
+    latest_message_ts,
     load_channel_display_names,
     load_channels,
     load_im_channel_ids,
+    load_read_markers,
     load_thread_messages,
     load_user_display_names,
     load_users,
     record_thread_refresh,
+    set_last_read,
     upsert_channels,
     upsert_messages,
     upsert_users,
@@ -642,3 +650,145 @@ def test_list_channel_summaries_counts(tmp_path: Path) -> None:
     # before-cursor pages backwards.
     older = load_channel_thread_roots(conn, "C1", before="1700000000.000100")
     assert older == []
+
+
+def test_set_and_get_last_read_scopes(tmp_path: Path) -> None:
+    """Channel-level and thread-level pointers are distinct rows."""
+    conn = connect(tmp_path / "cache.db")
+    set_last_read(conn, "web", "C1", "1700000000.000500", now=1.0)
+    set_last_read(conn, "web", "C1", "1700000000.000200", "1700000000.000100", now=2.0)
+    conn.commit()
+
+    assert get_last_read(conn, "web", "C1") == "1700000000.000500"
+    assert get_last_read(conn, "web", "C1", "1700000000.000100") == "1700000000.000200"
+    assert get_last_read(conn, "web", "C1", "1700000000.999999") is None
+
+    marker = get_read_marker(conn, "web", "C1")
+    assert marker is not None
+    assert marker.thread_ts is None
+    assert marker.updated_at == 1.0
+    thread_marker = get_read_marker(conn, "web", "C1", "1700000000.000100")
+    assert thread_marker is not None
+    assert thread_marker.thread_ts == "1700000000.000100"
+    assert count_read_markers(conn) == 2
+
+
+def test_set_last_read_replaces_existing(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    set_last_read(conn, "web", "C1", "1700000000.000100", now=1.0)
+    set_last_read(conn, "web", "C1", "1700000000.000900", now=2.0)
+    conn.commit()
+
+    marker = get_read_marker(conn, "web", "C1")
+    assert marker is not None
+    assert marker.last_read_ts == "1700000000.000900"
+    assert marker.updated_at == 2.0
+    assert count_read_markers(conn) == 1
+
+
+def test_read_markers_are_per_identifier(tmp_path: Path) -> None:
+    """Each identifier keeps its own pointer for the same scope."""
+    conn = connect(tmp_path / "cache.db")
+    set_last_read(conn, "web", "C1", "1700000000.000100")
+    set_last_read(conn, "poll", "C1", "1700000000.000400")
+    conn.commit()
+
+    assert get_last_read(conn, "web", "C1") == "1700000000.000100"
+    assert get_last_read(conn, "poll", "C1") == "1700000000.000400"
+    assert count_read_markers(conn) == 2
+
+
+def test_load_read_markers_filters_and_orders(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    set_last_read(conn, "web", "C2", "1700000000.000100")
+    set_last_read(conn, "web", "C1", "1700000000.000200", "1700000000.000100")
+    set_last_read(conn, "web", "C1", "1700000000.000300")
+    set_last_read(conn, "poll", "C1", "1700000000.000400")
+    conn.commit()
+
+    all_markers = load_read_markers(conn)
+    assert [(m.identifier, m.channel, m.thread_ts) for m in all_markers] == [
+        ("poll", "C1", None),
+        ("web", "C1", None),
+        ("web", "C1", "1700000000.000100"),
+        ("web", "C2", None),
+    ]
+
+    web = load_read_markers(conn, "web")
+    assert len(web) == 3
+    assert all(m.identifier == "web" for m in web)
+
+    web_c1 = load_read_markers(conn, "web", channel="C1")
+    assert [(m.channel, m.thread_ts) for m in web_c1] == [
+        ("C1", None),
+        ("C1", "1700000000.000100"),
+    ]
+
+
+def test_delete_read_marker_and_markers(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    set_last_read(conn, "web", "C1", "1700000000.000100")
+    set_last_read(conn, "web", "C1", "1700000000.000200", "1700000000.000100")
+    set_last_read(conn, "web", "C2", "1700000000.000300")
+    set_last_read(conn, "poll", "C1", "1700000000.000400")
+    conn.commit()
+
+    # Delete one thread marker.
+    assert delete_read_marker(conn, "web", "C1", "1700000000.000100") == 1
+    assert get_read_marker(conn, "web", "C1", "1700000000.000100") is None
+    # Deleting a missing marker is a no-op.
+    assert delete_read_marker(conn, "web", "C1", "1700000000.000100") == 0
+
+    # Delete one channel's markers for one identifier, leaving others alone.
+    assert delete_read_markers(conn, "web", channel="C1") == 1
+    assert get_read_marker(conn, "web", "C1") is None
+    assert get_read_marker(conn, "poll", "C1") is not None
+
+    # Delete every marker owned by the identifier.
+    assert delete_read_markers(conn, "web") == 1
+    assert load_read_markers(conn, "web") == []
+    assert count_read_markers(conn) == 1
+
+
+def test_latest_message_ts_channel_and_thread(tmp_path: Path) -> None:
+    conn = connect(tmp_path / "cache.db")
+    record_thread_refresh(conn, "C1", "1700000000.000100", "1700000000.000200")
+    upsert_messages(
+        conn,
+        "C1",
+        "1700000000.000100",
+        [
+            {"ts": "1700000000.000100", "user": "U1", "text": "root"},
+            {"ts": "1700000000.000200", "user": "U2", "text": "reply"},
+        ],
+    )
+    record_thread_refresh(conn, "C1", "1700000100.000300", None)
+    upsert_messages(
+        conn,
+        "C1",
+        "1700000100.000300",
+        [{"ts": "1700000100.000300", "user": "U1", "text": "second root"}],
+    )
+    conn.commit()
+
+    # Channel scope sees the newest message anywhere in the channel.
+    assert latest_message_ts(conn, "C1") == "1700000100.000300"
+    # Thread scope sees only that thread's newest message.
+    assert latest_message_ts(conn, "C1", "1700000000.000100") == "1700000000.000200"
+    assert latest_message_ts(conn, "CNONE") is None
+
+
+def test_clear_cache_read_markers(tmp_path: Path) -> None:
+    from slack_cached.storage import clear_cache
+
+    conn = connect(tmp_path / "cache.db")
+    set_last_read(conn, "web", "C1", "1700000000.000100")
+    conn.commit()
+
+    # Clearing messages leaves read markers in place.
+    clear_cache(conn, messages=True)
+    assert count_read_markers(conn) == 1
+    # Clearing read markers removes them.
+    cleared = clear_cache(conn, read_markers=True)
+    assert cleared.read_markers == 1
+    assert count_read_markers(conn) == 0

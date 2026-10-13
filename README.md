@@ -176,6 +176,24 @@ cached conversation (SQLite FTS5) and jumps straight to the matched message.
 Refresh buttons can trigger live Slack fetches when credentials are
 configured; browsing the cache itself needs none.
 
+### Tracking last read
+
+Record how far each consumer has read in a channel or a thread, so several
+programs can share one cache without overwriting each other's position:
+
+```bash
+slackx read mark C0123ABCDEF --identifier web
+slackx read mark C0123ABCDEF --ts 1700000000.123456 --identifier web
+slackx read show --identifier web
+slackx read clear --identifier web --channel C0123ABCDEF
+```
+
+Each `--identifier` (default `default`) owns an independent set of pointers: a
+channel-level pointer plus one per thread. The value defaults to the newest
+cached message in scope; pass `--last-read TS` to set it explicitly. The
+`serve` web API exposes the same pointers under `/api/read`. Use
+`slackx cache clear read` to drop every pointer.
+
 ### Users and channels
 
 Cache or refresh every workspace user or visible channel:
@@ -219,19 +237,20 @@ When a thread's authors are present in the cached users, `conversations show` re
 real name and handle (e.g. `Alice Smith (alice)`) instead of raw user ids.
 
 Inspect the cache itself with `cache status`, which reports the number of cached
-channels, users, threads, and messages, along with the last update time for
-each (`--json`/`--jsonl` for machine-readable output):
+channels, users, threads, messages, and read markers, along with the last update
+time for each (`--json`/`--jsonl` for machine-readable output):
 
 ```bash
 slackx cache status
 ```
 
-Clear cached data with `cache clear`, scoped to `messages`, `channels`, `users`, or
-`all` (the default). Clearing messages also drops the thread metadata so those
-threads are refetched next time:
+Clear cached data with `cache clear`, scoped to `messages`, `channels`, `users`,
+`read`, or `all` (the default). Clearing messages also drops the thread metadata
+so those threads are refetched next time:
 
 ```bash
 slackx cache clear messages
+slackx cache clear read
 slackx cache clear all --yes
 ```
 

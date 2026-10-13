@@ -5,6 +5,7 @@ Subcommands:
 - conversations show: print a cached thread to stdout (human-readable by default, --json for JSON).
 - conversations search: search Slack and cache the matches.
 - conversations poll: poll channels in a loop for new messages.
+- read mark/show/clear: track per-consumer last-read pointers.
 - serve: browse the cache through a local web UI.
 """
 
@@ -22,6 +23,9 @@ from slack_cached.cli.commands import (  # noqa: F401
     conversations_poll,
     conversations_search,
     conversations_show,
+    read_clear,
+    read_mark,
+    read_show,
     serve,
     users_fetch,
     users_list,
