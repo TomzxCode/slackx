@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from slack_cached import cli
-from slack_cached.cache import FetchResult
-from slack_cached.config import Credentials as Creds
+from slackx import cli
+from slackx.cache import FetchResult
+from slackx.config import Credentials as Creds
 
 
 class StubClient:
@@ -816,7 +816,7 @@ def test_show_channels_fields_json(
 
 
 def _populate_status_db(db_path: Path) -> None:
-    from slack_cached import storage
+    from slackx import storage
 
     conn = storage.connect(db_path)
     storage.upsert_users(conn, [{"id": "U1", "name": "alice"}], now=1700000000.0)
@@ -1830,7 +1830,7 @@ def test_search_passes_limit_flag(
 
 def test_search_defaults_limit_to_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Search applies a default limit so broad queries do not page forever."""
-    from slack_cached.slack_api import DEFAULT_SEARCH_LIMIT
+    from slackx.slack_api import DEFAULT_SEARCH_LIMIT
 
     db_path = tmp_path / "cache.db"
     client = FakeSearchClient(matches=[])
@@ -1951,10 +1951,10 @@ def _patch_poll(monkeypatch, fake_client_cls, cycle_limit=1):
 
     import httpx
 
-    from slack_cached import slack_api
+    from slackx import slack_api
 
     monkeypatch.setattr(
-        "slack_cached.config.load_credentials",
+        "slackx.config.load_credentials",
         lambda require=True: fake_client_cls.CREDENTIALS,
     )
 
@@ -2391,8 +2391,8 @@ def test_show_requires_workspace_when_ambiguous(
 ) -> None:
     """Multiple workspace caches without a last-used pointer is an error."""
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    from slack_cached.storage import connect
-    from slack_cached.workspace import workspace_db_path
+    from slackx.storage import connect
+    from slackx.workspace import workspace_db_path
 
     connect(workspace_db_path("alpha")).close()
     connect(workspace_db_path("beta")).close()
@@ -2448,9 +2448,9 @@ def test_serve_sync_resolution_uses_credentials(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Without --db/--workspace, serve resolves the workspace from credentials."""
-    from slack_cached.cli._internal import _client
-    from slack_cached.cli._internal._shared import CommonArgs
-    from slack_cached.workspace import workspace_db_path
+    from slackx.cli._internal import _client
+    from slackx.cli._internal._shared import CommonArgs
+    from slackx.workspace import workspace_db_path
 
     common = CommonArgs()
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
@@ -2477,9 +2477,9 @@ def test_serve_sync_resolution_without_credentials_falls_back_offline(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """No credentials: serve falls back to offline resolution."""
-    from slack_cached.cli._internal import _client
-    from slack_cached.cli._internal._shared import CommonArgs
-    from slack_cached.workspace import offline_db_path
+    from slackx.cli._internal import _client
+    from slackx.cli._internal._shared import CommonArgs
+    from slackx.workspace import offline_db_path
 
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     monkeypatch.delenv("SLACK_TOKEN", raising=False)
@@ -2491,7 +2491,7 @@ def test_serve_sync_resolution_without_credentials_falls_back_offline(
 
 def _seed_all_entities(db_path: Path) -> None:
     """Cache one thread/message, one user, and one channel directly."""
-    from slack_cached.storage import (
+    from slackx.storage import (
         connect,
         record_thread_refresh,
         upsert_channels,
@@ -2516,7 +2516,7 @@ def _seed_all_entities(db_path: Path) -> None:
 
 
 def _status_counts(db_path: Path):
-    from slack_cached.storage import connect, db_status
+    from slackx.storage import connect, db_status
 
     conn = connect(db_path)
     try:
@@ -2605,7 +2605,7 @@ def test_clear_users_keeps_messages_and_channels(tmp_path: Path) -> None:
 
 def test_clear_messages_reopens_thread_for_refetch(tmp_path: Path) -> None:
     """Clearing messages drops the thread row so show refetches instead of trusting it."""
-    from slack_cached.storage import connect, get_thread_state
+    from slackx.storage import connect, get_thread_state
 
     db_path = tmp_path / "cache.db"
     _seed_all_entities(db_path)
@@ -2620,7 +2620,7 @@ def test_clear_messages_reopens_thread_for_refetch(tmp_path: Path) -> None:
 
 
 def _read_markers(db_path: Path, reader: str | None = None):
-    from slack_cached.storage import connect, load_read_markers
+    from slackx.storage import connect, load_read_markers
 
     conn = connect(db_path)
     try:

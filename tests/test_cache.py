@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from slack_cached.cache import (
+from slackx.cache import (
     fetch_channel,
     fetch_channel_messages,
     fetch_channels,
@@ -19,7 +19,7 @@ from slack_cached.cache import (
     fetch_users,
     load_thread,
 )
-from slack_cached.storage import (
+from slackx.storage import (
     connect,
     count_channels,
     get_channel,
@@ -30,7 +30,7 @@ from slack_cached.storage import (
     load_thread_messages,
     load_users,
 )
-from slack_cached.urls import ThreadRef
+from slackx.urls import ThreadRef
 
 
 class FakeClient:

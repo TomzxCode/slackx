@@ -8,7 +8,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 ## Scope
 
-This plan covers the credential and path helpers in `src/slack_cached/config.py`: environment and config file resolution, environment precedence, the missing-token failure, and the XDG cache path default.
+This plan covers the credential and path helpers in `src/slackx/config.py`: environment and config file resolution, environment precedence, the missing-token failure, and the XDG cache path default.
 The tests live in `tests/test_config.py` and call the `config` functions directly.
 It does not cover the API base URL override (FR-08), the `require=False` path (FR-09), the xoxc- without cookie error (FR-05), the `--db` and `--api-base-url` CLI wiring in `cli/_internal/_client.py`, or the per-workspace database path resolution (FEAT-0008, covered by `tests/test_workspace.py`).
 
@@ -46,7 +46,7 @@ The CLI consumption surface (`--db`, `--api-base-url`, credential loading throug
 - `pytest` with `monkeypatch` to set and unset `SLACK_TOKEN`, `SLACK_COOKIE`, `XDG_CONFIG_HOME`, and `XDG_CACHE_HOME`.
 - `tmp_path` provides the isolated config file location and XDG path roots.
 - No network access, mocks, or fixtures beyond `monkeypatch` and `tmp_path`.
-- `tests/test_config.py` imports the module as `from slack_cached import config`.
+- `tests/test_config.py` imports the module as `from slackx import config`.
 
 ## Coverage Matrix
 

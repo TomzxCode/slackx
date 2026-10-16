@@ -8,10 +8,10 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 ## Scope
 
-This plan covers the permalink and argument parsing in `src/slack_cached/urls.py`
+This plan covers the permalink and argument parsing in `src/slackx/urls.py`
 (`ThreadRef`, `_pts_to_ts`, `parse_thread_url`, `parse_channel_url`, `parse_channel_ts`,
 `CHANNEL_PREFIXES`) and the CLI target resolution in
-`src/slack_cached/cli/_internal/_refs.py` that consumes it.
+`src/slackx/cli/_internal/_refs.py` that consumes it.
 
 In scope: root and reply permalinks, channel permalinks, direct message channel ids,
 explicit channel and ts arguments, and the CLI target forms (permalink, channel id,
@@ -81,9 +81,9 @@ cache, render). No test runs the built-in fake Slack server through the CLI for 
 ## Test Infrastructure
 
 - Framework: pytest, configured with `testpaths = tests` and `addopts = -ra`.
-- Unit tests live in `tests/test_urls.py` and import from `slack_cached.urls`; they need no fixtures.
-- CLI tests live in `tests/test_cli.py` and drive `slack_cached.cli.main` directly.
-- The Slack client is stubbed by monkeypatching `slack_cached.cli._internal._client._build_client` with async stub clients (`FakeChannelClient`, `FakeThreadClient`, `EmptyClient`, `DirectChannelClient`) that implement `iter_thread_replies`, `iter_channels`, `iter_channel_history`, and `aclose`.
+- Unit tests live in `tests/test_urls.py` and import from `slackx.urls`; they need no fixtures.
+- CLI tests live in `tests/test_cli.py` and drive `slackx.cli.main` directly.
+- The Slack client is stubbed by monkeypatching `slackx.cli._internal._client._build_client` with async stub clients (`FakeChannelClient`, `FakeThreadClient`, `EmptyClient`, `DirectChannelClient`) that implement `iter_thread_replies`, `iter_channels`, `iter_channel_history`, and `aclose`.
 - `tmp_path` supplies an isolated SQLite cache per test; `capsys` captures stdout and stderr for assertions.
 
 ## Coverage Matrix

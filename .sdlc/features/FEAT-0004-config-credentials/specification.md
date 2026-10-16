@@ -25,12 +25,12 @@ config.py
   |
   +-- default_db_path()
   |     -> cache_dir() / "threads.db"
-  |     -> $XDG_CACHE_HOME/slack-cached/threads.db
-  |     -> ~/.cache/slack-cached/threads.db
+  |     -> $XDG_CACHE_HOME/slackx/threads.db
+  |     -> ~/.cache/slackx/threads.db
   |
   +-- config_dir()
-        -> $XDG_CONFIG_HOME/slack-cached
-        -> ~/.config/slack-cached
+        -> $XDG_CONFIG_HOME/slackx
+        -> ~/.config/slackx
 ```
 
 ## Data Models

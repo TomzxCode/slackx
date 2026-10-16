@@ -5,15 +5,15 @@ import sys
 
 import pytest
 
-from slack_cached.cli._internal._render import (
+from slackx.cli._internal._render import (
     _render_channel_human,
     _render_human,
     _render_search_human,
     _render_status_human,
 )
-from slack_cached.cli._internal._style import _styler, _supports_styles
-from slack_cached.storage import CachedMessage, ChannelMessageEntry, DbStatus
-from slack_cached.urls import ThreadRef
+from slackx.cli._internal._style import _styler, _supports_styles
+from slackx.storage import CachedMessage, ChannelMessageEntry, DbStatus
+from slackx.urls import ThreadRef
 
 # ---------------------------------------------------------------------------
 # _supports_styles detection

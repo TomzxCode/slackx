@@ -16,12 +16,12 @@
 
 ## Directory Structure
 
-The package is `slack_cached`, exposed through two console scripts: `slackx` and `slack-fake-server`.
+The package is `slackx`, exposed through two console scripts: `slackx` and `slack-fake-server`.
 
 ```
 slackx/
   src/
-    slack_cached/
+    slackx/
       __init__.py
       cache.py               # Async fetch orchestration and result dataclasses
       config.py              # Credentials, XDG paths, credential resolution

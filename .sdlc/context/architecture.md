@@ -3,7 +3,7 @@
 
 ## System Overview
 
-slackx (package `slack_cached`) is a single-user Python 3.13 tool with two entry points: a cyclopts CLI and a FastAPI web server.
+slackx (package `slackx`) is a single-user Python 3.13 tool with two entry points: a cyclopts CLI and a FastAPI web server.
 The CLI talks to a cache orchestration layer, which calls an async Slack client and writes to a per-workspace SQLite database through a synchronous storage layer.
 A standalone fake Slack server provides deterministic data for tests and local development.
 

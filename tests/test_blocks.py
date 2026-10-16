@@ -1,14 +1,14 @@
 """Tests for CLI rendering of message blocks and attachments."""
 
-from slack_cached.cli._internal._blocks import (
+from slackx.cli._internal._blocks import (
     _message_body_lines,
     _render_attachments,
     _render_blocks,
 )
-from slack_cached.cli._internal._render import _render_channel_human, _render_human
-from slack_cached.cli._internal._style import _styler
-from slack_cached.storage import CachedMessage, ChannelMessageEntry
-from slack_cached.urls import ThreadRef
+from slackx.cli._internal._render import _render_channel_human, _render_human
+from slackx.cli._internal._style import _styler
+from slackx.storage import CachedMessage, ChannelMessageEntry
+from slackx.urls import ThreadRef
 
 # ---------------------------------------------------------------------------
 # Blocks

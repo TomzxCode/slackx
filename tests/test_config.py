@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from slack_cached import config
+from slackx import config
 
 
 def test_load_credentials_from_env(monkeypatch: pytest.MonkeyPatch) -> None:

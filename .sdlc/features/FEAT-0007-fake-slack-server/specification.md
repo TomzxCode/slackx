@@ -99,7 +99,7 @@ The server exposes Slack-compatible JSON responses:
 ### Server startup
 
 ```
-python -m slack_cached.fake_slack --port 8199 --seed 42
+python -m slackx.fake_slack --port 8199 --seed 42
   -> Parse CLI args -> WorkspaceParams
   -> Generate Workspace(seed=42, ...)
       -> _generate_users() -> 20 realistic user dicts

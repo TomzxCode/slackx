@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from slack_cached import storage
-from slack_cached.config import Credentials
-from slack_cached.server import app as server_app
+from slackx import storage
+from slackx.config import Credentials
+from slackx.server import app as server_app
 
 
 @pytest.fixture

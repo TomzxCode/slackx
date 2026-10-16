@@ -49,7 +49,7 @@ The tests live in `tests/test_cli.py` and exercise the command end to end throug
 ## Test Infrastructure
 
 - `FakeAsyncPollClient` in `tests/test_cli.py` is an async stub Slack client that records the `(channel, oldest)` calls and yields per-channel messages.
-- `_patch_poll(monkeypatch, fake_client_cls, cycle_limit)` patches `asyncio.sleep` (raising `CancelledError` after `cycle_limit` calls), `httpx.AsyncClient`, and `slack_cached.slack_api.SlackClient`.
+- `_patch_poll(monkeypatch, fake_client_cls, cycle_limit)` patches `asyncio.sleep` (raising `CancelledError` after `cycle_limit` calls), `httpx.AsyncClient`, and `slackx.slack_api.SlackClient`.
 - `load_credentials` is monkeypatched to return a fixed test credential.
 - Tests use `tmp_path` for the cache database and `capsys` to read stderr and stdout.
 - `test_poll_resolves_channel_names` seeds the channel cache by running `channels fetch` with a stub `iter_channels` client before polling.

@@ -3,7 +3,7 @@
 
 ## Purpose
 
-slackx (package `slack_cached`) is a single-user Python 3.13 command-line tool that caches Slack threads, channel messages, users, channels, and search results into a local SQLite database, one database per workspace. It fetches on demand through the Slack Web API over async httpx and stores everything with sqlite3, so cached conversations can be read offline and queried without a workspace export. It also serves a local FastAPI web UI (`serve`) to browse the cache in a Slack-like interface, and ships a built-in fake Slack API server for testing and development without hitting the real Slack API.
+slackx (package `slackx`) is a single-user Python 3.13 command-line tool that caches Slack threads, channel messages, users, channels, and search results into a local SQLite database, one database per workspace. It fetches on demand through the Slack Web API over async httpx and stores everything with sqlite3, so cached conversations can be read offline and queried without a workspace export. It also serves a local FastAPI web UI (`serve`) to browse the cache in a Slack-like interface, and ships a built-in fake Slack API server for testing and development without hitting the real Slack API.
 
 ## Key Stakeholders
 

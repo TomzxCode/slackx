@@ -21,7 +21,7 @@ Update this file when tooling, environments, or deployment procedures change.
 | Terminal output | rich | >=15.0.0 |
 | Config loading | python-dotenv | >=1.0 |
 
-The package is named `slack-cached` and exposes two console scripts: `slackx` (the CLI and web server) and `slack-fake-server` (the fake Slack API used in tests).
+The package is named `slackx` and exposes two console scripts: `slackx` (the CLI and web server) and `slack-fake-server` (the fake Slack API used in tests).
 The build backend is `uv_build`.
 
 ## Development Tooling
@@ -34,14 +34,14 @@ The build backend is `uv_build`.
 | mkdocs | Documentation site build | `uv run mkdocs build`, preview with `uv run mkdocs serve` |
 
 There is no type checker configured (no mypy or pyright dependency or configuration), so no type-check command exists.
-There is no separate build step for the Python package beyond `uv build`, and the web SPA ships prebuilt under `src/slack_cached/web/dist`.
+There is no separate build step for the Python package beyond `uv build`, and the web SPA ships prebuilt under `src/slackx/web/dist`.
 
 ## Environments
 
 | Environment | Branch | Purpose | URL |
 |---|---|---|---|
 | Developer machine | any | Local install and use of the CLI and web UI via uv | not applicable (local) |
-| GitHub Pages (documentation) | main | Published documentation site | https://tomzxcode.github.io/slack-cached |
+| GitHub Pages (documentation) | main | Published documentation site | https://tomzxcode.github.io/slackx |
 
 There is no staging or production application environment.
 The CLI runs on the developer's own machine and the web UI is served locally by the `slackx serve` command.
@@ -84,7 +84,7 @@ The fake Slack server is exercised by that suite for integration-style coverage.
 
 There is no cloud infrastructure and no infrastructure-as-code.
 The CLI and web UI run on local developer machines.
-Documentation is hosted on GitHub Pages at https://tomzxcode.github.io/slack-cached, published by the Pages workflow.
+Documentation is hosted on GitHub Pages at https://tomzxcode.github.io/slackx, published by the Pages workflow.
 
 ## Secrets Management
 

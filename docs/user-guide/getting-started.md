@@ -5,8 +5,8 @@
 Clone the repository and install dependencies with uv:
 
 ```bash
-git clone https://github.com/TomzxCode/slack-cached.git
-cd slack-cached
+git clone https://github.com/TomzxCode/slackx.git
+cd slackx
 uv sync --dev
 ```
 

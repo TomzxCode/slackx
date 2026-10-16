@@ -16,10 +16,10 @@ status: complete
 
 The downstream-observable changes this pass compares against:
 
-- A new `read_markers` table and its storage functions (`set_last_read`, `get_read_marker`, `get_last_read`, `load_read_markers`, `delete_read_marker`, `delete_read_markers`, `count_read_markers`, `latest_message_ts`) in `src/slack_cached/storage.py`.
+- A new `read_markers` table and its storage functions (`set_last_read`, `get_read_marker`, `get_last_read`, `load_read_markers`, `delete_read_marker`, `delete_read_markers`, `count_read_markers`, `latest_message_ts`) in `src/slackx/storage.py`.
 - A new CLI group `slackx conversations read mark|show|clear`, plus `slackx cache clear read`.
 - `slackx conversations show` now advances the pointer for `--reader` after printing.
-- An HTTP surface `GET|PUT|DELETE /api/read...` in `src/slack_cached/server/app.py`.
+- An HTTP surface `GET|PUT|DELETE /api/read...` in `src/slackx/server/app.py`.
 - A rename of the namespace from `identifier` to `reader` across the CLI flag, the API body field and path parameters, the `read_markers` column, the index `idx_read_markers_reader`, and the `ReadMarker` field.
 - `cache status` now reports `read_marker_count`.
 - Documentation: `README.md`, `docs/user-guide/cli-reference.md`, `docs/user-guide/serving.md`, and the new `docs/user-guide/tracking-last-read.md`.

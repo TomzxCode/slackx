@@ -1,10 +1,10 @@
 """Tests for Slack mrkdwn to rich markup conversion and styled rendering."""
 
-from slack_cached.cli._internal._mrkdwn import _mrkdwn_to_markup
-from slack_cached.cli._internal._render import _render_human
-from slack_cached.cli._internal._style import _styler
-from slack_cached.storage import CachedMessage
-from slack_cached.urls import ThreadRef
+from slackx.cli._internal._mrkdwn import _mrkdwn_to_markup
+from slackx.cli._internal._render import _render_human
+from slackx.cli._internal._style import _styler
+from slackx.storage import CachedMessage
+from slackx.urls import ThreadRef
 
 # ---------------------------------------------------------------------------
 # Converter: emphasis and code

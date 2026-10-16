@@ -9,8 +9,8 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 ## Scope
 
 Covers workspace name derivation, workspace database path selection, the on-disk credential-name cache, the last-used pointer, offline resolution, and the synchronous `serve` resolution path.
-Unit tests exercise `slack_cached.workspace` directly in `tests/test_workspace.py`.
-Integration tests drive the CLI resolution precedence through `slack_cached.cli._internal._client` in `tests/test_cli.py`.
+Unit tests exercise `slackx.workspace` directly in `tests/test_workspace.py`.
+Integration tests drive the CLI resolution precedence through `slackx.cli._internal._client` in `tests/test_cli.py`.
 End-to-end tests cover the `serve` sync path in `tests/test_cli.py` and the fake server auth.test endpoint in `tests/test_fake_slack.py`.
 Out of scope: Slack network behavior, SQLite storage internals, and the web UI.
 
@@ -64,7 +64,7 @@ Out of scope: Slack network behavior, SQLite storage internals, and the web UI.
 - A `tmp_path` cache root with an autouse `_cache_dir` fixture that sets `XDG_CACHE_HOME` in `tests/test_workspace.py`.
 - `monkeypatch.setenv` for `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `SLACK_TOKEN`, and `SLACK_COOKIE` in `tests/test_cli.py`.
 - Stubbed Slack clients injected with `monkeypatch.setattr(cli._internal._client, "_build_client", ...)`, including the `_stub_workspace_client` helper.
-- `slack_cached.storage.connect` creates the workspace and legacy databases the resolution tests need to exist.
+- `slackx.storage.connect` creates the workspace and legacy databases the resolution tests need to exist.
 - The `fake_server` fixture in `tests/test_fake_slack.py` serves the auth.test endpoint.
 - `pytest.raises(SystemExit, match=...)` asserts the ambiguity failure message.
 

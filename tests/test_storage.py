@@ -7,7 +7,7 @@ from pathlib import Path
 
 import structlog
 
-from slack_cached.storage import (
+from slackx.storage import (
     connect,
     count_channels,
     count_messages,
@@ -491,7 +491,7 @@ def test_sql_statements_are_logged(tmp_path: Path) -> None:
 
 
 def _import_search_helpers():
-    from slack_cached.storage import (
+    from slackx.storage import (
         ensure_search_index,
         list_channel_summaries,
         load_channel_thread_roots,
@@ -575,7 +575,7 @@ def test_search_backfills_rows_written_before_triggers(tmp_path: Path) -> None:
 
 
 def test_db_status_empty(tmp_path: Path) -> None:
-    from slack_cached.storage import db_status
+    from slackx.storage import db_status
 
     conn = connect(tmp_path / "cache.db")
     status = db_status(conn)
@@ -590,7 +590,7 @@ def test_db_status_empty(tmp_path: Path) -> None:
 
 
 def test_db_status_counts_and_last_updates(tmp_path: Path) -> None:
-    from slack_cached.storage import db_status
+    from slackx.storage import db_status
 
     conn = connect(tmp_path / "cache.db")
     upsert_users(
@@ -779,7 +779,7 @@ def test_latest_message_ts_channel_and_thread(tmp_path: Path) -> None:
 
 
 def test_clear_cache_read_markers(tmp_path: Path) -> None:
-    from slack_cached.storage import clear_cache
+    from slackx.storage import clear_cache
 
     conn = connect(tmp_path / "cache.db")
     set_last_read(conn, "web", "C1", "1700000000.000100")

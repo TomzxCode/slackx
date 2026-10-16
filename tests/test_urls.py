@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from slack_cached.urls import ThreadRef, parse_channel_ts, parse_channel_url, parse_thread_url
+from slackx.urls import ThreadRef, parse_channel_ts, parse_channel_url, parse_thread_url
 
 
 def test_parse_thread_root_permalink() -> None:

@@ -4,12 +4,12 @@ last_synced: 2026-10-13
 code_ref: d5cdf8ba842cc9caa49daf421847d921591df7ab
 code_index:
   "p3-read-markers":
-    - src/slack_cached/cli/commands/read_mark.py
-    - src/slack_cached/cli/commands/read_show.py
-    - src/slack_cached/cli/commands/read_clear.py
-    - src/slack_cached/cli/commands/conversations_show.py
+    - src/slackx/cli/commands/read_mark.py
+    - src/slackx/cli/commands/read_show.py
+    - src/slackx/cli/commands/read_clear.py
+    - src/slackx/cli/commands/conversations_show.py
     - docs/user-guide/tracking-last-read.md
   "p4-web-ui":
-    - src/slack_cached/server/app.py
-    - src/slack_cached/server/static
+    - src/slackx/server/app.py
+    - src/slackx/server/static
     - docs/user-guide/serving.md

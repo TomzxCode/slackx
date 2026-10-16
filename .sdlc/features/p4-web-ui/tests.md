@@ -8,7 +8,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 ## Scope
 
-This plan covers the FastAPI JSON API, the read-marker write routes, the refresh routes, and static SPA serving in `src/slack_cached/server/app.py`.
+This plan covers the FastAPI JSON API, the read-marker write routes, the refresh routes, and static SPA serving in `src/slackx/server/app.py`.
 Tests live in `tests/test_server.py` and drive the app through the FastAPI `TestClient`, and the `serve` command registration and database resolution are covered in `tests/test_cli.py`.
 Out of scope: the SPA JavaScript itself, uvicorn binding behavior, and live Slack network fetches (the refresh routes are only tested up to the no-credentials and unknown-channel guards).
 

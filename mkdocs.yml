@@ -1,8 +1,8 @@
 site_name: slackx
-site_description: Documentation for Slack Cached, a tool to cache Slack threads to a local SQLite database
-site_url: https://tomzxcode.github.io/slack-cached
-repo_name: TomzxCode/slack-cached
-repo_url: https://github.com/TomzxCode/slack-cached
+site_description: Documentation for slackx, a tool to cache Slack threads to a local SQLite database
+site_url: https://tomzxcode.github.io/slackx
+repo_name: TomzxCode/slackx
+repo_url: https://github.com/TomzxCode/slackx
 edit_uri: edit/main/docs/
 
 theme:
@@ -103,4 +103,4 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/TomzxCode/slack-cached
+      link: https://github.com/TomzxCode/slackx

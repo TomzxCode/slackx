@@ -37,7 +37,7 @@ uv run slack-fake-server --port 8199 --seed 42
 Or as a Python module:
 
 ```bash
-uv run python -m slack_cached.fake_slack --port 8199 --seed 42
+uv run python -m slackx.fake_slack --port 8199 --seed 42
 ```
 
 The server binds to `127.0.0.1:8199` by default. It blocks until interrupted
@@ -125,7 +125,7 @@ Use the `Workspace` and `run_server` classes/functions directly in Python
 (for test fixtures, scripts, etc.):
 
 ```python
-from slack_cached.fake_slack import Workspace, WorkspaceParams, run_server
+from slackx.fake_slack import Workspace, WorkspaceParams, run_server
 
 # Generate workspace data without starting a server
 params = WorkspaceParams(seed=42, num_users=10, num_channels=5, num_ims=2, num_threads=15)
@@ -147,7 +147,7 @@ server.shutdown()
 import threading
 import time
 from http.server import HTTPServer
-from slack_cached.fake_slack import FakeSlackHandler, Workspace
+from slackx.fake_slack import FakeSlackHandler, Workspace
 
 workspace = Workspace(seed=42)
 FakeSlackHandler.workspace = workspace

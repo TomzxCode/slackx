@@ -37,7 +37,7 @@ The command layer (`conversations_poll.py`) parses and validates input, resolves
 ## Data Models
 
 The loop defines no new persisted entities.
-It reuses `ChannelFetchResult` from `slack_cached.cache`, whose fields are `channel`, `fetched_messages`, `total_messages`, and `threads_with_replies_fetched`.
+It reuses `ChannelFetchResult` from `slackx.cache`, whose fields are `channel`, `fetched_messages`, `total_messages`, and `threads_with_replies_fetched`.
 Each `fetch_one` call returns a plain per-channel summary dict derived from that result, either `{"channel", "fetched", "total"}` on success or `{"channel", "error": True}` on failure.
 The `--json` payload is a plain dict with the keys `cycle`, `elapsed_seconds`, and `channels` (the list of per-channel summary dicts).
 

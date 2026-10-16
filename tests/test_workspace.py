@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from slack_cached.config import DEFAULT_DB_NAME
-from slack_cached.storage import connect
-from slack_cached.workspace import (
+from slackx.config import DEFAULT_DB_NAME
+from slackx.storage import connect
+from slackx.workspace import (
     claim_workspace_db,
     last_workspace,
     legacy_db_path,

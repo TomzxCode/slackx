@@ -11,7 +11,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 The cache grows as threads, messages, channels, users, and read markers are fetched from Slack, and a user needs a way to see how much is stored and to remove it selectively.
 This feature provides the `slackx cache status` command, which reports counts and last update times for the local cache database, and the `slackx cache clear` command, which deletes all cached data or one entity at a time.
 Both commands operate directly on the local SQLite database and never call Slack.
-This document was reverse-engineered from the implemented commands in `src/slack_cached/cli/commands/cache_status.py`, `src/slack_cached/cli/commands/cache_clear.py`, and the storage helpers in `src/slack_cached/storage.py`.
+This document was reverse-engineered from the implemented commands in `src/slackx/cli/commands/cache_status.py`, `src/slackx/cli/commands/cache_clear.py`, and the storage helpers in `src/slackx/storage.py`.
 
 ## Stakeholders
 

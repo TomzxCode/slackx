@@ -58,7 +58,7 @@ channel caching, the web UI, and rendering internals.
 - SQLite databases created per test under `tmp_path` through `storage.connect`.
 - Fake clients: `FakeChannelClient` and `FakeChannelClientWithHistory` in `tests/test_cli.py`, `FakeChannelClient` in `tests/test_cache.py`, each yielding fixed history or replies.
 - `FakeTransport` in `tests/test_slack_api.py` returns canned JSON pages and records request URLs and params for the paginator tests.
-- `monkeypatch` of `slack_cached.cli._internal._client._build_client` injects the fake client into CLI runs.
+- `monkeypatch` of `slackx.cli._internal._client._build_client` injects the fake client into CLI runs.
 - No network access and no real Slack credentials are required.
 
 ## Coverage Matrix

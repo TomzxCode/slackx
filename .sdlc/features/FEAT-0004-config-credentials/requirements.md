@@ -27,11 +27,11 @@ Order rows by priority: Must first, then Should, then May.
 | ID | Priority | Requirement |
 |---|---|---|
 | FR-01 | Must | The system shall load Slack credentials from SLACK_TOKEN and SLACK_COOKIE environment variables |
-| FR-02 | Must | The system shall load credentials from a config file at $XDG_CONFIG_HOME/slack-cached/config (falling back to ~/.config/slack-cached/config) |
+| FR-02 | Must | The system shall load credentials from a config file at $XDG_CONFIG_HOME/slackx/config (falling back to ~/.config/slackx/config) |
 | FR-03 | Must | Environment variables shall take precedence over the config file |
 | FR-04 | Must | The system shall exit with a clear error message when no token is found |
 | FR-05 | Must | The system shall validate that xoxc- tokens are accompanied by a cookie and exit with an error if missing |
-| FR-06 | Must | The system shall default the cache database path to $XDG_CACHE_HOME/slack-cached/threads.db (falling back to ~/.cache/slack-cached/threads.db) |
+| FR-06 | Must | The system shall default the cache database path to $XDG_CACHE_HOME/slackx/threads.db (falling back to ~/.cache/slackx/threads.db) |
 | FR-07 | Must | The system shall allow overriding the cache database path via --db |
 | FR-08 | Must | The system shall support a configurable API base URL via SLACK_API_BASE_URL env var, config file, or --api-base-url CLI flag |
 | FR-09 | Should | The system shall allow credential loading to be optional (require=False) when a non-default API base URL is used, enabling use with the fake server without real credentials |

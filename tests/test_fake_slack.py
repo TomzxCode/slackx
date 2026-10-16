@@ -11,7 +11,7 @@ import httpx
 import pytest
 import structlog
 
-from slack_cached.fake_slack import Workspace, WorkspaceParams
+from slackx.fake_slack import Workspace, WorkspaceParams
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +27,7 @@ def _silence_logging() -> None:
 def fake_server():
     from http.server import HTTPServer
 
-    from slack_cached.fake_slack import FakeSlackHandler
+    from slackx.fake_slack import FakeSlackHandler
 
     workspace = Workspace(seed=42)
     FakeSlackHandler.workspace = workspace
@@ -796,10 +796,10 @@ class TestFetchChannelMessagesIntegration:
     ) -> None:
         import asyncio
 
-        from slack_cached.cache import fetch_channel_messages
-        from slack_cached.config import Credentials
-        from slack_cached.slack_api import SlackClient
-        from slack_cached.storage import connect
+        from slackx.cache import fetch_channel_messages
+        from slackx.config import Credentials
+        from slackx.slack_api import SlackClient
+        from slackx.storage import connect
 
         channel = next(ch_id for ch_id, _ in workspace.threads)
         expected_threads = sum(1 for ch_id, _ in workspace.threads if ch_id == channel)
@@ -825,10 +825,10 @@ class TestFetchChannelMessagesIntegration:
     ) -> None:
         import asyncio
 
-        from slack_cached.cache import fetch_channel_messages
-        from slack_cached.config import Credentials
-        from slack_cached.slack_api import SlackClient
-        from slack_cached.storage import connect
+        from slackx.cache import fetch_channel_messages
+        from slackx.config import Credentials
+        from slackx.slack_api import SlackClient
+        from slackx.storage import connect
 
         channel = next(ch_id for ch_id, _ in workspace.threads)
         expected_threads = sum(1 for ch_id, _ in workspace.threads if ch_id == channel)
@@ -859,11 +859,11 @@ class TestFetchChannelMessagesIntegration:
     ) -> None:
         import asyncio
 
-        from slack_cached.cache import fetch_channel_messages, load_thread
-        from slack_cached.config import Credentials
-        from slack_cached.slack_api import SlackClient
-        from slack_cached.storage import connect
-        from slack_cached.urls import ThreadRef
+        from slackx.cache import fetch_channel_messages, load_thread
+        from slackx.config import Credentials
+        from slackx.slack_api import SlackClient
+        from slackx.storage import connect
+        from slackx.urls import ThreadRef
 
         (channel, thread_ts), thread_msgs = next(iter(workspace.threads.items()))
 
@@ -909,10 +909,10 @@ class TestFetchSearchIntegration:
     ) -> None:
         import asyncio
 
-        from slack_cached.cache import fetch_search
-        from slack_cached.config import Credentials
-        from slack_cached.slack_api import SlackClient
-        from slack_cached.storage import connect
+        from slackx.cache import fetch_search
+        from slackx.config import Credentials
+        from slackx.slack_api import SlackClient
+        from slackx.storage import connect
 
         term = self._known_term(workspace)
         conn = connect(tmp_path / "cache.db")
@@ -938,10 +938,10 @@ class TestFetchSearchIntegration:
     ) -> None:
         import asyncio
 
-        from slack_cached.cache import fetch_search
-        from slack_cached.config import Credentials
-        from slack_cached.slack_api import SlackClient
-        from slack_cached.storage import connect, load_thread_messages
+        from slackx.cache import fetch_search
+        from slackx.config import Credentials
+        from slackx.slack_api import SlackClient
+        from slackx.storage import connect, load_thread_messages
 
         term = self._known_term(workspace)
         conn = connect(tmp_path / "cache.db")
@@ -982,10 +982,10 @@ class TestFetchSearchIntegration:
         """
         import asyncio
 
-        from slack_cached.cache import fetch_search
-        from slack_cached.config import Credentials
-        from slack_cached.slack_api import SlackClient
-        from slack_cached.storage import connect
+        from slackx.cache import fetch_search
+        from slackx.config import Credentials
+        from slackx.slack_api import SlackClient
+        from slackx.storage import connect
 
         term = self._known_term(workspace)
         conn = connect(tmp_path / "cache.db")
@@ -1022,14 +1022,14 @@ class TestFetchSearchIntegration:
 
 class TestRateLimiter:
     def test_default_disabled(self) -> None:
-        from slack_cached.fake_slack import RateLimiter
+        from slackx.fake_slack import RateLimiter
 
         limiter = RateLimiter(limits={"/api/test": 2})
         allowed, _ = limiter.check("/api/test")
         assert allowed is True
 
     def test_returns_false_when_exceeded(self) -> None:
-        from slack_cached.fake_slack import RateLimiter
+        from slackx.fake_slack import RateLimiter
 
         limiter = RateLimiter(limits={"/api/test": 2}, now=lambda: 0.0)
         limiter.check("/api/test")
@@ -1039,7 +1039,7 @@ class TestRateLimiter:
         assert retry_after >= 1
 
     def test_unknown_path_always_allowed(self) -> None:
-        from slack_cached.fake_slack import RateLimiter
+        from slackx.fake_slack import RateLimiter
 
         limiter = RateLimiter(limits={"/api/test": 1}, now=lambda: 0.0)
         limiter.check("/api/test")
@@ -1048,7 +1048,7 @@ class TestRateLimiter:
             assert allowed is True
 
     def test_per_endpoint_independent(self) -> None:
-        from slack_cached.fake_slack import RateLimiter
+        from slackx.fake_slack import RateLimiter
 
         limiter = RateLimiter(
             limits={"/api/a": 1, "/api/b": 1},
@@ -1061,7 +1061,7 @@ class TestRateLimiter:
         assert allowed_b is True
 
     def test_succeeds_after_window_expires(self) -> None:
-        from slack_cached.fake_slack import RateLimiter
+        from slackx.fake_slack import RateLimiter
 
         clock = [0.0]
         limiter = RateLimiter(limits={"/api/test": 1}, now=lambda: clock[0])
@@ -1073,7 +1073,7 @@ class TestRateLimiter:
         assert allowed is True
 
     def test_real_slack_tiers(self) -> None:
-        from slack_cached.fake_slack import ENDPOINT_RATE_LIMITS
+        from slackx.fake_slack import ENDPOINT_RATE_LIMITS
 
         assert ENDPOINT_RATE_LIMITS["conversations.replies"] == 50
         assert ENDPOINT_RATE_LIMITS["users.list"] == 20
@@ -1084,7 +1084,7 @@ class TestRateLimiter:
 def rate_limited_server():
     from http.server import HTTPServer
 
-    from slack_cached.fake_slack import FakeSlackHandler, RateLimiter, Workspace
+    from slackx.fake_slack import FakeSlackHandler, RateLimiter, Workspace
 
     workspace = Workspace(seed=42)
     FakeSlackHandler.workspace = workspace
@@ -1143,7 +1143,7 @@ class TestEpochBase:
     def test_default_epoch_base_is_jan_2024(self) -> None:
         from datetime import UTC, datetime
 
-        from slack_cached.fake_slack import DEFAULT_EPOCH_BASE
+        from slackx.fake_slack import DEFAULT_EPOCH_BASE
 
         assert DEFAULT_EPOCH_BASE == 1704067200.0
         dt = datetime.fromtimestamp(DEFAULT_EPOCH_BASE, tz=UTC)
@@ -1172,31 +1172,31 @@ class TestEpochBase:
     def test_parse_epoch_base_now(self) -> None:
         from datetime import UTC, datetime
 
-        from slack_cached.fake_slack import _parse_epoch_base
+        from slackx.fake_slack import _parse_epoch_base
 
         result = _parse_epoch_base("now")
         expected = datetime.now(tz=UTC).timestamp()
         assert abs(result - expected) < 2.0
 
     def test_parse_epoch_base_iso_date(self) -> None:
-        from slack_cached.fake_slack import _parse_epoch_base
+        from slackx.fake_slack import _parse_epoch_base
 
         result = _parse_epoch_base("2025-06-01")
         assert result == pytest.approx(1748736000.0)
 
     def test_parse_epoch_base_numeric(self) -> None:
-        from slack_cached.fake_slack import _parse_epoch_base
+        from slackx.fake_slack import _parse_epoch_base
 
         result = _parse_epoch_base("1750000000")
         assert result == 1750000000.0
 
     def test_parse_epoch_base_none_returns_default(self) -> None:
-        from slack_cached.fake_slack import DEFAULT_EPOCH_BASE, _parse_epoch_base
+        from slackx.fake_slack import DEFAULT_EPOCH_BASE, _parse_epoch_base
 
         assert _parse_epoch_base(None) == DEFAULT_EPOCH_BASE
 
     def test_parse_epoch_base_invalid_raises(self) -> None:
-        from slack_cached.fake_slack import _parse_epoch_base
+        from slackx.fake_slack import _parse_epoch_base
 
         with pytest.raises(ValueError, match="cannot parse"):
             _parse_epoch_base("not-a-date")
@@ -1233,7 +1233,7 @@ class TestPostMessage:
         assert ts in ts_set
 
     def test_post_reply_via_api(self, fake_server: str) -> None:
-        from slack_cached.fake_slack import FakeSlackHandler
+        from slackx.fake_slack import FakeSlackHandler
 
         keys = list(FakeSlackHandler.workspace.threads.keys())
         ch, thread_ts = keys[0]

@@ -9,8 +9,8 @@ import httpx
 import pytest
 import structlog
 
-from slack_cached.config import Credentials
-from slack_cached.slack_api import SlackClient
+from slackx.config import Credentials
+from slackx.slack_api import SlackClient
 
 
 @pytest.fixture(autouse=True)

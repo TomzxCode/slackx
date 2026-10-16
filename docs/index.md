@@ -1,6 +1,6 @@
-# Welcome to Slack Cached
+# Welcome to slackx
 
-Slack Cached is a tool to cache Slack threads to a local SQLite database.
+slackx is a tool to cache Slack threads to a local SQLite database.
 
 ## Quick Start
 

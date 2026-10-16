@@ -1,5 +1,5 @@
 [project]
-name = "slack-cached"
+name = "slackx"
 version = "0.1.0"
 description = "Cache Slack threads to a local SQLite database."
 readme = "README.md"
@@ -18,8 +18,8 @@ dependencies = [
 ]
 
 [project.scripts]
-slackx = "slack_cached.cli:main"
-slack-fake-server = "slack_cached.fake_slack:main"
+slackx = "slackx.cli:main"
+slack-fake-server = "slackx.fake_slack:main"
 
 [dependency-groups]
 dev = [
@@ -41,7 +41,7 @@ target-version = "py313"
 select = ["E", "F", "I", "B", "UP", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/slack_cached/fake_slack/_internal/_data_pools.py" = ["E501"]
+"src/slackx/fake_slack/_internal/_data_pools.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

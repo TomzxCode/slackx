@@ -8,9 +8,9 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 ## Overview
 
-`slack_cached.server.app.create_app` builds a FastAPI application from a cache database path.
+`slackx.server.app.create_app` builds a FastAPI application from a cache database path.
 The app exposes a read-mostly JSON API over the local SQLite cache, a small set of read-marker write routes, and POST refresh routes that run the same fetch functions as the CLI.
-A single-page application served from `server/static` (built from `web/dist`) consumes the JSON API, and `slack_cached.cli.commands.serve.serve` runs the app with uvicorn.
+A single-page application served from `server/static` (built from `web/dist`) consumes the JSON API, and `slackx.cli.commands.serve.serve` runs the app with uvicorn.
 
 ## Architecture
 
