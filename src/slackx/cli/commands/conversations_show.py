@@ -74,7 +74,8 @@ async def show(
     """Print a cached thread or channel to stdout (human-readable by default).
 
     Fetches first if not already cached. --fetch forces a refresh even when
-    cached; --no-fetch never fetches.
+    cached; --no-fetch never fetches the target (resolving a channel by name
+    still fetches the channel list when the cache is empty).
 
     The target is a Slack permalink, a channel (id, name, or #name), or a DM
     (user id or @handle). Without --ts, shows the channel's messages; with --ts,

@@ -55,9 +55,12 @@ nav:
     - Fake Slack server: developer-guide/fake-slack-server.md
   - Context:
     - Project overview: sdlc/context/project-overview.md
+    - Use cases: sdlc/context/use-cases.md
     - Architecture: sdlc/context/architecture.md
     - Conventions: sdlc/context/conventions.md
     - Vocabulary: sdlc/context/vocabulary.md
+    - Infrastructure: sdlc/context/infrastructure.md
+    - Observability: sdlc/context/observability.md
   - Features:
     - Thread caching:
       - Requirements: sdlc/features/FEAT-0001-thread-caching/requirements.md
@@ -80,6 +83,18 @@ nav:
     - Fake Slack server:
       - Requirements: sdlc/features/FEAT-0007-fake-slack-server/requirements.md
       - Specification: sdlc/features/FEAT-0007-fake-slack-server/specification.md
+    - Per-workspace database:
+      - Requirements: sdlc/features/FEAT-0008-per-workspace-database/requirements.md
+      - Specification: sdlc/features/FEAT-0008-per-workspace-database/specification.md
+
+exclude_docs: |
+  sdlc/templates/
+
+not_in_nav: |
+  sdlc/features/*/progress.md
+  sdlc/features/*/tests.md
+  sdlc/features/*/propagation-report.md
+  sdlc/features/p*-*/
 
 markdown_extensions:
   - pymdownx.highlight:

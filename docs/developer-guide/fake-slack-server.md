@@ -34,10 +34,14 @@ slack-fake-server [OPTIONS]
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/conversations.replies` | Fetch thread replies |
-| GET | `/api/conversations.history` | Fetch channel messages |
-| GET | `/api/users.list` | List workspace users |
+| GET | `/api/auth.test` | Identify the token's user and team (used for workspace discovery) |
 | GET | `/api/conversations.list` | List channels (supports `types=im` for direct messages) |
+| GET | `/api/conversations.info` | Fetch a single channel |
+| GET | `/api/conversations.history` | Fetch channel messages |
+| GET | `/api/conversations.replies` | Fetch thread replies |
+| GET | `/api/users.list` | List workspace users |
+| GET | `/api/users.info` | Fetch a single user |
+| GET | `/api/search.messages` | Search messages |
 | POST | `/api/chat.postMessage` | Post a new message or reply |
 
 All endpoints return Slack-compatible JSON with cursor-based pagination.

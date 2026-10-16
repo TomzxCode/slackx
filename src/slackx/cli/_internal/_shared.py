@@ -97,8 +97,8 @@ ShowFetchArg = Annotated[
         name="--fetch",
         negative="--no-fetch",
         help="Fetch from Slack before printing: --fetch refreshes even a cached "
-        "thread or channel, --no-fetch never fetches. Default: fetch only when "
-        "the target is not cached.",
+        "thread or channel, --no-fetch never fetches the target itself. "
+        "Default: fetch only when the target is not cached.",
     ),
 ]
 WithThreadMessageArg = Annotated[

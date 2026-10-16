@@ -41,7 +41,7 @@ Override the Slack API base URL to point at a fake server or custom endpoint:
 
 ```bash
 # Via CLI flag
-slackx --api-base-url http://localhost:8199/api fetch <url>
+slackx conversations fetch <url> --api-base-url http://localhost:8199/api
 
 # Via environment variable
 export SLACK_API_BASE_URL=http://localhost:8199/api
@@ -54,18 +54,32 @@ When `--api-base-url` points to a non-default server, credentials are optional.
 
 ## Database path
 
-The default cache location follows XDG conventions:
+Each Slack workspace caches to its own database under the XDG cache
+directory, so ids and timestamps from different workspaces never mix:
 
 | Platform | Default path |
 |---|---|
-| Linux | `~/.cache/slackx/threads.db` |
-| Linux (XDG) | `$XDG_CACHE_HOME/slackx/threads.db` |
+| Linux | `~/.cache/slackx/<workspace>/threads.db` |
+| Linux (XDG) | `$XDG_CACHE_HOME/slackx/<workspace>/threads.db` |
 
-Override with `--db`:
+The workspace name comes from `auth.test`: the URL subdomain (`acme` in
+`https://acme.slack.com/`), falling back to the team id. The name is
+remembered per credential set, so `auth.test` runs once; afterwards commands
+reuse the most recently used workspace, including offline. When several
+workspace caches exist and no last-used workspace is recorded, slackx asks
+for `--workspace`.
+
+Select a workspace explicitly, or place the database outside the
+per-workspace layout with `--db`:
 
 ```bash
-slackx --db /path/to/custom.db fetch <url>
+slackx conversations fetch <url> --workspace acme
+slackx conversations fetch <url> --db /path/to/custom.db
 ```
+
+`--db` takes precedence over the per-workspace layout. An existing
+pre-workspace `~/.cache/slackx/threads.db` is left in place and used as an
+offline fallback while no workspace cache exists yet.
 
 ## Log level
 

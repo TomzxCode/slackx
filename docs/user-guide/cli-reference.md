@@ -2,9 +2,13 @@
 
 ## Global options
 
+Every subcommand accepts these options after the command name (for example
+`slackx cache status --workspace acme`):
+
 | Option | Description |
 |---|---|
-| `--db PATH` | SQLite cache database path (default: `~/.cache/slackx/threads.db`) |
+| `--db PATH` | SQLite cache database path, outside the per-workspace layout (default: `~/.cache/slackx/<workspace>/threads.db`) |
+| `--workspace NAME` | Workspace selecting the per-workspace cache database (`~/.cache/slackx/NAME/threads.db`). Discovered via `auth.test` when omitted |
 | `--api-base-url URL` | Slack API base URL (default: `https://slack.com/api`) |
 | `--log-level LEVEL` | Logging verbosity: `debug`, `info`, `warning`, `error`, or `critical` (default: `info`) |
 
@@ -39,7 +43,7 @@ slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-
 | `--ts TS` | Thread root timestamp |
 | `--json` | Output as pretty-printed JSON |
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
-| `--no-fetch` | Never fetch from Slack, even if the target is not cached |
+| `--no-fetch` | Do not fetch the target from Slack. Resolving a channel by name still reads the cached channels, fetching the channel list if empty |
 | `--fetch` | Force a refresh from Slack even if the target is already cached |
 | `--last DURATION` | Lookback period for channel display (default: `1d`) |
 | `--with-thread-message` | Also include thread replies when showing a channel, each marked as belonging to its thread |
@@ -125,7 +129,7 @@ slackx channels list [CHANNEL] [--json | --jsonl] [--limit N] [--fields FIELDS] 
 | `CHANNEL` | Optional channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). When given, show only that channel instead of listing every cached channel. |
 | `--limit N` | Maximum number of channels to return (default: all; `0` for all; ignored when `CHANNEL` is given) |
 | `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `is_private`, `display_name`, `fetched_at`, `payload` (default: `id,name,is_private`). `display_name` resolves direct messages to their peer's name. |
-| `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
+| `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default). Resolving a channel by name still fetches the channel list if empty |
 
 Listing every channel auto-fetches the full channel list when the cache is
 empty. When `CHANNEL` is given, a cache miss fetches only that channel via
@@ -260,6 +264,10 @@ slackx serve [--host HOST] [--port PORT]
 |---|---|
 | `--host HOST` | Interface to bind to (default: `127.0.0.1`) |
 | `--port PORT` | Port to bind to (default: `8280`) |
+
+Without `--db` or `--workspace`, the workspace is resolved from the configured
+credentials (one `auth.test`, then remembered), falling back to the last-used
+workspace offline.
 
 Opens a Slack-like interface to browse cached users, channels, messages and
 threads, with a `Ctrl+P` palette for searching conversations and jumping to
