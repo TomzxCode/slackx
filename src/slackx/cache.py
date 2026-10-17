@@ -17,8 +17,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import structlog
-
+from ._log import get_logger
 from .slack_api import DEFAULT_SEARCH_LIMIT, SlackClient
 from .storage import (
     CachedChannel,
@@ -42,7 +41,7 @@ from .storage import (
 )
 from .urls import ThreadRef, parse_thread_url
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 def _ts_to_iso(ts: str | None) -> str | None:

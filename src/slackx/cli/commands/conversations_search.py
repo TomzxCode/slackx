@@ -3,9 +3,9 @@
 import sys
 from typing import Annotated, Literal
 
-import structlog
 from cyclopts import Parameter
 
+from slackx._log import get_logger
 from slackx.cli._internal import _client
 from slackx.cli._internal._channels import _channel_id_names
 from slackx.cli._internal._fields import (
@@ -28,10 +28,10 @@ from slackx.cli._internal._shared import (
     conversations_app,
 )
 from slackx.cli._internal._style import _supports_styles
-from slackx.slack_api import DEFAULT_SEARCH_LIMIT
+from slackx.defaults import DEFAULT_SEARCH_LIMIT
 from slackx.storage import load_user_display_names
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 @conversations_app.command(name="search")
@@ -70,8 +70,8 @@ async def search(
     """Search Slack via search.messages and cache the matched messages/threads.
 
     Search is inherently a live operation: every run hits the API. Every
-    matched message is cached under its ``(channel, thread_ts)`` so it can be
-    revisited later with `show`. Output is human-readable by default, JSON
+    matched message is cached under its (channel, thread_ts) so it can be
+    revisited later with show. Output is human-readable by default, JSON
     with --json.
     """
     from slackx.cache import fetch_search

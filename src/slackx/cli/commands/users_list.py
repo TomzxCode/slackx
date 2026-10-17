@@ -2,8 +2,7 @@
 
 import sys
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.cli._internal import _client
 from slackx.cli._internal._fields import (
     USER_DEFAULT_FIELDS,
@@ -29,7 +28,7 @@ from slackx.cli._internal._shared import (
 from slackx.cli._internal._style import _supports_styles
 from slackx.storage import get_user, load_users
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 @users_app.command(name="list")

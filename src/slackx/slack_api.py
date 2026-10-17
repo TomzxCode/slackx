@@ -21,20 +21,21 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
-import structlog
 
+from ._log import get_logger
 from .config import Credentials
+from .defaults import (
+    DEFAULT_API_BASE,
+    DEFAULT_CHANNEL_TYPES,
+    DEFAULT_LIMIT,
+    DEFAULT_LIST_LIMIT,
+    DEFAULT_SEARCH_COUNT,
+    DEFAULT_SEARCH_LIMIT,
+    MAX_RETRIES,
+    REQUEST_TIMEOUT,
+)
 
-DEFAULT_API_BASE = "https://slack.com/api"
-DEFAULT_LIMIT = 200
-DEFAULT_LIST_LIMIT = 1000
-DEFAULT_SEARCH_COUNT = 20
-DEFAULT_SEARCH_LIMIT = 200
-DEFAULT_CHANNEL_TYPES = "public_channel,private_channel,mpim,im"
-MAX_RETRIES = 5
-REQUEST_TIMEOUT = 30
-
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 class SlackAPIError(RuntimeError):

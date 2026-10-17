@@ -4,8 +4,7 @@ import json
 import sys
 from dataclasses import asdict
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.cli._internal import _client
 from slackx.cli._internal._refs import _output_format
 from slackx.cli._internal._render import _render_read_markers_human
@@ -24,7 +23,7 @@ from slackx.cli._internal._shared import (
 from slackx.cli._internal._style import _supports_styles
 from slackx.storage import load_read_markers
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 @read_app.command(name="show")

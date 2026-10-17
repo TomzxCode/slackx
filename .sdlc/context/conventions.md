@@ -23,8 +23,10 @@ slackx/
   src/
     slackx/
       __init__.py
+      _log.py                # Lazy structlog logger (no import cost until first log call)
       cache.py               # Async fetch orchestration and result dataclasses
       config.py              # Credentials, XDG paths, credential resolution
+      defaults.py            # Default values shared by the API client and the CLI
       slack_api.py           # Async Slack Web API client (httpx)
       storage.py             # SQLite schema, CRUD, FTS5 search, read markers
       urls.py                # Permalink parsing into ThreadRef
@@ -64,9 +66,11 @@ slackx/
 
 - Use frozen dataclasses for value objects (ThreadRef, Credentials, FetchResult, and similar).
 - Use structlog for all logging; never use the stdlib logging module directly.
+- Get module loggers from `slackx._log.get_logger`, not `structlog.get_logger`: the returned logger imports structlog on first use, so importing a module (and rendering CLI help) stays cheap.
 - Use `from __future__ import annotations` in modules that use modern type syntax.
 - Import the Slack client and cache functions lazily in CLI commands to avoid loading httpx when it is not needed.
 - Use cyclopts for the CLI, with shared `Annotated` argument types in `cli/_internal/_shared.py`.
+- Write CLI help text without markdown: help renders through cyclopts' `plaintext` format, so backticks and asterisks would print literally instead of formatting.
 - Use context managers for database connections and transactions.
 - Give public functions docstrings, and add brief docstrings to private helpers with non-obvious behavior.
 - Use a TYPE_CHECKING guard for type-only imports.

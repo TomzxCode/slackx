@@ -2,8 +2,7 @@
 
 import sys
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.cli._internal import _client
 from slackx.cli._internal._refs import _resolve_target
 from slackx.cli._internal._shared import (
@@ -20,7 +19,7 @@ from slackx.cli._internal._shared import (
 )
 from slackx.storage import latest_message_ts, set_last_read, transaction
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 @read_app.command(name="mark")

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-import structlog
 from cyclopts import Parameter
 
+from slackx._log import get_logger
 from slackx.cli._internal import _client
 from slackx.cli._internal._shared import (
     ApiBaseUrlArg,
@@ -17,7 +17,7 @@ from slackx.cli._internal._shared import (
     app,
 )
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 HostArg = Annotated[
     str,

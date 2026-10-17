@@ -19,17 +19,17 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, Any
 
-import structlog
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from slackx import storage
+from slackx._log import get_logger
 from slackx.config import Credentials, default_db_path, load_api_base_url, load_credentials
 from slackx.urls import ThreadRef
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
 

@@ -2,14 +2,13 @@
 
 from http.server import HTTPServer
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.fake_slack._internal._config import WorkspaceParams
 from slackx.fake_slack._internal._handler import FakeSlackHandler
 from slackx.fake_slack._internal._rate_limiter import RateLimiter
 from slackx.fake_slack._internal._workspace import Workspace
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 def run_server(

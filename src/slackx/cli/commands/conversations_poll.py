@@ -3,9 +3,9 @@
 import sys
 from typing import Annotated
 
-import structlog
 from cyclopts import Parameter
 
+from slackx._log import get_logger
 from slackx.cli._internal._channels import _resolve_poll_channels
 from slackx.cli._internal._duration import _parse_duration
 from slackx.cli._internal._poll import _poll_loop
@@ -18,7 +18,7 @@ from slackx.cli._internal._shared import (
     conversations_app,
 )
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 @conversations_app.command(name="poll")

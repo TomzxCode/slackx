@@ -1,6 +1,5 @@
 """Shared CLI infrastructure: the cyclopts app, parameter aliases, and setup helpers."""
 
-import logging
 import sys
 import time
 from collections.abc import Iterator
@@ -9,15 +8,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal
 
-import structlog
 from cyclopts import App, Parameter
 
-log = structlog.get_logger(__name__)
+from slackx._log import get_logger
 
+log = get_logger(__name__)
+
+# Help renders as plain text. cyclopts' "markdown" default imports rich.markdown
+# and pygments on every --help (tens of ms) to format text that contains no
+# markdown; sub-apps inherit this through the app stack.
 app = App(
     name="slackx",
     help="Cache Slack threads to a local SQLite database.",
     version="0.1.0",
+    help_format="plaintext",
 )
 
 # Command groups: each noun groups related subcommands under one prefix.
@@ -207,6 +211,12 @@ class CommonArgs:
 
 
 def _configure_logging(log_level: str) -> None:
+    # Imported here so that rendering help does not load structlog (which pulls
+    # in asyncio, stdlib logging, and most of rich).
+    import logging
+
+    import structlog
+
     level = getattr(logging, log_level.upper())
     structlog.configure(
         processors=[

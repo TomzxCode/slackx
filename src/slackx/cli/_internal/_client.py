@@ -1,28 +1,18 @@
 """Database connection and Slack client construction."""
 
-import asyncio
 import sqlite3
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.cli._internal._shared import CommonArgs
-from slackx.storage import connect
-from slackx.workspace import (
-    cached_workspace_name,
-    claim_workspace_db,
-    offline_db_path,
-    remember_workspace_name,
-    workspace_name_from_auth,
-)
 
 if TYPE_CHECKING:
     from slackx.slack_api import SlackClient
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 async def _resolve_db_path(common: CommonArgs, client: "SlackClient | None" = None) -> Path:
@@ -34,6 +24,14 @@ async def _resolve_db_path(common: CommonArgs, client: "SlackClient | None" = No
     one ``auth.test`` call (so the cache always matches the credentials in
     use); without a client, the last-used workspace is resolved offline.
     """
+    from slackx.workspace import (
+        cached_workspace_name,
+        claim_workspace_db,
+        offline_db_path,
+        remember_workspace_name,
+        workspace_name_from_auth,
+    )
+
     if common.db is not None:
         return common.db
     if common.workspace:
@@ -56,8 +54,11 @@ def _resolve_db_path_sync(common: CommonArgs) -> Path:
     otherwise one auth.test call. Falls back to offline resolution when no
     credentials are configured or Slack cannot be reached.
     """
+    import asyncio
+
     from slackx.config import load_api_base_url, load_credentials
     from slackx.slack_api import DEFAULT_API_BASE
+    from slackx.workspace import cached_workspace_name, claim_workspace_db, offline_db_path
 
     if common.db is not None:
         return common.db
@@ -96,6 +97,8 @@ async def _open_db(
     common: CommonArgs, client: "SlackClient | None" = None
 ) -> AsyncIterator[sqlite3.Connection]:
     """Open the workspace-resolved cache database."""
+    from slackx.storage import connect
+
     db_path = await _resolve_db_path(common, client)
     conn = connect(db_path)
     try:
@@ -107,6 +110,8 @@ async def _open_db(
 @contextmanager
 def _open_db_at(db_path: Path) -> Iterator[sqlite3.Connection]:
     """Open a known cache database path (resolution already done)."""
+    from slackx.storage import connect
+
     conn = connect(db_path)
     try:
         yield conn

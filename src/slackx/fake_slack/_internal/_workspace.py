@@ -5,8 +5,7 @@ import re
 import time
 from typing import Any
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.fake_slack._internal._config import WorkspaceParams
 from slackx.fake_slack._internal._constants import TEAM_ID
 from slackx.fake_slack._internal._cursor import _decode_cursor, _encode_cursor
@@ -16,7 +15,7 @@ from slackx.fake_slack._internal._generate import (
     _generate_users,
 )
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 def _highlight_query_terms(text: str, terms: list[str]) -> str:

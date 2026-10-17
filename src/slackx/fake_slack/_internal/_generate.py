@@ -3,8 +3,7 @@
 import random
 from typing import Any
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.fake_slack._internal._config import WorkspaceParams
 from slackx.fake_slack._internal._constants import TEAM_ID
 from slackx.fake_slack._internal._data_pools import (
@@ -15,7 +14,7 @@ from slackx.fake_slack._internal._data_pools import (
     _ROLES,
 )
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 def _generate_users(rng: random.Random, params: WorkspaceParams) -> list[dict[str, Any]]:

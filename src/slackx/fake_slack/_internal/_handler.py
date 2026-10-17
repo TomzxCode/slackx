@@ -5,13 +5,12 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.fake_slack._internal._constants import TEAM_ID
 from slackx.fake_slack._internal._rate_limiter import RateLimiter
 from slackx.fake_slack._internal._workspace import Workspace
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 class FakeSlackHandler(BaseHTTPRequestHandler):

@@ -5,11 +5,10 @@ import sys
 import time
 from typing import Any
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.cli._internal._shared import CommonArgs
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 async def _poll_loop(

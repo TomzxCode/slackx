@@ -18,11 +18,10 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-import structlog
-
+from slackx._log import get_logger
 from slackx.config import DEFAULT_DB_NAME, cache_dir
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 LAST_WORKSPACE_FILENAME = "last_workspace"
 WORKSPACE_NAMES_FILENAME = "workspace_names.json"

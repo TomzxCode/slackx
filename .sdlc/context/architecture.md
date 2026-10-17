@@ -246,6 +246,9 @@ Monitoring, logging, and alerting live in `observability.md`.
 - FTS5 is a separate, optional schema (`SEARCH_SCHEMA`); when the SQLite build lacks FTS5 the tool still caches and browses, and search degrades to no results.
 - Network calls are async (`httpx`) while SQLite access stays synchronous `sqlite3`, because the writes are fast and run on a single event loop.
 - `SlackClient` is imported lazily in the CLI and the server, so network-free commands (`show --no-fetch`, `users list`) never import httpx.
+- Module-level loggers come from `slackx._log.get_logger`, which imports structlog on first use; structlog (and the asyncio, stdlib logging, and rich modules it pulls in) is therefore absent from the `--help` path.
+- CLI defaults that the API client also owns (for example `DEFAULT_SEARCH_LIMIT`) live in `defaults.py`, so using one as a command default does not import httpx.
+- Help renders with cyclopts' `plaintext` format: the `markdown` default imports `rich.markdown` and pygments on every `--help` (tens of milliseconds) to format text that contains no markdown. Sub-apps inherit the setting through the app stack, and tests fail if a backtick reaches the rendered help.
 - Frozen dataclasses model immutable values (`ThreadRef`, `Credentials`, `ThreadState`, `CachedMessage`, `CachedUser`, `CachedChannel`, `FetchResult`).
 - `SlackClient` takes a configurable `base_url`, so the fake server can stand in for Slack without code changes.
 - The fake Slack server is deterministic: a seeded RNG generates users, channels, and threads, and per-endpoint rate limiting is reproducible.

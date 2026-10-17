@@ -3,9 +3,9 @@
 import sys
 from typing import Annotated
 
-import structlog
 from cyclopts import App, Parameter
 
+from slackx._log import get_logger
 from slackx.fake_slack._internal._config import (
     WorkspaceParams,
     _parse_epoch_base,
@@ -13,12 +13,13 @@ from slackx.fake_slack._internal._config import (
 )
 from slackx.fake_slack._internal._server import run_server
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 fake_server_app = App(
     name="slack-fake-server",
     help="Fake Slack API server with configurable, realistic workspace data.",
     version="0.1.0",
+    help_format="plaintext",
 )
 
 
@@ -55,6 +56,8 @@ def run_fake_server(
     ] = None,
 ) -> int:
     """Run the fake Slack API server until interrupted."""
+    import structlog
+
     min_mpt, max_mpt = _parse_range_flag(messages_per_thread)
     parsed_epoch_base = _parse_epoch_base(epoch_base)
 

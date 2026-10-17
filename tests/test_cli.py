@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -2958,3 +2960,73 @@ def test_show_without_cached_messages_leaves_no_marker(
     capsys.readouterr()
 
     assert _read_markers(db_path, "default") == []
+
+
+def test_help_lists_every_command_group(capsys: pytest.CaptureFixture[str]) -> None:
+    """--help renders the command tree without touching the network."""
+    assert cli.main(["--help"]) == 0
+    out = capsys.readouterr().out
+    for group in ("cache", "channels", "conversations", "serve", "users"):
+        assert group in out
+
+
+# Every help screen the CLI can print, as command paths.
+HELP_PATHS = [
+    [],
+    ["cache"],
+    ["cache", "clear"],
+    ["cache", "status"],
+    ["channels"],
+    ["channels", "fetch"],
+    ["channels", "list"],
+    ["users"],
+    ["users", "fetch"],
+    ["users", "list"],
+    ["conversations"],
+    ["conversations", "fetch"],
+    ["conversations", "poll"],
+    ["conversations", "search"],
+    ["conversations", "show"],
+    ["conversations", "read"],
+    ["conversations", "read", "mark"],
+    ["conversations", "read", "show"],
+    ["conversations", "read", "clear"],
+    ["serve"],
+]
+
+
+def test_help_renders_as_plain_text(capsys: pytest.CaptureFixture[str]) -> None:
+    """Help text must print without markup characters.
+
+    Help is rendered with cyclopts' plaintext format, which keeps rich.markdown
+    and pygments (tens of milliseconds) out of every --help. Backticks in a
+    docstring or a Parameter help string would render literally, so none may
+    reach the output.
+    """
+    for path in HELP_PATHS:
+        label = " ".join(path) or "slackx"
+        assert cli.main([*path, "--help"]) == 0
+        out = capsys.readouterr().out
+        assert out.strip(), f"no help output for {label}"
+        assert "`" not in out, f"markdown backticks leaked into: slackx {label} --help"
+
+
+def test_help_path_avoids_heavy_imports() -> None:
+    """Importing the CLI must not pull in httpx or structlog.
+
+    Both are needed only once a command runs, and importing them costs tens of
+    milliseconds, so they stay out of the path that renders help.
+    """
+    code = (
+        "import sys, slackx.cli;"
+        " heavy = [m for m in ('httpx', 'structlog', 'fastapi', 'uvicorn') if m in sys.modules];"
+        " print(','.join(heavy));"
+        " sys.exit(1 if heavy else 0)"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, f"help path imports {result.stdout.strip()}"

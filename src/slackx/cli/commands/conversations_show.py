@@ -3,9 +3,9 @@
 import sys
 from typing import Annotated
 
-import structlog
 from cyclopts import Parameter
 
+from slackx._log import get_logger
 from slackx.cli._internal import _client
 from slackx.cli._internal._duration import _oldest_ts_from_last
 from slackx.cli._internal._format import _build_user_names, _format_ts
@@ -46,7 +46,7 @@ from slackx.storage import (
 )
 from slackx.urls import ThreadRef
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 
 @conversations_app.command(name="show")

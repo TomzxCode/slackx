@@ -59,9 +59,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Self
 
-import structlog
+from slackx._log import get_logger
 
-log = structlog.get_logger(__name__)
+log = get_logger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS threads (
