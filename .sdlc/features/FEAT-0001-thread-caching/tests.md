@@ -8,7 +8,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 ## Scope
 
-Covers fetching a Slack thread via `conversations fetch`, storing messages in SQLite, and displaying the thread via `conversations show` as human-readable text, JSON, or JSONL.
+Covers fetching a Slack thread via `conversations fetch`, storing messages in SQLite, and displaying the thread via `conversations get` as human-readable text, JSON, or JSONL.
 The cited tests come from tests/test_cache.py, tests/test_cli.py, tests/test_storage.py, and tests/test_slack_api.py.
 Permalink parsing tests come from tests/test_urls.py.
 Out of scope: channel message fetching, search, polling, read markers, the web API, and the fake Slack server.

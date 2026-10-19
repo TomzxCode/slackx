@@ -46,17 +46,17 @@ The default lookback is `1d` (one day).
 Display a channel's cached top-level messages:
 
 ```bash
-slackx conversations show C01234
+slackx conversations get C01234
 ```
 
-Thread replies are not shown; `conversations show` mirrors the channel as it appears
-in Slack. Use `conversations show C01234 --ts <thread_ts>` to read a specific thread.
+Thread replies are not shown; `conversations get` mirrors the channel as it appears
+in Slack. Use `conversations get C01234 --ts <thread_ts>` to read a specific thread.
 
 To include thread replies, pass `--with-thread-message`. Replies are rendered
 indented and tagged with the thread they belong to:
 
 ```bash
-slackx conversations show C01234 --with-thread-message
+slackx conversations get C01234 --with-thread-message
 ```
 
 ```
@@ -78,13 +78,13 @@ In JSON output each message carries `thread_ts` and an `is_thread_reply` flag.
 Filter by time with `--last`:
 
 ```bash
-slackx conversations show C01234 --last 7d
+slackx conversations get C01234 --last 7d
 ```
 
 Display as JSON:
 
 ```bash
-slackx conversations show C01234 --json
+slackx conversations get C01234 --json
 ```
 
 Channel messages are auto-fetched if the cache is empty (unless `--no-fetch` is given). `--fetch` refreshes an already-cached channel before printing. With `--no-fetch` the channel itself is never fetched, but resolving a channel by name still fetches the channel list when the channel cache is empty; use a channel id to guarantee no Slack calls.

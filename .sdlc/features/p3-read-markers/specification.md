@@ -11,7 +11,7 @@ session_link: http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ
 Read markers record how far a named consumer has read in a channel or a thread.
 A marker is a row in the `read_markers` table keyed by (reader, channel, thread_ts), where an empty thread_ts represents the channel-level pointer and a thread root ts represents that thread's pointer.
 The `slackx conversations read` command group (mark, show, clear) and the `serve` HTTP API under `/api/read` are two front ends over the same storage functions.
-`slackx conversations show` is a third: after printing a channel or thread it advances the same pointer for the chosen reader (default `default`).
+`slackx conversations get` is a third: after printing a channel or thread it advances the same pointer for the chosen reader (default `default`).
 Pointers are stored in the cache database, so they are per workspace and survive restarts.
 
 ## Architecture
@@ -23,7 +23,7 @@ flowchart TD
         show["slackx conversations read show"]
         clear["slackx conversations read clear"]
         cacheclear["slackx cache clear read"]
-        convshow["slackx conversations show"]
+        convshow["slackx conversations get"]
     end
     subgraph HTTP
         get["GET /api/read"]
@@ -143,9 +143,9 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant U as User
-    participant CLI as slackx conversations show
+    participant CLI as slackx conversations get
     participant DB as read_markers
-    U->>CLI: conversations show C1 --reader web
+    U->>CLI: conversations get C1 --reader web
     CLI->>CLI: load and print the channel or thread
     CLI->>DB: latest_message_ts(channel, thread_ts)
     DB-->>CLI: newest cached ts
@@ -198,7 +198,7 @@ sequenceDiagram
 | Channel-level sentinel | Empty string in thread_ts, mapped to None at the API | SQLite primary keys cannot hold NULL, so an empty string marks the channel-level pointer |
 | Write semantics | INSERT ON CONFLICT DO UPDATE | Re-marking a scope updates the row instead of duplicating it |
 | Default timestamp | newest cached message in scope | A consumer can mark a channel or thread read without knowing a ts |
-| Show advances the pointer | `conversations show` sets the pointer after printing, keyed by its `--reader` (default `default`) | Showing a conversation to a consumer is reading it, so no separate mark call is needed |
+| Show advances the pointer | `conversations get` sets the pointer after printing, keyed by its `--reader` (default `default`) | Showing a conversation to a consumer is reading it, so no separate mark call is needed |
 | Transaction ownership | Callers wrap writes in `transaction(conn)` | Keeps the storage functions composable and free of implicit commits |
 | HTTP error mapping | 404 for no cached messages, 422 for a blank reader | Matches the CLI error paths (exit 1 and exit 2 respectively) |
 | Contract format | Summary table, no separate api.yaml | The surface is small and defined in `server/app.py`, so a table is enough |
@@ -212,7 +212,7 @@ sequenceDiagram
 
 ## Out of Scope
 
-- Auto-advancing a pointer on fetch or search; only `slackx conversations show` and explicit `slackx conversations read mark` move pointers.
+- Auto-advancing a pointer on fetch or search; only `slackx conversations get` and explicit `slackx conversations read mark` move pointers.
 - Syncing pointers across workspaces or machines, they stay in the per-workspace cache database.
 - Multi-user permissions or sharing of readers between users.
 - A separate OpenAPI document for the read endpoints.

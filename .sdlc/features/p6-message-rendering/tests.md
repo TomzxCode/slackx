@@ -55,13 +55,13 @@ Out of scope are fetching and storage, the web UI, and any test of a terminal em
 
 | ID | Description | Steps | Expected Outcome |
 |---|---|---|---|
-| TC-28 | Show a thread human-readable | Populate a temp DB, run `conversations show` | Exit 0, header and messages on stdout |
-| TC-29 | Show a thread as JSON | Run `conversations show --json` | Exit 0, valid JSON with the thread keys |
-| TC-30 | Show a thread as JSONL | Run `conversations show --jsonl` | Exit 0, one compact JSON line |
-| TC-31 | Reject conflicting flags | Run `conversations show --json --jsonl` | Exit 2, error on stderr |
+| TC-28 | Show a thread human-readable | Populate a temp DB, run `conversations get` | Exit 0, header and messages on stdout |
+| TC-29 | Show a thread as JSON | Run `conversations get --json` | Exit 0, valid JSON with the thread keys |
+| TC-30 | Show a thread as JSONL | Run `conversations get --jsonl` | Exit 0, one compact JSON line |
+| TC-31 | Reject conflicting flags | Run `conversations get --json --jsonl` | Exit 2, error on stderr |
 | TC-32 | List users with selected fields | Run `users list --fields id,name` and `--json --fields id,real_name` | Human columns in order, JSON keys in order |
 | TC-33 | List channels with visibility | Run `channels list --fields id,is_private` | `(private)` shown for a private channel |
-| TC-34 | Show a channel with thread replies | Run `conversations show <channel> --with-thread-message` | Reply marked with its thread root |
+| TC-34 | Show a channel with thread replies | Run `conversations get <channel> --with-thread-message` | Reply marked with its thread root |
 | TC-35 | Search output formats | Run `conversations search` human, `--json`, `--jsonl`, and `--fields` | Human lines, valid JSON, one JSONL line, selected fields |
 | TC-36 | Resolve author and channel names | Populate users and channels, run show and search | Display names shown instead of ids |
 

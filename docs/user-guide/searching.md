@@ -4,7 +4,7 @@
 
 Search the workspace using the same query syntax as the Slack search box. Every
 matched message is cached under its `(channel, thread_ts)` so it can be revisited
-later with `conversations show`:
+later with `conversations get`:
 
 ```bash
 slackx conversations search "deploy failed"
@@ -97,7 +97,7 @@ Because each match is cached, you can re-open it later without searching again:
 
 ```bash
 slackx conversations search "outage" --json   # note the channel and thread_ts
-slackx conversations show C01234 --ts 1700000000.123456
+slackx conversations get C01234 --ts 1700000000.123456
 ```
 
 When `--full-threads` was used, the entire thread (not just the matching

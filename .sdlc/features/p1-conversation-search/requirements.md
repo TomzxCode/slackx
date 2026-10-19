@@ -10,7 +10,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 Conversation search lets a user run a Slack search query from the command line, cache every matched message under its own thread, and print the matches.
 It wraps Slack's `search.messages` endpoint, so queries use the same syntax as the Slack search box.
-Because search is a live operation, every run calls the API; caching matched messages makes them available later through `conversations show` without searching again.
+Because search is a live operation, every run calls the API; caching matched messages makes them available later through `conversations get` without searching again.
 This feature was reverse-engineered from already implemented code during `/sync-sdlc`; the artifacts below document existing behavior.
 
 ## Stakeholders
@@ -18,7 +18,7 @@ This feature was reverse-engineered from already implemented code during `/sync-
 | Stakeholder | Interest |
 |---|---|
 | CLI user | Wants to find messages by keyword and keep them locally for later reading |
-| Developer | Needs search results routed into the same thread cache that `conversations show` and the web UI read |
+| Developer | Needs search results routed into the same thread cache that `conversations get` and the web UI read |
 | Web UI user | Reads cached matches through the local full-text search in the served SPA |
 
 ## Functional Requirements
@@ -87,7 +87,7 @@ Order criteria by FRs first (sorted by ID), then NFRs (sorted by ID).
     Scenario: Matched messages are cached under their thread
       Given a match with channel C1 and ts 1700000000.000100
       When the search completes
-      Then the message is readable via `conversations show` with no further fetch
+      Then the message is readable via `conversations get` with no further fetch
     ```
 
 - [ ] **FR-3**

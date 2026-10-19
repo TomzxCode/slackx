@@ -61,7 +61,7 @@ uv run slackx conversations fetch "https://workspace.slack.com/archives/C01234/p
 Display the cached thread:
 
 ```bash
-uv run slackx conversations show "https://workspace.slack.com/archives/C01234/p1700000000123456"
+uv run slackx conversations get "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
 
 Fetch all workspace users and channels so messages render with real names:

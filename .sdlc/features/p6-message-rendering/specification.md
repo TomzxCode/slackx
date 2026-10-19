@@ -19,7 +19,7 @@ No renderer reads the database, the network, or argument parsing state.
 
 ```mermaid
 flowchart TD
-    CMD["Command (conversations show, users list, channels list, conversations search)"] --> FMT{"Format from --json / --jsonl"}
+    CMD["Command (conversations get, users list, channels list, conversations search)"] --> FMT{"Format from --json / --jsonl"}
     FMT -->|json or jsonl| RJ["JSON renderer (indent 2 or None)"]
     FMT -->|human| STY{"_supports_styles(sys.stdout)"}
     STY -->|enabled| HR["Human renderer with styled=true"]
@@ -93,8 +93,8 @@ The interface is CLI output on stdout, summarized below.
 
 | Command | Output | Format selection |
 |---|---|---|
-| conversations show (thread) | ThreadOutput | `--json` pretty, `--jsonl` compact |
-| conversations show (channel) | ChannelOutput | `--json` pretty, `--jsonl` compact |
+| conversations get (thread) | ThreadOutput | `--json` pretty, `--jsonl` compact |
+| conversations get (channel) | ChannelOutput | `--json` pretty, `--jsonl` compact |
 | conversations search | search payload | `--json` pretty, `--jsonl` compact |
 | users list | users payload | `--json` pretty, `--jsonl` compact |
 | channels list | channels payload | `--json` pretty, `--jsonl` compact |
@@ -116,7 +116,7 @@ sequenceDiagram
     participant CMD as Command
     participant R as Human renderer
     participant S as _Styler
-    U->>CMD: slackx conversations show <target>
+    U->>CMD: slackx conversations get <target>
     CMD->>CMD: load messages and resolve user/channel names
     CMD->>CMD: styled = _supports_styles(sys.stdout)
     CMD->>R: render(ref, messages, user_names, styled=styled)
@@ -134,7 +134,7 @@ sequenceDiagram
     participant U as User
     participant CMD as Command
     participant R as JSON renderer
-    U->>CMD: slackx conversations show <target> --json or --jsonl
+    U->>CMD: slackx conversations get <target> --json or --jsonl
     CMD->>CMD: indent = 2 for json, None for jsonl
     CMD->>R: render(ref, messages, user_names, channel_name, indent=indent)
     R->>R: asdict each message and add user_name when known

@@ -38,11 +38,11 @@ slackx users list --json
 
 Users are auto-fetched if the cache is empty (unless `--no-fetch` is given).
 
-Pass a user id to show just that user; a cache miss fetches it with a single
-`users.info` call:
+Pass a user id to `users get` to show just that user; a cache miss fetches it
+with a single `users.info` call:
 
 ```bash
-slackx users list U001 --json
+slackx users get U001 --json
 ```
 
 ## Display name resolution

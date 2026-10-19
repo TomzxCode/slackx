@@ -8,7 +8,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 ## Scope
 
-This plan covers the Slack channel listing and lookup in `slack_api.py` (`iter_channels`, `iter_channel_pages`, `get_channel_info`), the storage functions for the channels table (`upsert_channels`, `get_channel`, `load_channels`, `load_channel_display_names`, `load_im_channel_ids`, `list_channel_summaries`), the cache orchestration in `cache.py` (`fetch_channels`, `fetch_channel`), and the `slackx channels` command group (fetch, list).
+This plan covers the Slack channel listing and lookup in `slack_api.py` (`iter_channels`, `iter_channel_pages`, `get_channel_info`), the storage functions for the channels table (`upsert_channels`, `get_channel`, `load_channels`, `load_channel_display_names`, `load_im_channel_ids`, `list_channel_summaries`), the cache orchestration in `cache.py` (`fetch_channels`, `fetch_channel`), and the `slackx channels` command group (fetch, list, get).
 It does not cover channel message fetching, thread caching, user caching, read markers, or the web UI.
 Tests live in `tests/test_slack_api.py`, `tests/test_storage.py`, `tests/test_cache.py`, and `tests/test_cli.py`.
 
@@ -41,7 +41,7 @@ Tests live in `tests/test_slack_api.py`, `tests/test_storage.py`, `tests/test_ca
 | TC-18 | Bulk fetch then list in human form | Stub client returning one channel | Exit 0 and output shows the count, id, name, and "public" (`test_cli.py::test_fetch_channels_then_show`) |
 | TC-19 | JSON list output | Stub client with one channel, `channels list --json` | Exit 0 and JSON has `channel_count` 1 and the channel with `is_private` false (`test_cli.py::test_show_channels_json`) |
 | TC-20 | JSONL list output | Stub client with one channel, `channels list --jsonl` | Exit 0 and exactly one compact JSON line with the same fields (`test_cli.py::test_show_channels_jsonl`) |
-| TC-21 | Listing a cached channel by id | Bulk fetch already run, `channels list C1 --no-fetch` | Exit 0 and output shows only the one channel (`test_cli.py::test_show_channels_single_cached`) |
+| TC-21 | Getting a cached channel by id | Bulk fetch already run, `channels get C1 --no-fetch` | Exit 0 and output shows only the one channel (`test_cli.py::test_show_channels_single_cached`) |
 | TC-22 | Limit caps the listing | Three seeded channels, `channels list --limit 2 --no-fetch` | Exit 0 and only the first two ids appear (`test_cli.py::test_show_channels_limit`) |
 | TC-23 | Field selection in human form | Three seeded channels, `--fields id,is_private` | Exit 0 and output shows id plus "(private)" without the name (`test_cli.py::test_show_channels_fields_human`) |
 | TC-24 | Field selection in JSON form | Seeded channels, `--json --fields id,display_name` | Exit 0 and the channel object holds only id and display_name (`test_cli.py::test_show_channels_fields_json`) |
@@ -51,15 +51,15 @@ Tests live in `tests/test_slack_api.py`, `tests/test_storage.py`, `tests/test_ca
 
 | ID | Description | Steps | Expected Outcome |
 |---|---|---|---|
-| TC-26 | Single channel fetch then list | Run `channels fetch C1`, then `channels list C1 --no-fetch` | First command exits 0 with "fetched channel C1 (general)" on stderr, second exits 0 and prints the channel (`test_cli.py::test_fetch_channels_single`) |
-| TC-27 | Listing an uncached channel fetches it | Run `channels list C1 --json` with an empty cache | Exit 0 and JSON contains the fetched channel with its name (`test_cli.py::test_show_channels_single_fetches_when_missing`) |
+| TC-26 | Single channel fetch then get | Run `channels fetch C1`, then `channels get C1 --no-fetch` | First command exits 0 with "fetched channel C1 (general)" on stderr, second exits 0 and prints the channel (`test_cli.py::test_fetch_channels_single`) |
+| TC-27 | Getting an uncached channel fetches it | Run `channels get C1 --json` with an empty cache | Exit 0 and JSON contains the fetched channel with its name (`test_cli.py::test_show_channels_single_fetches_when_missing`) |
 
 ## Edge Cases and Failure Scenarios
 
 | ID | Scenario | Expected Behavior |
 |---|---|---|
 | TC-28 | Single channel fetch for an unknown id | Exit 1 and "error: channel C9 not found" on stderr (`test_cli.py::test_fetch_channels_single_unknown`) |
-| TC-29 | Listing an uncached channel with --no-fetch | Exit 1 and "error: channel C9 is not cached" on stderr (`test_cli.py::test_show_channels_single_unknown_no_fetch`) |
+| TC-29 | Getting an uncached channel with --no-fetch | Exit 1 and "error: channel C9 is not cached" on stderr (`test_cli.py::test_show_channels_single_unknown_no_fetch`) |
 | TC-30 | Slack omits the channel in a single lookup | `fetch_channel` returns None and leaves the cache unchanged (`test_cache.py::test_fetch_channel_returns_none_for_empty_payload`) |
 | TC-31 | Bulk fetch interrupted mid pagination | Pages already received stay cached (`test_cache.py::test_fetch_channels_persists_progress_before_failure`) |
 | TC-32 | Visibility flag missing from the payload | `is_private` stored and loaded as None, not coerced to False (`test_storage.py::test_upsert_and_load_channels`) |

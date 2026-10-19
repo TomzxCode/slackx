@@ -58,7 +58,7 @@ It does not cover the web UI search page beyond the specific server tests cited 
 | TC-30 | Count and sort flags (`test_cli.py::test_search_passes_count_sort_flags`) | Run with `--count 5 --sort score --sort-dir asc` | Client receives `count=5`, `sort=score`, `sort_dir=asc` |
 | TC-31 | Limit flag (`test_cli.py::test_search_passes_limit_flag`) | Run with `--limit 2` | Client receives `limit=2` |
 | TC-32 | Default limit (`test_cli.py::test_search_defaults_limit_to_cap`) | Run without `--limit` | Client receives `DEFAULT_SEARCH_LIMIT` |
-| TC-33 | Match cached for show (`test_cli.py::test_search_caches_matches_for_show`) | Search, then `conversations show --no-fetch` | Cached search text is shown |
+| TC-33 | Match cached for show (`test_cli.py::test_search_caches_matches_for_show`) | Search, then `conversations get --no-fetch` | Cached search text is shown |
 | TC-34 | Cached names rendered (`test_cli.py::test_search_renders_cached_user_and_channel_names`) | Fetch users and channels, then search with `--json` | Output uses cached user and channel names |
 
 ## Edge Cases and Failure Scenarios

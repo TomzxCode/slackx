@@ -38,9 +38,9 @@ Tests live in `tests/test_storage.py`, `tests/test_cli.py`, and `tests/test_serv
 | TC-15 | Clear scopes | Channel and thread markers for web | `--channel --ts` drops the thread pointer, `--channel` alone drops the channel markers (`test_cli.py::test_read_clear_scopes`) |
 | TC-16 | Clear everything for one reader | Markers for web and poll | web markers are gone and poll markers remain (`test_cli.py::test_read_clear_all_for_reader`) |
 | TC-17 | Cache clear read target | One stored marker plus other data | Read marker count is 0 and message count is unchanged (`test_cli.py::test_clear_read_markers_target`) |
-| TC-29 | Show advances the pointer | Seeded cache, `conversations show C1 --reader web` | Printed output is normal and the web channel pointer is advanced to the newest ts (`test_cli.py::test_show_advances_read_marker`) |
-| TC-30 | Show uses the default reader | Seeded cache, `conversations show C1` | The `default` reader's pointer is advanced (`test_cli.py::test_show_uses_default_reader`) |
-| TC-31 | Show with nothing cached writes no marker | `conversations show CNOPE` | No marker is written (`test_cli.py::test_show_without_cached_messages_leaves_no_marker`) |
+| TC-29 | Show advances the pointer | Seeded cache, `conversations get C1 --reader web` | Printed output is normal and the web channel pointer is advanced to the newest ts (`test_cli.py::test_show_advances_read_marker`) |
+| TC-30 | Show uses the default reader | Seeded cache, `conversations get C1` | The `default` reader's pointer is advanced (`test_cli.py::test_show_uses_default_reader`) |
+| TC-31 | Show with nothing cached writes no marker | `conversations get CNOPE` | No marker is written (`test_cli.py::test_show_without_cached_messages_leaves_no_marker`) |
 
 ## End-To-End Tests
 

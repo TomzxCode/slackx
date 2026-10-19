@@ -43,11 +43,11 @@ Channels are auto-fetched if the cache is empty (unless `--no-fetch` is given).
 
 ## Showing a single channel
 
-Pass a channel id (or a cached name) to show just that channel:
+Use `channels get` to show just one channel by id (or cached name):
 
 ```bash
-slackx channels list C001
-slackx channels list C001 --json --fields id,name,is_private
+slackx channels get C001
+slackx channels get C001 --json --fields id,name,is_private
 ```
 
 When the channel is not cached, it is fetched from Slack with a single

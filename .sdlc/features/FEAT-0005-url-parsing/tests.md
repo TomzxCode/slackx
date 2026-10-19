@@ -62,7 +62,7 @@ cache, render). No test runs the built-in fake Slack server through the CLI for 
 | ID | Description | Steps | Expected Outcome |
 |---|---|---|---|
 | TC-19 | Fetch a thread from a positional permalink (`test_fetch_with_url`) | Run `conversations fetch <thread permalink> --db <tmp>` | Exit 0, thread replies fetched once |
-| TC-20 | Show a channel from a bare name (`test_show_channel_resolves_bare_name`) | Fetch channels, then `conversations show general --db <tmp>` | Exit 0, output contains the `C1` message and `1 message(s)` |
+| TC-20 | Show a channel from a bare name (`test_show_channel_resolves_bare_name`) | Fetch channels, then `conversations get general --db <tmp>` | Exit 0, output contains the `C1` message and `1 message(s)` |
 
 ## Edge Cases and Failure Scenarios
 

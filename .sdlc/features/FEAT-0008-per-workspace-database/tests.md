@@ -36,10 +36,10 @@ Out of scope: Slack network behavior, SQLite storage internals, and the web UI.
 | ID | Description | Preconditions | Expected Outcome | Real test |
 |---|---|---|---|---|
 | TC-13 | Fetch lands in the workspace directory | `XDG_CACHE_HOME` points at a temp dir and a stubbed client returns `url: https://acme.slack.com/` | `slackx/acme/threads.db` exists and `last_workspace` holds `acme` | `test_fetch_targets_workspace_directory` |
-| TC-14 | Offline show reads the last-used workspace | a prior fetch, then `_build_client` is replaced with a failing stub | `conversations show --no-fetch` exits 0 and prints `hello` without building a client | `test_show_reads_last_workspace_offline` |
+| TC-14 | Offline show reads the last-used workspace | a prior fetch, then `_build_client` is replaced with a failing stub | `conversations get --no-fetch` exits 0 and prints `hello` without building a client | `test_show_reads_last_workspace_offline` |
 | TC-15 | `--workspace` selects the database without auth.test | a stubbed client whose `auth_test` raises | `slackx/beta/threads.db` exists and `last_workspace` holds `beta` | `test_workspace_flag_selects_database` |
 | TC-16 | auth.test runs once per credential set | a counting client driven over two fetches | auth.test runs once and `workspace_names.json` holds one entry whose value is `acme` | `test_auth_test_runs_once_per_credentials` |
-| TC-17 | Ambiguous workspaces make the CLI fail | alpha and beta databases exist and no pointer is recorded | `conversations show --no-fetch` raises `SystemExit` matching `alpha, beta` | `test_show_requires_workspace_when_ambiguous` |
+| TC-17 | Ambiguous workspaces make the CLI fail | alpha and beta databases exist and no pointer is recorded | `conversations get --no-fetch` raises `SystemExit` matching `alpha, beta` | `test_show_requires_workspace_when_ambiguous` |
 
 ## End-to-End Tests
 
@@ -55,7 +55,7 @@ Out of scope: Slack network behavior, SQLite storage internals, and the web UI.
 | ID | Scenario | Expected Behavior | Real test |
 |---|---|---|---|
 | TC-22 | Multiple workspace databases and no last-used pointer at the module level | `offline_db_path()` raises `SystemExit` listing `alpha, beta` | `TestOfflineResolution::test_ambiguous_workspaces_require_explicit_choice` |
-| TC-23 | Multiple workspace databases and no last-used pointer through the CLI | `conversations show --no-fetch` raises `SystemExit` listing `alpha, beta` | `test_show_requires_workspace_when_ambiguous` |
+| TC-23 | Multiple workspace databases and no last-used pointer through the CLI | `conversations get --no-fetch` raises `SystemExit` listing `alpha, beta` | `test_show_requires_workspace_when_ambiguous` |
 | TC-24 | Empty cache directory | `offline_db_path()` returns the legacy default path | `TestOfflineResolution::test_defaults_to_legacy_db_path_when_empty` |
 | TC-25 | Unsafe or empty workspace name | the name is sanitized to a safe directory name, falling back to `workspace` | `TestWorkspaceName::test_sanitize_replaces_unsafe_characters`, `TestWorkspaceName::test_sanitize_falls_back_when_empty` |
 

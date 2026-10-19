@@ -30,12 +30,12 @@ slackx conversations fetch [TARGET] [--ts TS] [--full-threads] [--last DURATION]
 | `--full-threads` | Also fetch all thread replies (channel fetch only) |
 | `--last DURATION` | Lookback period for channel fetch (default: `1d`) |
 
-### conversations show
+### conversations get
 
-Print a cached thread or channel to stdout.
+Print a cached thread or channel to stdout. Alias: `conversations show`.
 
 ```bash
-slackx conversations show [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message] [--reader ID]
+slackx conversations get [TARGET] [--ts TS] [--json | --jsonl] [--fetch | --no-fetch] [--last DURATION] [--with-thread-message] [--reader ID]
 ```
 
 | Argument | Description |
@@ -76,7 +76,7 @@ slackx conversations search QUERY [--count N] [--limit N] [--sort score|timestam
 | `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
 
 Search is always a live API call. Every matched message is cached under its
-`(channel, thread_ts)` so it can be revisited later with `conversations show`.
+`(channel, thread_ts)` so it can be revisited later with `conversations get`.
 
 ### users fetch
 
@@ -104,37 +104,65 @@ slackx channels fetch [CHANNEL]
 
 ### users list
 
-Print cached users, or a single user when an id is given.
+Print every cached user.
 
 ```bash
-slackx users list [USER] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+slackx users list [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
 ```
 
 | Argument | Description |
 |---|---|
-| `USER` | Optional user id (`U001`). When given, show only that user instead of listing every cached user. An uncached user is fetched via `users.info` unless `--no-fetch` is given. |
-| `--limit N` | Maximum number of users to return (default: all; `0` for all; ignored when `USER` is given) |
+| `--limit N` | Maximum number of users to return (default: all; `0` for all) |
 | `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `real_name`, `fetched_at`, `payload` (default: `id,name,real_name`) |
 | `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
 
-### channels list
+### users get
 
-Print cached channels, or a single channel when an id is given.
+Print a single cached user. Alias: `users show`.
 
 ```bash
-slackx channels list [CHANNEL] [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+slackx users get USER [--json | --jsonl] [--fields FIELDS] [--no-fetch]
 ```
 
 | Argument | Description |
 |---|---|
-| `CHANNEL` | Optional channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). When given, show only that channel instead of listing every cached channel. |
-| `--limit N` | Maximum number of channels to return (default: all; `0` for all; ignored when `CHANNEL` is given) |
+| `USER` | User id (`U001`). An uncached user is fetched via `users.info` unless `--no-fetch` is given. |
+| `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `real_name`, `fetched_at`, `payload` (default: `id,name,real_name`) |
+| `--no-fetch` | Do not auto-fetch when the user is not cached (`--fetch` is on by default) |
+
+### channels list
+
+Print every cached channel.
+
+```bash
+slackx channels list [--json | --jsonl] [--limit N] [--fields FIELDS] [--no-fetch]
+```
+
+| Argument | Description |
+|---|---|
+| `--limit N` | Maximum number of channels to return (default: all; `0` for all) |
 | `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `is_private`, `display_name`, `fetched_at`, `payload` (default: `id,name,is_private`). `display_name` resolves direct messages to their peer's name. |
-| `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default). Resolving a channel by name still fetches the channel list if empty |
+| `--no-fetch` | Do not auto-fetch when the cache is empty (`--fetch` is on by default) |
 
 Listing every channel auto-fetches the full channel list when the cache is
-empty. When `CHANNEL` is given, a cache miss fetches only that channel via
-`conversations.info`; an unknown channel exits non-zero with an error.
+empty.
+
+### channels get
+
+Print a single cached channel. Alias: `channels show`.
+
+```bash
+slackx channels get CHANNEL [--json | --jsonl] [--fields FIELDS] [--no-fetch]
+```
+
+| Argument | Description |
+|---|---|
+| `CHANNEL` | Channel id (`C001`), bare name (`general`), or `#`-prefixed name (`#general`). An uncached channel is fetched via `conversations.info` unless `--no-fetch` is given. Resolving a name still fetches the channel list if the cache is empty. |
+| `--fields FIELDS` | Comma-separated fields to include, in order: `id`, `name`, `is_private`, `display_name`, `fetched_at`, `payload` (default: `id,name,is_private`). `display_name` resolves direct messages to their peer's name. |
+| `--no-fetch` | Do not auto-fetch when the channel is not cached (`--fetch` is on by default) |
+
+A cache miss fetches only that channel via `conversations.info`; an unknown
+channel exits non-zero with an error.
 
 ### cache status
 
@@ -172,7 +200,7 @@ slackx cache clear [TARGET] [--yes]
 | `--yes`, `-y` | Skip the confirmation prompt |
 
 Reads and clears the cache database directly; never calls Slack. `cache clear messages`
-also clears the thread metadata (the rows `conversations show` uses to decide a
+also clears the thread metadata (the rows `conversations get` uses to decide a
 thread is cached), so those threads are refetched on next use. Without `--yes`
 the command asks for confirmation on an interactive terminal and refuses to run
 otherwise.
@@ -200,7 +228,7 @@ slackx conversations read mark TARGET [--ts THREAD_TS] [--reader ID] [--last-rea
 | `--last-read TS` | Explicit timestamp to store; defaults to the newest cached message in scope |
 
 Each reader keeps its own independent set of markers. Marking a target with
-no cached messages fails unless `--last-read` is given. `conversations show`
+no cached messages fails unless `--last-read` is given. `conversations get`
 advances the same pointers automatically.
 
 ### conversations read show

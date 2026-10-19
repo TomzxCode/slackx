@@ -42,7 +42,7 @@ slackx conversations read mark C0123ABCDEF --reader poll --last-read 1700000000.
 | `--last-read TS` | Explicit timestamp to store. Defaults to the newest cached message in scope. |
 
 Marking a target with no cached messages fails unless you pass `--last-read`.
-Showing a channel or thread with `conversations show` does not need a separate
+Showing a channel or thread with `conversations get` does not need a separate
 call: it advances the same pointer for the chosen `--reader` (default
 `default`) after printing.
 

@@ -40,7 +40,7 @@ channel caching, the web UI, and rendering internals.
 | TC-8 | `--full-threads` through the CLI | `conversations fetch C1 --full-threads --db ...` | Exit code 0 (test_fetch_channel_messages_full_threads) |
 | TC-9 | Default lookback is one day | `conversations fetch C1 --db ...` with no `--last` | Exit code 0 and a non-null `oldest` passed to `iter_channel_history` (test_fetch_channel_default_last_is_one_day) |
 | TC-10 | `--last all` fetches the full history | `conversations fetch C1 --last all --db ...` | Exit code 0 and `oldest` is `None` (test_fetch_channel_last_zero_fetches_all) |
-| TC-11 | Showing a fetched channel can include replies | Fetch `C1 --full-threads`, then `conversations show C1 --with-thread-message --no-fetch --json` | Message texts are `parent, reply, standalone`; the parent is not flagged as a reply (test_show_channel_with_thread_message_json) |
+| TC-11 | Showing a fetched channel can include replies | Fetch `C1 --full-threads`, then `conversations get C1 --with-thread-message --no-fetch --json` | Message texts are `parent, reply, standalone`; the parent is not flagged as a reply (test_show_channel_with_thread_message_json) |
 | TC-12 | Channel name resolves to an id before fetching | Cache channels, then `conversations fetch general --db ...` | Exit code 0 and the summary reports the resolved id `C1` (test_fetch_channel_resolves_name) |
 | TC-13 | Fetch requires a target | `conversations fetch --db ...` with no URL or target | The CLI exits via `SystemExit` (test_fetch_channel_requires_url_or_channel_ts) |
 

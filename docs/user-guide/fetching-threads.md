@@ -39,7 +39,7 @@ slackx conversations fetch "https://workspace.slack.com/archives/C01234/p1700000
 Display a thread in human-readable format:
 
 ```bash
-slackx conversations show "https://workspace.slack.com/archives/C01234/p1700000000123456"
+slackx conversations get "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
 
 Output includes timestamps, author names (resolved from cached users), and message text.
@@ -47,17 +47,17 @@ Output includes timestamps, author names (resolved from cached users), and messa
 Display as JSON:
 
 ```bash
-slackx conversations show --json "https://workspace.slack.com/archives/C01234/p1700000000123456"
+slackx conversations get --json "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
 
 JSON output includes `channel_name` and resolves user IDs to display names when cached users are available.
 
 ## Auto-fetch
 
-The `conversations show` command automatically fetches a thread if it is not yet cached. Disable this with `--no-fetch`:
+The `conversations get` command automatically fetches a thread if it is not yet cached. Disable this with `--no-fetch`:
 
 ```bash
-slackx conversations show --no-fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
+slackx conversations get --no-fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
 
 ## Refresh before showing
@@ -65,7 +65,7 @@ slackx conversations show --no-fetch "https://workspace.slack.com/archives/C0123
 `show` does not re-fetch a thread that is already cached, so its output can be stale. Pass `--fetch` to refresh the cached thread (incrementally, like `conversations fetch`) before printing:
 
 ```bash
-slackx conversations show --fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
+slackx conversations get --fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
 ```
 
 Without `--fetch` or `--no-fetch`, `show` fetches only when the thread is missing from the cache.

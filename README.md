@@ -46,7 +46,7 @@ Each Slack workspace gets its own cache database at
 (e.g. `~/.cache/slackx/acme/threads.db`). The workspace is determined from
 the configured token/cookie via `auth.test` on first use, then cached on disk
 so later commands need no extra API call; the most recently used workspace is
-also remembered so read-only commands (e.g. `conversations show --no-fetch`) work offline.
+also remembered so read-only commands (e.g. `conversations get --no-fetch`) work offline.
 
 Override with `--workspace <name>` to pick a workspace explicitly, or
 `--db /path/to/file.db` for a database path outside the per-workspace layout.
@@ -88,12 +88,13 @@ slackx conversations fetch C0123ABCDEF --ts 1700000000.123456
 Show a cached thread (human-readable by default; use `--json` for JSON, or
 `--jsonl` for the whole payload as a single compact JSON line). It auto-fetches
 if the thread is missing; pass `--no-fetch` to disable that, or `--fetch` to
-refresh the cached thread before printing:
+refresh the cached thread before printing. The command is also available as
+`conversations show`:
 
 ```bash
-slackx conversations show https://acme.slack.com/archives/C0123ABCDEF/p1700000000123456
-slackx conversations show --json https://acme.slack.com/archives/C0123ABCDEF/p1700000000123456
-slackx conversations show C0123ABCDEF --ts 1700000000.123456 --jsonl >> threads.jsonl
+slackx conversations get https://acme.slack.com/archives/C0123ABCDEF/p1700000000123456
+slackx conversations get --json https://acme.slack.com/archives/C0123ABCDEF/p1700000000123456
+slackx conversations get C0123ABCDEF --ts 1700000000.123456 --jsonl >> threads.jsonl
 ```
 
 ### Channel messages
@@ -115,7 +116,7 @@ slackx conversations fetch C0123ABCDEF --full-threads
 
 Search the workspace with the same query syntax as the Slack search box. Every
 matched message is cached under its `(channel, thread_ts)` so it can be revisited
-later with `conversations show`. Search is always a live API call:
+later with `conversations get`. Search is always a live API call:
 
 ```bash
 slackx conversations search "deploy failed"
@@ -192,7 +193,7 @@ slackx conversations read clear --reader web --channel C0123ABCDEF
 Each `--reader` (default `default`) owns an independent set of pointers: a
 channel-level pointer plus one per thread. The value defaults to the newest
 cached message in scope; pass `--last-read TS` to set it explicitly. Showing a
-channel or thread with `conversations show --reader ID` advances the same
+channel or thread with `conversations get --reader ID` advances the same
 pointer automatically, so showing is reading. The `serve` web API exposes the
 pointers under `/api/read`. Use `slackx cache clear read` to drop every pointer.
 
@@ -226,16 +227,16 @@ slackx users list --limit 20 --fields id,name
 slackx channels list --json --fields id,display_name,is_private
 ```
 
-Pass an id to `users list` or `channels list` to retrieve just that user or
+Pass an id to `users get` or `channels get` to retrieve just that user or
 channel; a cache miss fetches it with a single `users.info`/`conversations.info`
-call:
+call. Both accept `show` as an alias (`users show`, `channels show`):
 
 ```bash
-slackx users list U001
-slackx channels list C001
+slackx users get U001
+slackx channels get C001
 ```
 
-When a thread's authors are present in the cached users, `conversations show` renders their
+When a thread's authors are present in the cached users, `conversations get` renders their
 real name and handle (e.g. `Alice Smith (alice)`) instead of raw user ids.
 
 Inspect the cache itself with `cache status`, which reports the workspace in use,

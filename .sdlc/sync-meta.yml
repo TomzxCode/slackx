@@ -7,7 +7,7 @@ code_index:
     - src/slackx/cli/commands/read_mark.py
     - src/slackx/cli/commands/read_show.py
     - src/slackx/cli/commands/read_clear.py
-    - src/slackx/cli/commands/conversations_show.py
+    - src/slackx/cli/commands/conversations_get.py
     - docs/user-guide/tracking-last-read.md
   "p4-web-ui":
     - src/slackx/server/app.py

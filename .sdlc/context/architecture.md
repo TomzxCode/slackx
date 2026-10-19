@@ -10,7 +10,7 @@ A standalone fake Slack server provides deterministic data for tests and local d
 ```mermaid
 flowchart TB
     subgraph CLI["CLI groups (cyclopts)"]
-        conv["conversations fetch / show / search / poll"]
+        conv["conversations fetch / get / search / poll"]
         chans["channels fetch / list"]
         usrs["users fetch / list"]
         caches["cache status / clear"]
@@ -164,9 +164,9 @@ flowchart LR
     G --> H["mark messages missing from response as deleted"]
 ```
 
-### Thread show
+### Thread get
 
-`slackx conversations show <url>` reads `storage.load_thread_messages` and `storage.load_user_display_names` and renders to stdout.
+`slackx conversations get <url>` reads `storage.load_thread_messages` and `storage.load_user_display_names` and renders to stdout.
 It auto-fetches when the thread is not cached, and `--no-fetch` keeps the command network-free.
 Output is human-readable by default and JSON with `--json`.
 
@@ -179,7 +179,7 @@ With `--full-threads` it also calls `iter_thread_replies` for every threaded mes
 ### Search fetch and cache
 
 `slackx conversations search <query>` calls `SlackClient.iter_search_messages` (`search.messages`) and caches each match.
-A search match's thread root is resolved from the explicit `thread_ts`, then the match `permalink`, then the message's own `ts`, so a reply is filed under its true root and a later `show` is a cache hit.
+A search match's thread root is resolved from the explicit `thread_ts`, then the match `permalink`, then the message's own `ts`, so a reply is filed under its true root and a later `get` is a cache hit.
 
 ### Poll loop
 
@@ -197,8 +197,8 @@ Per-cycle summaries are printed, or emitted as JSON with `--json`.
 `slackx conversations read mark` writes a last-read pointer with `storage.set_last_read`.
 `slackx conversations read show` reads it back with `storage.get_last_read` or `storage.load_read_markers`.
 `slackx conversations read clear` removes one or more pointers with `storage.delete_read_marker` and `storage.delete_read_markers`.
-`slackx conversations show` also advances the pointer for the shown channel or thread after printing, so showing a conversation counts as reading it.
-The `read` group lives under `conversations`, next to the `show` command that advances the same pointers.
+`slackx conversations get` also advances the pointer for the shown channel or thread after printing, so showing a conversation counts as reading it.
+The `read` group lives under `conversations`, next to the `get` command that advances the same pointers.
 Each pointer is owned by a reader (a consumer, for example `web`), so several consumers can track the same channel independently.
 
 ### Web API read path
@@ -245,7 +245,7 @@ Monitoring, logging, and alerting live in `observability.md`.
 - The full Slack message JSON is kept in a `payload` column next to extracted fields (`ts`, `user`, `text`), so queries stay fast and rendering never re-parses the JSON.
 - FTS5 is a separate, optional schema (`SEARCH_SCHEMA`); when the SQLite build lacks FTS5 the tool still caches and browses, and search degrades to no results.
 - Network calls are async (`httpx`) while SQLite access stays synchronous `sqlite3`, because the writes are fast and run on a single event loop.
-- `SlackClient` is imported lazily in the CLI and the server, so network-free commands (`show --no-fetch`, `users list`) never import httpx.
+- `SlackClient` is imported lazily in the CLI and the server, so network-free commands (`get --no-fetch`, `users list`) never import httpx.
 - Module-level loggers come from `slackx._log.get_logger`, which imports structlog on first use; structlog (and the asyncio, stdlib logging, and rich modules it pulls in) is therefore absent from the `--help` path.
 - CLI defaults that the API client also owns (for example `DEFAULT_SEARCH_LIMIT`) live in `defaults.py`, so using one as a command default does not import httpx.
 - Help renders with cyclopts' `plaintext` format: the `markdown` default imports `rich.markdown` and pygments on every `--help` (tens of milliseconds) to format text that contains no markdown. Sub-apps inherit the setting through the app stack, and tests fail if a backtick reaches the rendered help.

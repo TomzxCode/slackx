@@ -11,7 +11,7 @@ session_link: http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ
 slackx caches channels and threads in one SQLite database per workspace.
 When several programs share that cache (a web UI, a poll watcher, an ad-hoc script), each needs to remember how far it has read without overwriting the others.
 The read markers feature stores per-consumer last-read pointers, exposes them through the `slackx conversations read` command group and the `serve` HTTP API, and persists them in the cache database so they survive restarts.
-`slackx conversations show` also advances the pointer for the shown channel or thread after printing, so showing a conversation to a consumer is reading it.
+`slackx conversations get` also advances the pointer for the shown channel or thread after printing, so showing a conversation to a consumer is reading it.
 
 ## Stakeholders
 
@@ -40,7 +40,7 @@ Order rows by priority: Must first, then Should, then May.
 | FR-11 | Must | The HTTP API shall list pointers via GET /api/read, create or advance a pointer via PUT /api/read, and delete pointers via the DELETE routes |
 | FR-12 | Must | The HTTP API shall return 404 when a PUT finds no cached messages in scope and 422 when the reader is blank |
 | FR-13 | Should | The `slackx cache clear read` command shall delete every stored pointer while leaving messages, threads, users, and channels in place |
-| FR-14 | Should | The `slackx conversations show` command shall advance the last-read pointer for the shown channel or thread for the chosen reader (default `default`) after printing, and leave pointers unchanged when nothing is shown |
+| FR-14 | Should | The `slackx conversations get` command shall advance the last-read pointer for the shown channel or thread for the chosen reader (default `default`) after printing, and leave pointers unchanged when nothing is shown |
 
 ## Non-Functional Requirements
 
@@ -207,7 +207,7 @@ Multiple scenarios per requirement are allowed; tag each with the requirement ID
     @FR-14
     Scenario: Showing a channel advances its pointer
       Given a cache with messages in channel C1
-      When the user runs "slackx conversations show C1 --reader web"
+      When the user runs "slackx conversations get C1 --reader web"
       Then the printed output is unchanged and the web channel pointer is advanced to the newest cached message
     ```
 

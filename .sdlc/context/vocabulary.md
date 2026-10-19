@@ -33,8 +33,8 @@ Terms within each table are sorted alphabetically by the first column.
 |---|---|
 | `--full-threads` | CLI flag on conversations fetch, search, and poll (and the web API) that also fetches every reply thread for each message with replies, not only top-level messages |
 | `--jsonl` | CLI flag that writes one compact JSON object per line for appending to a .jsonl file or piping, mutually exclusive with `--json` |
-| `--reader` | CLI flag on conversations show and conversations read mark that names the read pointer's owner, so several consumers can track their own last-read position |
-| `--with-thread-message` | CLI flag on conversations show that includes thread replies in the rendered output, not only top-level messages |
+| `--reader` | CLI flag on conversations get and conversations read mark that names the read pointer's owner, so several consumers can track their own last-read position |
+| `--with-thread-message` | CLI flag on conversations get that includes thread replies in the rendered output, not only top-level messages |
 | auth.test | Slack API endpoint that returns the caller's identity: team id, team name, user id, and workspace URL |
 | CachedChannel | Dataclass representing a stored channel with id, name, is_private, fetched_at, and payload fields |
 | CachedMessage | Dataclass representing a stored message with ts, user, text, and payload fields |

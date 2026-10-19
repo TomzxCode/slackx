@@ -75,7 +75,7 @@ Multiple scenarios per requirement are allowed; tag each with the requirement ID
     @FR-1
     Scenario: Show a cached thread as human-readable text
       Given a cached thread with two messages
-      When the user runs conversations show for that thread
+      When the user runs conversations get for that thread
       Then stdout starts with a "Thread CHANNEL/THREAD_TS" header line
       And stdout lists each message with its ISO timestamp and author
     ```
@@ -86,7 +86,7 @@ Multiple scenarios per requirement are allowed; tag each with the requirement ID
     @FR-2
     Scenario: Show a channel with a thread reply
       Given a cached channel with one top-level message and one thread reply
-      When the user runs conversations show for that channel with --with-thread-message
+      When the user runs conversations get for that channel with --with-thread-message
       Then the top-level message is indented as a normal message
       And the reply is marked with an arrow and its thread root ts
     ```
@@ -108,7 +108,7 @@ Multiple scenarios per requirement are allowed; tag each with the requirement ID
     @FR-4
     Scenario: Emit pretty-printed JSON
       Given a cached thread
-      When the user runs conversations show --json
+      When the user runs conversations get --json
       Then stdout is valid JSON with channel, channel_name, thread_ts, message_count, and messages keys
       And the JSON is indented by two spaces
     ```

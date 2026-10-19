@@ -8,7 +8,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 ## Scope
 
-This plan covers the user cache path that already exists in the codebase: the `users.list` and `users.info` pager methods, the `fetch_users` and `fetch_user` orchestration, the `users` storage table and its CRUD and display-name helpers, and the `users fetch` and `users list` commands.
+This plan covers the user cache path that already exists in the codebase: the `users.list` and `users.info` pager methods, the `fetch_users` and `fetch_user` orchestration, the `users` storage table and its CRUD and display-name helpers, and the `users fetch`, `users list`, and `users get` commands.
 It covers bulk and single-user fetching, upsert idempotency, the human, JSON, and JSONL output formats, field selection, limits, display-name resolution in thread and search rendering, and direct-message peer naming.
 It does not cover channel caching, thread caching, search, polling, or the web UI except where a test exercises user names through those views.
 
@@ -40,9 +40,9 @@ It does not cover channel caching, thread caching, search, polling, or the web U
 | TC-17 | Fetch then list (`test_cli.py::test_fetch_users_then_show`) | `users fetch` then `users list --no-fetch` | Exit 0; output has `1 user(s)`, id U1, name alice, and real name Alice Smith |
 | TC-18 | Single fetch via `users.info` (`test_cli.py::test_fetch_users_single`) | `users fetch U1` | Exit 0; stderr has `fetched user U1 (Alice Smith)` |
 | TC-19 | Single fetch of unknown id (`test_cli.py::test_fetch_users_single_unknown`) | `users fetch U9` | Non-zero exit with `error: user U9 not found` |
-| TC-20 | Single cached user displayed (`test_cli.py::test_show_users_single_cached`) | `users fetch`, then `users list U1 --no-fetch` | Exit 0; output has `1 user(s)`, U1, and alice |
-| TC-21 | Single uncached user fetched on list (`test_cli.py::test_show_users_single_fetches_when_missing`) | `users list U1 --json` with U1 uncached | Exit 0; JSON has `user_count` 1 and user U1 with name alice |
-| TC-22 | Single uncached user with `--no-fetch` (`test_cli.py::test_show_users_single_unknown_no_fetch`) | `users list U9 --no-fetch` | Exit 1 with `error: user U9 is not cached` |
+| TC-20 | Single cached user displayed (`test_cli.py::test_show_users_single_cached`) | `users fetch`, then `users get U1 --no-fetch` | Exit 0; output has `1 user(s)`, U1, and alice |
+| TC-21 | Single uncached user fetched on get (`test_cli.py::test_show_users_single_fetches_when_missing`) | `users get U1 --json` with U1 uncached | Exit 0; JSON has `user_count` 1 and user U1 with name alice |
+| TC-22 | Single uncached user with `--no-fetch` (`test_cli.py::test_show_users_single_unknown_no_fetch`) | `users get U9 --no-fetch` | Exit 1 with `error: user U9 is not cached` |
 
 ## End-to-End Tests
 
@@ -56,7 +56,7 @@ It does not cover channel caching, thread caching, search, polling, or the web U
 | TC-28 | Field selection in human output (`test_cli.py::test_show_users_fields_human`) | Run `users list --no-fetch --fields id,name` | Exit 0; output has `U1  alice` and not Alice Smith |
 | TC-29 | Field selection in JSON (`test_cli.py::test_show_users_fields_json`) | Run `users list --no-fetch --json --fields id,real_name` | Exit 0; user object is exactly `{"id": "U1", "real_name": "Alice Smith"}` |
 | TC-30 | Invalid field rejected (`test_cli.py::test_show_users_invalid_fields`) | Run `users list --no-fetch --fields bogus` | Exit 2 with `unknown field(s): bogus` |
-| TC-31 | Thread render resolves user name (`test_cli.py::test_show_renders_user_name_when_cached`) | Fetch users, then `conversations show --no-fetch` | Output shows `] Alice Smith (alice)` and not the raw user id |
+| TC-31 | Thread render resolves user name (`test_cli.py::test_show_renders_user_name_when_cached`) | Fetch users, then `conversations get --no-fetch` | Output shows `] Alice Smith (alice)` and not the raw user id |
 | TC-32 | Search render resolves user and channel names (`test_cli.py::test_search_renders_cached_user_and_channel_names`) | Fetch users and channels, then `conversations search --json` | Match reports `user_name` `Alice Smith (alice)` and `channel_name` `general` |
 | TC-33 | Direct-message peer name in show (`test_cli.py::test_show_direct_channel_resolves_peer_name`) | Fetch users and channels, fetch the DM, then show it | Output shows `Channel Tom Rochette (tomzx)` and not `Channel D1` |
 | TC-34 | Direct-message peer name in show JSON (`test_cli.py::test_show_direct_channel_json_resolves_peer_name`) | Same, with `--json` | JSON has `channel_name` `Tom Rochette (tomzx)` |
