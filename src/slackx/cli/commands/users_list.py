@@ -20,20 +20,18 @@ from slackx.cli._internal._shared import (
     LimitArg,
     LogLevelArg,
     UserFieldsArg,
-    UserIdArg,
     WorkspaceArg,
     _setup,
     users_app,
 )
 from slackx.cli._internal._style import _supports_styles
-from slackx.storage import get_user, load_users
+from slackx.storage import load_users
 
 log = get_logger(__name__)
 
 
 @users_app.command(name="list")
 async def list_users(
-    user_id: UserIdArg = None,
     *,
     fetch: FetchArg = True,
     limit: LimitArg = 0,
@@ -47,8 +45,7 @@ async def list_users(
 ) -> int:
     """Print cached users to stdout (human-readable by default).
 
-    Pass a user id to show only that user; it is fetched from Slack (via
-    users.info) when not cached, unless --no-fetch is given.
+    Every cached user is listed; use 'users get' for a single user.
     """
     common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
@@ -61,15 +58,9 @@ async def list_users(
     include_payload = "payload" in selected
 
     async with _client._open_db(common) as conn:
-        users = _load_selected(conn, user_id, limit, include_payload)
+        users = load_users(conn, limit=limit, include_payload=include_payload)
 
-    if user_id is not None:
-        if not users and fetch:
-            users = await _fetch_single_user(common, user_id)
-        if not users:
-            print(f"error: user {user_id} is not cached", file=sys.stderr)
-            return 1
-    elif not users and fetch:
+    if not users and fetch:
         from slackx.cache import fetch_users
 
         log.info("users_not_cached_fetching")
@@ -86,31 +77,3 @@ async def list_users(
     else:
         sys.stdout.write(_render_users_human(users, selected, styled=_supports_styles(sys.stdout)))
     return 0
-
-
-def _load_selected(conn, user_id: str | None, limit: int, include_payload: bool):
-    """Load one user by id, or every cached user when id is None."""
-    if user_id is None:
-        return load_users(conn, limit=limit, include_payload=include_payload)
-    user = get_user(conn, user_id)
-    return [user] if user is not None else []
-
-
-async def _fetch_single_user(common, user_id: str):
-    """Fetch one user's profile from Slack, returning it on success."""
-    import httpx
-
-    from slackx.cache import fetch_user
-    from slackx.slack_api import SlackAPIError
-
-    log.info("user_not_cached_fetching", user=user_id)
-    try:
-        async with (
-            _client._open_client(common) as client,
-            _client._open_db(common, client) as conn,
-        ):
-            user = await fetch_user(conn, client, user_id)
-    except (SlackAPIError, httpx.HTTPError) as exc:
-        print(f"error: could not fetch user {user_id}: {exc}", file=sys.stderr)
-        return []
-    return [user] if user is not None else []

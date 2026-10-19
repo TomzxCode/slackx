@@ -126,7 +126,7 @@ def _build_client(common: CommonArgs) -> "SlackClient":
     callers should pair this with ``_open_client`` so ``aclose()`` runs.
     """
     # Imported lazily so commands that never hit the network (e.g.
-    # `show --no-fetch`) avoid loading httpx and friends.
+    # `get --no-fetch`) avoid loading httpx and friends.
     from slackx.config import load_api_base_url, load_credentials
     from slackx.slack_api import DEFAULT_API_BASE, SlackClient
 

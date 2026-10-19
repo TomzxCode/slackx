@@ -1,4 +1,4 @@
-"""``slackx conversations show`` command."""
+"""``slackx conversations get`` command (alias: show)."""
 
 import sys
 from typing import Annotated
@@ -49,8 +49,8 @@ from slackx.urls import ThreadRef
 log = get_logger(__name__)
 
 
-@conversations_app.command(name="show")
-async def show(
+@conversations_app.command(name="get", alias="show")
+async def get(
     target: TargetArg = None,
     *,
     ts: TsArg = None,

@@ -2,8 +2,9 @@
 
 Subcommands:
 - conversations fetch: cache or refresh a Slack thread silently.
-- conversations show: print a cached thread to stdout (human-readable by default, --json for JSON);
-  also advances the last-read pointer for the shown channel or thread.
+- conversations get (alias: show): print a cached thread to stdout
+  (human-readable by default, --json for JSON); also advances the last-read
+  pointer for the shown channel or thread.
 - conversations search: search Slack and cache the matches.
 - conversations poll: poll channels in a loop for new messages.
 - conversations read mark/show/clear: track per-consumer last-read pointers.
@@ -19,16 +20,18 @@ from slackx.cli.commands import (  # noqa: F401
     cache_clear,
     cache_status,
     channels_fetch,
+    channels_get,
     channels_list,
     conversations_fetch,
+    conversations_get,
     conversations_poll,
     conversations_search,
-    conversations_show,
     read_clear,
     read_mark,
     read_show,
     serve,
     users_fetch,
+    users_get,
     users_list,
 )
 

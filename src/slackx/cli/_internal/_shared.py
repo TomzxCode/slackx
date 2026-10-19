@@ -25,10 +25,10 @@ app = App(
 )
 
 # Command groups: each noun groups related subcommands under one prefix.
-channels_app = App(name="channels", help="Fetch and list Slack channels.")
-users_app = App(name="users", help="Fetch and list Slack users.")
+channels_app = App(name="channels", help="Fetch, list, and get Slack channels.")
+users_app = App(name="users", help="Fetch, list, and get Slack users.")
 conversations_app = App(
-    name="conversations", help="Fetch and show threads, channel history, and DMs."
+    name="conversations", help="Fetch and get threads, channel history, and DMs."
 )
 cache_app = App(name="cache", help="Inspect and manage the local cache database.")
 read_app = App(
@@ -39,7 +39,7 @@ read_app = App(
 for _group in (channels_app, users_app, conversations_app, cache_app):
     app.command(_group)
 
-# The read group lives under conversations, next to the show command that
+# The read group lives under conversations, next to the get command that
 # advances the same pointers.
 conversations_app.command(read_app)
 
@@ -93,6 +93,13 @@ FetchArg = Annotated[
     Parameter(
         name="--fetch",
         help="Auto-fetch from Slack when the cache is empty (disable with --no-fetch).",
+    ),
+]
+GetFetchArg = Annotated[
+    bool,
+    Parameter(
+        name="--fetch",
+        help="Auto-fetch from Slack when the entity is not cached (disable with --no-fetch).",
     ),
 ]
 ShowFetchArg = Annotated[
@@ -168,6 +175,17 @@ UserIdArg = Annotated[
         help="Optional user id (e.g. U001). When given, target only that user "
         "instead of every cached user.",
     ),
+]
+ChannelTargetArg = Annotated[
+    str,
+    Parameter(
+        help="Channel id (e.g. C001), bare name (e.g. general), or "
+        "'#'-prefixed name (e.g. #general).",
+    ),
+]
+UserTargetArg = Annotated[
+    str,
+    Parameter(help="User id (e.g. U001)."),
 ]
 TsArg = Annotated[
     str | None,
