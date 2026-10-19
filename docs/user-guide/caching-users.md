@@ -50,7 +50,7 @@ slackx users list U001 --json
 When users are cached, thread and channel output resolves user IDs to display names in the format "Real Name (handle)". For example, a message from user `U123` appears as:
 
 ```
-[2024-01-15 10:30:00] Alice Smith (alice)
+[2024-01-15T10:30:00+00:00] Alice Smith (alice)
   Hey, I've reviewed the PR.
 ```
 

@@ -17,7 +17,7 @@ slackx conversations fetch C01234 --ts 1700000000.123456
 The command prints a summary to stderr:
 
 ```
-cached 8 messages (8 new, full) for C01234/1700000000.123456
+cached 8 messages (8 new/updated, full) for C01234/1700000000.123456
 ```
 
 ## Incremental refresh
@@ -27,11 +27,11 @@ Running fetch again on the same thread only retrieves new or edited messages:
 ```bash
 # First fetch
 slackx conversations fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
-# cached 8 messages (8 new, full)
+# cached 8 messages (8 new/updated, full)
 
 # Second fetch (only new replies)
 slackx conversations fetch "https://workspace.slack.com/archives/C01234/p1700000000123456"
-# cached 10 messages (2 new, incremental)
+# cached 10 messages (2 new/updated, incremental)
 ```
 
 ## Showing cached threads

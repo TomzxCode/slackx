@@ -279,14 +279,16 @@ uv run slack-fake-server --help
 uv run slack-fake-server --port 8199 --num-threads 50
 ```
 
-It serves deterministic workspace data (`conversations.list`,
-`conversations.replies`, `conversations.history`, `users.list`) and can
-simulate Slack-tier rate limiting with `--rate-limits`.
+It serves deterministic workspace data across the endpoints slackx uses
+(`auth.test`, `conversations.list`, `conversations.info`,
+`conversations.history`, `conversations.replies`, `users.list`, `users.info`,
+`search.messages`, and `chat.postMessage`) and can simulate Slack-tier rate
+limiting with `--rate-limits`.
 
 Point `slackx` at it with:
 
 ```bash
-slackx --api-base-url http://localhost:8199/api fetch ...
+slackx conversations fetch C0001 --last all --api-base-url http://localhost:8199/api
 ```
 
 ## Development

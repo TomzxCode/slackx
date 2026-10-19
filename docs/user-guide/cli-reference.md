@@ -11,6 +11,7 @@ Every subcommand accepts these options after the command name (for example
 | `--workspace NAME` | Workspace selecting the per-workspace cache database (`~/.cache/slackx/NAME/threads.db`). Discovered via `auth.test` when omitted |
 | `--api-base-url URL` | Slack API base URL (default: `https://slack.com/api`) |
 | `--log-level LEVEL` | Logging verbosity: `debug`, `info`, `warning`, `error`, or `critical` (default: `info`) |
+| `--version` | Print the application version and exit |
 
 ## Subcommands
 
@@ -294,5 +295,6 @@ The `--last` flag accepts duration strings:
 | `Nh` | `3h` | N hours |
 | `Nd` | `7d` | N days |
 | `Nm` | `90m` | N minutes |
+| `Ns` | `30s` | N seconds |
 | Combined | `2d5h30m` | 2 days, 5 hours, 30 minutes |
 | `all` | `all` | No time limit |

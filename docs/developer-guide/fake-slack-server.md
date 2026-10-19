@@ -52,7 +52,7 @@ Point slackx at the fake server using `--api-base-url`:
 
 ```bash
 slack-fake-server &
-slackx --api-base-url http://localhost:8199/api conversations fetch C00000001
+slackx conversations fetch C0001 --last all --api-base-url http://localhost:8199/api
 ```
 
 When using a non-default API base URL, credentials are not required.
@@ -81,7 +81,7 @@ The fake server supports `POST /api/chat.postMessage` for creating new threads o
 
 ```bash
 curl -X POST http://localhost:8199/api/chat.postMessage \
-  -d "channel=C00000001" \
+  -d "channel=C0001" \
   -d "text=Hello world"
 ```
 
@@ -89,7 +89,7 @@ Reply to an existing thread:
 
 ```bash
 curl -X POST http://localhost:8199/api/chat.postMessage \
-  -d "channel=C00000001" \
+  -d "channel=C0001" \
   -d "text=Replying to thread" \
   -d "thread_ts=1704067200.000001"
 ```
