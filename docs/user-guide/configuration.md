@@ -77,6 +77,9 @@ slackx conversations fetch <url> --workspace acme
 slackx conversations fetch <url> --db /path/to/custom.db
 ```
 
+`slackx cache status` prints the workspace and database it resolved, so you can
+confirm what a command will use without a fetch.
+
 `--db` takes precedence over the per-workspace layout. An existing
 pre-workspace `~/.cache/slackx/threads.db` is left in place and used as an
 offline fallback while no workspace cache exists yet.

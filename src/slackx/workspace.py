@@ -45,6 +45,20 @@ def workspace_db_path(name: str) -> Path:
     return workspace_dir(name) / DEFAULT_DB_NAME
 
 
+def workspace_name_from_db_path(path: Path) -> str | None:
+    """Return the workspace name when ``path`` is a per-workspace cache database.
+
+    Recognizes only the ``<cache>/<workspace>/threads.db`` layout, so the legacy
+    single ``threads.db`` and any custom ``--db`` path resolve to ``None``.
+    """
+    if path.name != DEFAULT_DB_NAME:
+        return None
+    parent = path.parent
+    if parent.parent != cache_dir():
+        return None
+    return parent.name or None
+
+
 def last_workspace_path() -> Path:
     """Return the path of the last-used workspace pointer file."""
     return cache_dir() / LAST_WORKSPACE_FILENAME

@@ -11,6 +11,7 @@ text, suitable for piping.
 import json
 from collections.abc import Sequence
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from slackx.cli._internal._blocks import _message_body_lines
@@ -406,7 +407,13 @@ def _channel_field_json(channel: CachedChannel, field: str, names: dict[str, str
     return getattr(channel, field)
 
 
-def _render_status_human(status: DbStatus, *, styled: bool = False) -> str:
+def _render_status_human(
+    status: DbStatus,
+    *,
+    workspace: str | None = None,
+    db_path: Path | None = None,
+    styled: bool = False,
+) -> str:
     s = _styler(styled)
 
     def line(label: str, count: int, updated_at: float | None) -> str:
@@ -415,13 +422,22 @@ def _render_status_human(status: DbStatus, *, styled: bool = False) -> str:
             f"{s.dim('last updated')} {s.italic(_format_epoch(updated_at))}"
         )
 
-    lines = [
-        line("channel", status.channel_count, status.channels_updated_at),
-        line("user", status.user_count, status.users_updated_at),
-        line("thread", status.thread_count, status.threads_updated_at),
-        f"{s.bold(str(status.message_count))} message(s)",
-        f"{s.bold(str(status.read_marker_count))} read marker(s)",
-    ]
+    lines: list[str] = []
+    if workspace is not None:
+        lines.append(f"{s.dim('Workspace:')} {s.bold(workspace)}")
+    if db_path is not None:
+        lines.append(f"{s.dim('Database:')} {db_path}")
+    if lines:
+        lines.append("")
+    lines.extend(
+        [
+            line("channel", status.channel_count, status.channels_updated_at),
+            line("user", status.user_count, status.users_updated_at),
+            line("thread", status.thread_count, status.threads_updated_at),
+            f"{s.bold(str(status.message_count))} message(s)",
+            f"{s.bold(str(status.read_marker_count))} read marker(s)",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 

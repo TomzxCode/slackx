@@ -35,6 +35,7 @@ Order rows by priority: Must first, then Should, then May.
 | FR-6 | Must | The system shall refuse to delete anything and exit non-zero when confirmation is required but standard input is not an interactive terminal |
 | FR-7 | Should | The system shall print the number of cleared messages, threads, channels, users, and read markers after a successful clear |
 | FR-8 | Should | The system shall support `--json` and `--jsonl` machine-readable output for the status command |
+| FR-9 | Should | The system shall report the resolved workspace name and the cache database path in the status output, omitting the workspace name when the database lives outside the per-workspace layout |
 
 ## Non-Functional Requirements
 
@@ -158,6 +159,24 @@ Multiple scenarios per requirement are allowed; tag each with the requirement ID
       Given a cache database with cached data
       When the user runs `slackx cache status --json`
       Then the output is a JSON object with the count and update-time fields
+    ```
+
+- [ ] **FR-9**
+
+    ```gherkin
+    @FR-9
+    Scenario: Status names the workspace in use
+      Given a per-workspace cache database for the workspace "acme"
+      When the user runs `slackx cache status --workspace acme`
+      Then the output shows the workspace "acme" and the database path
+    ```
+
+    ```gherkin
+    @FR-9
+    Scenario: Status omits the workspace for a custom database
+      Given a cache database at a custom `--db` path outside the per-workspace layout
+      When the user runs `slackx cache status --db <path>`
+      Then the output shows the database path and no workspace name
     ```
 
 - [ ] **NFR-1**

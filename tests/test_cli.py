@@ -849,6 +849,26 @@ def test_status_human(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     assert "1 thread(s)" in out
     assert "1 message(s)" in out
     assert "2023-11-14" in out
+    assert f"Database: {db_path}" in out
+    # A custom --db lives outside the per-workspace layout, so no workspace line.
+    assert "Workspace:" not in out
+
+
+def test_status_reports_workspace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """status names the resolved workspace and its database path."""
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    from slackx.workspace import workspace_db_path
+
+    db_path = workspace_db_path("acme")
+    _populate_status_db(db_path)
+
+    rc = cli.main(["cache", "status", "--workspace", "acme"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "Workspace: acme" in out
+    assert f"Database: {db_path}" in out
 
 
 def test_status_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -858,6 +878,8 @@ def test_status_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None
     rc = cli.main(["cache", "status", "--db", str(db_path), "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
+    assert payload["workspace"] is None
+    assert payload["db_path"] == str(db_path)
     assert payload["channel_count"] == 1
     assert payload["user_count"] == 1
     assert payload["thread_count"] == 1
@@ -876,6 +898,8 @@ def test_status_jsonl(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1
     payload = json.loads(lines[0])
+    assert payload["workspace"] is None
+    assert payload["db_path"] == str(db_path)
     assert payload["channel_count"] == 0
     assert payload["channels_updated_at"] is None
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from slackx.config import DEFAULT_DB_NAME
@@ -14,6 +16,7 @@ from slackx.workspace import (
     sanitize_workspace_name,
     workspace_db_path,
     workspace_name_from_auth,
+    workspace_name_from_db_path,
 )
 
 
@@ -51,6 +54,15 @@ class TestWorkspaceDbPath:
         assert last_workspace() is None
         claim_workspace_db("acme")
         assert last_workspace() == "acme"
+
+    def test_name_from_per_workspace_db_path(self) -> None:
+        assert workspace_name_from_db_path(workspace_db_path("acme")) == "acme"
+
+    def test_name_from_legacy_db_path_is_none(self) -> None:
+        assert workspace_name_from_db_path(legacy_db_path()) is None
+
+    def test_name_from_custom_db_path_is_none(self) -> None:
+        assert workspace_name_from_db_path(Path("/tmp/custom/threads.db")) is None
 
 
 class TestClaimWorkspaceDb:

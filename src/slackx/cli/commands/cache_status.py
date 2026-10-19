@@ -19,6 +19,7 @@ from slackx.cli._internal._shared import (
 )
 from slackx.cli._internal._style import _supports_styles
 from slackx.storage import db_status
+from slackx.workspace import workspace_name_from_db_path
 
 
 @cache_app.command(name="status")
@@ -34,14 +35,23 @@ async def status(
     """Print cache database status: counts and last update per entity."""
     common = _setup(db, api_base_url, log_level, workspace)
     fmt = _output_format(json_output, jsonl_output)
-    async with _client._open_db(common) as conn:
+    db_path = await _client._resolve_db_path(common)
+    with _client._open_db_at(db_path) as conn:
         snapshot = db_status(conn)
+    workspace_name = workspace_name_from_db_path(db_path)
 
     if fmt in ("json", "jsonl"):
+        payload = {
+            "workspace": workspace_name,
+            "db_path": str(db_path),
+            **asdict(snapshot),
+        }
         sys.stdout.write(
-            json.dumps(asdict(snapshot), ensure_ascii=False, indent=2 if fmt == "json" else None)
-            + "\n"
+            json.dumps(payload, ensure_ascii=False, indent=2 if fmt == "json" else None) + "\n"
         )
     else:
-        sys.stdout.write(_render_status_human(snapshot, styled=_supports_styles(sys.stdout)))
+        styled = _supports_styles(sys.stdout)
+        sys.stdout.write(
+            _render_status_human(snapshot, workspace=workspace_name, db_path=db_path, styled=styled)
+        )
     return 0

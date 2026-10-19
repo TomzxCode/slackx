@@ -9,7 +9,8 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 ## Overview
 
 The cache management feature is a thin CLI surface over the SQLite storage helpers.
-The `cache status` command reads aggregate counts and last update times from the database and renders them, and the `cache clear` command deletes rows for a chosen entity after a confirmation.
+The `cache status` command reads aggregate counts and last update times from the database, alongside the resolved workspace name and database path, and renders them.
+The `cache clear` command deletes rows for a chosen entity after a confirmation.
 Both commands resolve the database connection through the shared client helper and never touch the network.
 
 ## Architecture
@@ -22,7 +23,9 @@ flowchart TD
     D -- "non-interactive, no yes" --> F["refuse, exit 1"]
     B --> G[("SQLite cache DB")]
     E --> G
-    H["_client._open_db"] --> A
+    H["_client._resolve_db_path"] --> A
+    H --> I["workspace_name_from_db_path(path)"]
+    I --> A
     H --> C
 ```
 
@@ -55,6 +58,21 @@ Number of rows removed by `clear_cache`, per entity.
 | users | int | not null | rows removed from users |
 | read_markers | int | not null, defaults to 0 | rows removed from read_markers |
 
+### StatusOutput
+
+The status command reports the database resolved for the invocation, in addition
+to the `DbStatus` counts and update times.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| workspace | string or none | nullable | resolved workspace name, none for a custom `--db` or the legacy single `threads.db` |
+| db_path | string | not null | absolute path of the cache database that was opened |
+| channel_count ... read_marker_count | (see DbStatus) | not null | the `DbStatus` fields, spread into the same object |
+
+The JSON renderer emits `workspace`, `db_path`, then the `DbStatus` fields; the
+human renderer prints `Workspace:` (when known) and `Database:` lines above the
+counts.
+
 ## API Contracts
 
 There is no HTTP API.
@@ -72,6 +90,8 @@ sequenceDiagram
     participant CLI as cache status
     participant DB as SQLite
     U->>CLI: slackx cache status
+    CLI->>CLI: _resolve_db_path(common)
+    CLI->>CLI: workspace_name_from_db_path(path)
     CLI->>DB: db_status(conn)
     DB-->>CLI: DbStatus counts and update times
     CLI-->>U: human-readable or JSON output
@@ -117,6 +137,7 @@ sequenceDiagram
 | Thread cleanup | Clearing messages also deletes the threads table | Thread rows signal that a thread is cached, so leaving them would suppress a refetch |
 | Confirmation | Interactive prompt on a terminal, `--yes` or `-y` to skip, refuse on a non-tty | Prevents accidental deletion while allowing scripts to run unattended |
 | Status output | Human-readable by default with `--json` and `--jsonl` alternatives | Matches the output convention of the other CLI commands |
+| Workspace in status | Derived from the resolved database path (`workspace_name_from_db_path`), not re-resolved from credentials | Reports the workspace actually in use, including for `--workspace` and offline resolution, with no extra `auth.test` call |
 
 ## Risks and Unknowns
 

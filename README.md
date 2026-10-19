@@ -238,9 +238,10 @@ slackx channels list C001
 When a thread's authors are present in the cached users, `conversations show` renders their
 real name and handle (e.g. `Alice Smith (alice)`) instead of raw user ids.
 
-Inspect the cache itself with `cache status`, which reports the number of cached
-channels, users, threads, messages, and read markers, along with the last update
-time for each (`--json`/`--jsonl` for machine-readable output):
+Inspect the cache itself with `cache status`, which reports the workspace in use,
+the database path, the number of cached channels, users, threads, messages, and
+read markers, along with the last update time for each (`--json`/`--jsonl` for
+machine-readable output):
 
 ```bash
 slackx cache status

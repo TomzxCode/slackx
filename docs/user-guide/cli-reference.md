@@ -137,15 +137,25 @@ empty. When `CHANNEL` is given, a cache miss fetches only that channel via
 
 ### cache status
 
-Print cache database status: counts and last update time per entity.
+Print cache database status: the workspace and database in use, plus counts and
+last update time per entity.
 
 ```bash
 slackx cache status [--json | --jsonl]
 ```
 
-Reports the number of cached channels, users, threads, and messages, plus the
-most recent update time for channels, users, and threads (threads carry the
-message-cache update time). Never fetches from Slack.
+| Option | Description |
+|---|---|
+| `--json` | Output as pretty-printed JSON |
+| `--jsonl` | Output as a single compact JSON line (mutually exclusive with `--json`) |
+
+Reports the resolved workspace name and database path, then the number of
+cached channels, users, threads, and messages, plus the most recent update time
+for channels, users, and threads (threads carry the message-cache update time).
+The workspace line is omitted when the database lives outside the per-workspace
+layout (a custom `--db`, or the legacy single `threads.db`); the JSON output
+carries `workspace` (null in that case) and `db_path`. Never fetches from
+Slack.
 
 ### cache clear
 

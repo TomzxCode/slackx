@@ -21,6 +21,7 @@ workspace.py
   |
   +-- workspace_dir(name)          (<cache>/<sanitized name>/)
   +-- workspace_db_path(name)      (<cache>/<name>/threads.db)
+  +-- workspace_name_from_db_path() (per-workspace db path -> workspace name)
   +-- workspace_name_from_auth()   (auth.test payload -> workspace name)
   +-- remember_last_workspace() / last_workspace()
   +-- claim_workspace_db()         (path + pointer, never moves files)
@@ -63,6 +64,10 @@ _client.py
    database, then the legacy single `threads.db`.
 6. Multiple workspace databases with no pointer: exit with an error listing
    the known workspace names.
+7. The reverse, `workspace_name_from_db_path(path)`, recovers the workspace name
+   from a resolved per-workspace database path (returning `None` for the legacy
+   and custom `--db` paths), so a command can report the workspace it is using
+   without re-resolving credentials.
 
 ## Sequences
 

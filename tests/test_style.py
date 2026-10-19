@@ -2,6 +2,7 @@
 
 import io
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -199,3 +200,23 @@ def test_render_status_human_styled() -> None:
     out = _render_status_human(status, styled=True)
     assert "\x1b[1m2\x1b[0m channel(s)" in out
     assert "\x1b[3m(never)\x1b[0m" in out
+
+
+def test_render_status_human_includes_workspace_and_database() -> None:
+    """The status render names the workspace and database when given them."""
+    status = DbStatus(
+        channel_count=0,
+        user_count=0,
+        thread_count=0,
+        message_count=0,
+        channels_updated_at=None,
+        users_updated_at=None,
+        threads_updated_at=None,
+    )
+    out = _render_status_human(status, workspace="acme", db_path=Path("/cache/acme/threads.db"))
+    assert "Workspace: acme" in out
+    assert "Database: /cache/acme/threads.db" in out
+
+    without = _render_status_human(status)
+    assert "Workspace:" not in without
+    assert "Database:" not in without
