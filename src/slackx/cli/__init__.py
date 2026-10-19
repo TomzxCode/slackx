@@ -8,7 +8,9 @@ Subcommands:
 - conversations search: search Slack and cache the matches.
 - conversations poll: poll channels in a loop for new messages.
 - conversations read mark/show/clear: track per-consumer last-read pointers.
-- serve: browse the cache through a local web UI.
+- cache status/clear: inspect and manage the local cache.
+- rpc serve/call/methods: serve the JSON-RPC API or call a running server.
+- serve: browse the cache through a local web UI (and the JSON-RPC endpoint).
 """
 
 from collections.abc import Sequence
@@ -29,6 +31,9 @@ from slackx.cli.commands import (  # noqa: F401
     read_clear,
     read_mark,
     read_show,
+    rpc_call,
+    rpc_methods,
+    rpc_serve,
     serve,
     users_fetch,
     users_get,

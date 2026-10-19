@@ -55,7 +55,7 @@ def serve(
 
     from slackx.server.app import create_app
 
-    webapp = create_app(db_path=db_path, api_base_url=common.api_base_url)
+    webapp = create_app(db_path=db_path, api_base_url=common.api_base_url, log_level=log_level)
     log.info("serve_starting", host=host, port=port, db_path=str(db_path))
     uvicorn.run(webapp, host=host, port=port, log_level=common.log_level)
     return 0

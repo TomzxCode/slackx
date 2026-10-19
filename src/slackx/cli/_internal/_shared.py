@@ -35,8 +35,12 @@ read_app = App(
     name="read",
     help="Track per-consumer last-read pointers for channels and threads.",
 )
+rpc_app = App(
+    name="rpc",
+    help="Serve the JSON-RPC API, or call a running slackx server.",
+)
 
-for _group in (channels_app, users_app, conversations_app, cache_app):
+for _group in (channels_app, users_app, conversations_app, cache_app, rpc_app):
     app.command(_group)
 
 # The read group lives under conversations, next to the get command that

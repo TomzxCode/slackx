@@ -3036,7 +3036,7 @@ def test_help_lists_every_command_group(capsys: pytest.CaptureFixture[str]) -> N
     """--help renders the command tree without touching the network."""
     assert cli.main(["--help"]) == 0
     out = capsys.readouterr().out
-    for group in ("cache", "channels", "conversations", "serve", "users"):
+    for group in ("cache", "channels", "conversations", "rpc", "serve", "users"):
         assert group in out
 
 
@@ -3066,6 +3066,10 @@ HELP_PATHS = [
     ["conversations", "read", "mark"],
     ["conversations", "read", "show"],
     ["conversations", "read", "clear"],
+    ["rpc"],
+    ["rpc", "serve"],
+    ["rpc", "call"],
+    ["rpc", "methods"],
     ["serve"],
 ]
 

@@ -139,6 +139,7 @@ def _with_names(
 def create_app(
     db_path: Path | None = None,
     api_base_url: str | None = None,
+    log_level: str = "info",
 ) -> FastAPI:
     """Build the FastAPI app bound to a cache database path."""
     db = db_path or default_db_path()
@@ -423,6 +424,14 @@ def create_app(
         finally:
             await client.aclose()
         return {"thread": asdict(result)}
+
+    # ------------------------------------------------------------------
+    # JSON-RPC
+    # ------------------------------------------------------------------
+
+    from slackx.rpc.server import add_rpc_routes
+
+    add_rpc_routes(fastapp, db_path=db, api_base_url=api_base_url, log_level=log_level)
 
     # ------------------------------------------------------------------
     # Static UI

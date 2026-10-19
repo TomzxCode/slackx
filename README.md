@@ -178,6 +178,27 @@ cached conversation (SQLite FTS5) and jumps straight to the matched message.
 Refresh buttons can trigger live Slack fetches when credentials are
 configured; browsing the cache itself needs none.
 
+### JSON-RPC API
+
+Clients can call a running server instead of spawning a CLI command per
+operation. The `serve` app exposes a JSON-RPC 2.0 endpoint at `POST /rpc`, and
+`rpc serve` starts the same app when only the API is needed:
+
+```bash
+slackx rpc serve --db ~/.cache/slackx/acme/threads.db --port 8280
+slackx rpc methods
+slackx rpc call users.list --params '{"limit": 20}'
+slackx rpc call conversations.get --params '{"target": "#general", "fetch": false}'
+```
+
+The default endpoint is `http://127.0.0.1:8280/rpc`; override it with `--url`
+or `SLACKX_RPC_URL`. Results match the CLI's `--json` payloads. The methods
+cover cache status and clearing, users, channels, conversations (fetch, get,
+search), and read markers. A Python client is available at
+`slackx.rpc.client.RpcClient`. See the
+[JSON-RPC API guide](docs/user-guide/json-rpc.md) for the method table and
+protocol details.
+
 ### Tracking last read
 
 Record how far each consumer has read in a channel or a thread, so several

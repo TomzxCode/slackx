@@ -65,6 +65,33 @@ def _render_human(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def _thread_payload(
+    ref: ThreadRef,
+    messages: list[CachedMessage],
+    user_names: dict[str, str] | None = None,
+    channel_name: str | None = None,
+) -> dict[str, Any]:
+    """Build the JSON-serializable payload for a thread.
+
+    Shared by the CLI JSON renderer and the JSON-RPC ``conversations.get``
+    method so both surfaces return the same shape.
+    """
+    names = user_names or {}
+    enriched: list[dict[str, Any]] = []
+    for msg in messages:
+        d = asdict(msg)
+        if msg.user and msg.user in names:
+            d["user_name"] = names[msg.user]
+        enriched.append(d)
+    return {
+        "channel": ref.channel,
+        "channel_name": channel_name,
+        "thread_ts": ref.thread_ts,
+        "message_count": len(messages),
+        "messages": enriched,
+    }
+
+
 def _render_json(
     ref: ThreadRef,
     messages: list[CachedMessage],
@@ -78,20 +105,7 @@ def _render_json(
     Pass ``indent=None`` to emit the whole payload as a single line, suitable
     for JSONL output (one record per invocation).
     """
-    names = user_names or {}
-    enriched: list[dict[str, Any]] = []
-    for msg in messages:
-        d = asdict(msg)
-        if msg.user and msg.user in names:
-            d["user_name"] = names[msg.user]
-        enriched.append(d)
-    payload: dict[str, Any] = {
-        "channel": ref.channel,
-        "channel_name": channel_name,
-        "thread_ts": ref.thread_ts,
-        "message_count": len(messages),
-        "messages": enriched,
-    }
+    payload = _thread_payload(ref, messages, user_names, channel_name)
     return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
 
 
@@ -137,17 +151,16 @@ def _render_channel_human(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def _render_channel_json(
+def _channel_payload(
     channel: str,
     messages: list[ChannelMessageEntry],
     user_names: dict[str, str] | None = None,
     channel_name: str | None = None,
-    *,
-    indent: int | None = 2,
-) -> str:
-    """Render a channel's messages as JSON (pretty-printed by default).
+) -> dict[str, Any]:
+    """Build the JSON-serializable payload for a channel's messages.
 
-    Pass ``indent=None`` to emit the whole payload as a single line.
+    Shared by the CLI JSON renderer and the JSON-RPC ``conversations.get``
+    method so both surfaces return the same shape.
     """
     names = user_names or {}
     enriched: list[dict[str, Any]] = []
@@ -162,12 +175,27 @@ def _render_channel_json(
         if msg.user and msg.user in names:
             d["user_name"] = names[msg.user]
         enriched.append(d)
-    payload: dict[str, Any] = {
+    return {
         "channel": channel,
         "channel_name": channel_name,
         "message_count": len(messages),
         "messages": enriched,
     }
+
+
+def _render_channel_json(
+    channel: str,
+    messages: list[ChannelMessageEntry],
+    user_names: dict[str, str] | None = None,
+    channel_name: str | None = None,
+    *,
+    indent: int | None = 2,
+) -> str:
+    """Render a channel's messages as JSON (pretty-printed by default).
+
+    Pass ``indent=None`` to emit the whole payload as a single line.
+    """
+    payload = _channel_payload(channel, messages, user_names, channel_name)
     return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
 
 
@@ -253,6 +281,33 @@ def _search_field_value(
     return None
 
 
+def _search_payload(
+    query: str,
+    matches: list[dict[str, Any]],
+    user_names: dict[str, str] | None = None,
+    channel_names: dict[str, str] | None = None,
+    fields: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Build the JSON-serializable payload for search matches.
+
+    ``fields`` selects and orders the keys emitted for each match; it defaults
+    to every field except ``payload``. Shared by the CLI JSON renderer and the
+    JSON-RPC ``conversations.search`` method.
+    """
+    selected = list(fields or SEARCH_DEFAULT_FIELDS)
+    names = user_names or {}
+    ch_names = channel_names or {}
+    enriched: list[dict[str, Any]] = [
+        {field: _search_field_value(msg, field, names, ch_names) for field in selected}
+        for msg in matches
+    ]
+    return {
+        "query": query,
+        "match_count": len(matches),
+        "matches": enriched,
+    }
+
+
 def _render_search_json(
     query: str,
     matches: list[dict[str, Any]],
@@ -268,18 +323,7 @@ def _render_search_json(
     to every field except ``payload``. Pass ``indent=None`` to emit the whole
     payload as a single line.
     """
-    selected = list(fields or SEARCH_DEFAULT_FIELDS)
-    names = user_names or {}
-    ch_names = channel_names or {}
-    enriched: list[dict[str, Any]] = [
-        {field: _search_field_value(msg, field, names, ch_names) for field in selected}
-        for msg in matches
-    ]
-    payload: dict[str, Any] = {
-        "query": query,
-        "match_count": len(matches),
-        "matches": enriched,
-    }
+    payload = _search_payload(query, matches, user_names, channel_names, fields)
     return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
 
 
@@ -303,17 +347,25 @@ def _render_users_human(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def _users_payload(
+    users: list[CachedUser],
+    fields: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Build the JSON-serializable payload for cached users."""
+    selected = list(fields or ("id", "name", "real_name"))
+    return {
+        "user_count": len(users),
+        "users": [{field: _user_field_json(user, field) for field in selected} for user in users],
+    }
+
+
 def _render_users_json(
     users: list[CachedUser],
     fields: Sequence[str] | None = None,
     *,
     indent: int | None = 2,
 ) -> str:
-    selected = list(fields or ("id", "name", "real_name"))
-    payload = {
-        "user_count": len(users),
-        "users": [{field: _user_field_json(user, field) for field in selected} for user in users],
-    }
+    payload = _users_payload(users, fields)
     return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
 
 
@@ -357,6 +409,23 @@ def _render_channels_human(
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def _channels_payload(
+    channels: list[CachedChannel],
+    display_names: dict[str, str] | None = None,
+    fields: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Build the JSON-serializable payload for cached channels."""
+    names = display_names or {}
+    selected = list(fields or ("id", "name", "is_private"))
+    return {
+        "channel_count": len(channels),
+        "channels": [
+            {field: _channel_field_json(channel, field, names) for field in selected}
+            for channel in channels
+        ],
+    }
+
+
 def _render_channels_json(
     channels: list[CachedChannel],
     display_names: dict[str, str] | None = None,
@@ -364,15 +433,7 @@ def _render_channels_json(
     *,
     indent: int | None = 2,
 ) -> str:
-    names = display_names or {}
-    selected = list(fields or ("id", "name", "is_private"))
-    payload = {
-        "channel_count": len(channels),
-        "channels": [
-            {field: _channel_field_json(channel, field, names) for field in selected}
-            for channel in channels
-        ],
-    }
+    payload = _channels_payload(channels, display_names, fields)
     return json.dumps(payload, ensure_ascii=False, indent=indent) + "\n"
 
 
