@@ -7,7 +7,7 @@ status: done
 
 ## Scope
 
-This plan covers the JSON-RPC transport (`POST /rpc`), request validation, the method registry and handlers, the Python client, and the `rpc serve`, `rpc call`, and `rpc methods` CLI commands.
+This plan covers the JSON-RPC transport (`POST /rpc`), token authentication, request validation, the method registry and handlers, `cli.run`, the Python client, and the `rpc serve`, `rpc call`, `rpc methods`, `rpc exec`, and `--remote` CLI surfaces.
 Endpoint cases drive the app through `fastapi.testclient.TestClient` against a seeded temporary database.
 Fetch methods stub the Slack client and the cache fetch functions, so no network call is made.
 The CLI cases replace `RpcClient` with an in-memory stand-in, except the parity case, which runs the real CLI against the same database.
@@ -42,7 +42,11 @@ Out of scope are a real uvicorn listener, real Slack traffic, the web UI routes 
 
 | ID | Description | Preconditions | Expected Outcome |
 |---|---|---|---|
-| TC-16 | Method catalog | Seeded database | `system.methods` lists every exposed method (test_rpc.py, `test_system_methods`) |
+| TC-16 | Method catalog | Seeded database | `rpc.discover` returns the server name, version, and every exposed method; `system.methods` remains an alias (test_rpc.py, `test_rpc_discover_lists_server_and_methods`, `test_system_methods_remains_an_alias`) |
+| TC-16a | Server info | Seeded database | `server.info` reports the database path, execution setting, and start time (test_rpc.py, `test_server_info`) |
+| TC-16b | Run a CLI command | Seeded database | `cli.run` exits 0 and prints the CLI's JSON status for the same database (test_rpc.py, `test_cli_run_executes_a_command`) |
+| TC-16c | Execution disabled | `rpc_allow_exec=False` | `cli.run` is absent from the catalog and returns `-32601` (test_rpc.py, `test_cli_run_is_hidden_and_rejected_when_disabled`) |
+| TC-16d | Token authentication | `rpc_token="secret"` | Requests without the token or with a wrong token get HTTP 401; both Bearer and `X-Slackx-Token` work (test_rpc.py, `test_rpc_requires_a_bearer_token`) |
 | TC-17 | Users list from cache | Two cached users, `fetch: false` | `user_count` 2 and the first user's id, name, and real name (test_rpc.py, `test_users_list_uses_cache`) |
 | TC-18 | User get with field selection | Cached user, `fields: ["id", "name"]` | One user with only those keys (test_rpc.py, `test_users_get_and_fields`) |
 | TC-19 | User get on a cache miss | Missing user, `fetch: false` | `-32000` saying the user is not cached (test_rpc.py, `test_users_get_missing_is_server_error`) |
@@ -67,11 +71,14 @@ Out of scope are a real uvicorn listener, real Slack traffic, the web UI routes 
 
 | ID | Description | Steps | Expected Outcome |
 |---|---|---|---|
-| TC-36 | Method list, human | `slackx rpc methods` with the stand-in client | Exit 0, signature and description printed (test_rpc.py, `test_rpc_methods_lists_catalog`) |
+| TC-36 | Method list, human | `slackx rpc methods` with the stand-in client | Exit 0, a method table with name and description printed (test_rpc.py, `test_rpc_methods_lists_catalog`) |
 | TC-37 | Method list, JSON | `slackx rpc methods --json` | Exit 0, the catalog printed as JSON (test_rpc.py, `test_rpc_methods_prints_json`) |
 | TC-38 | Call prints JSON | `slackx rpc call users.list --params '{"fetch": false}'` | Exit 0, result printed as JSON, params forwarded (test_rpc.py, `test_rpc_call_prints_json`) |
 | TC-39 | Call reports an RPC error | Stand-in client raising `RpcError` | Exit 1, error on stderr (test_rpc.py, `test_rpc_call_reports_rpc_error`) |
 | TC-40 | RPC and CLI JSON parity | Same cached thread through `conversations.get` and `conversations get --json` | Both payloads are equal (test_rpc.py, `test_rpc_and_cli_json_payloads_match`) |
+| TC-40a | Call with positional params | `slackx rpc call users.list '{"fetch": false}'` | Exit 0, params forwarded (test_rpc.py, `test_rpc_call_accepts_positional_params`) |
+| TC-40b | Remote mode | `slackx --remote http://x conversations get C1` with a stand-in client | The command is forwarded to `cli.run`, output is mirrored, exit code is mirrored (test_rpc.py, `test_remote_forwards_to_cli_run`) |
+| TC-40c | `rpc exec` | `slackx rpc exec --url http://x -- cache status --json` | Arguments are forwarded unchanged, output is mirrored (test_rpc.py, `test_rpc_exec_forwards_arguments`) |
 
 ## Edge Cases and Failure Scenarios
 

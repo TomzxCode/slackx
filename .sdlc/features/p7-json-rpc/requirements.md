@@ -13,7 +13,8 @@ This feature exposes the CLI's operations as a JSON-RPC 2.0 API on the FastAPI s
 
 The server is the app already built by `slackx.server.app.create_app`, which `slackx serve` runs.
 `slackx rpc serve` runs the same app when only the API is needed.
-`slackx rpc call` and `slackx rpc methods` are thin clients, and `slackx.rpc.client.RpcClient` is the Python client.
+`slackx rpc call` and `slackx rpc methods` are thin clients, `slackx rpc exec` and the global `--remote` mode reach every CLI command through `cli.run`, and `slackx.rpc.client.RpcClient` is the Python client.
+The interface matches the one implemented by the sibling `ghx` project, using `--host` and `--port` for the listen address.
 
 ## Stakeholders
 
@@ -30,7 +31,8 @@ The server is the app already built by `slackx.server.app.create_app`, which `sl
 |---|---|---|
 | FR-1 | Must | The server shall accept JSON-RPC 2.0 requests at `POST /rpc` on the app built by `create_app` |
 | FR-2 | Must | The server shall accept one request object, a batch array, and notifications (a request without `id`) |
-| FR-3 | Must | The server shall expose `system.methods`, returning each method's name, description, and parameter names |
+| FR-3 | Must | The server shall expose `rpc.discover`, returning the server name, version, and each method's name, description, and parameter names, with `system.methods` kept as an alias |
+| FR-3a | Must | The server shall expose `server.info`, returning the server name, version, workspace, database path, execution setting, method count, and start time |
 | FR-4 | Must | The server shall expose cache operations as `cache.status` and `cache.clear` |
 | FR-5 | Must | The server shall expose `users.list` and `users.get` |
 | FR-6 | Must | The server shall expose `channels.list` and `channels.get` |
@@ -44,6 +46,11 @@ The server is the app already built by `slackx.server.app.create_app`, which `sl
 | FR-14 | Must | `conversations.get` shall advance the named reader's pointer, matching the CLI, and skip it when `reader` is null |
 | FR-15 | Should | The server's database path and Slack API base URL shall be fixed at startup and not settable per request |
 | FR-16 | Should | A Python client shall be available as `slackx.rpc.client.RpcClient` |
+| FR-17 | Must | The server shall expose `cli.run`, which executes a CLI command in a child process and returns stdout, stderr, and the exit code |
+| FR-18 | Must | `cli.run` shall be removable from the catalog with `--no-allow-exec`, and calls to it shall then return `-32601` |
+| FR-19 | Must | The CLI shall provide `rpc exec` and a global `--remote [URL]` mode that forward any command to `cli.run`, mirror output, and mirror the remote exit code |
+| FR-20 | Must | The server shall accept an optional bearer token from `--token` (`--rpc-token` on `serve`) or `SLACKX_RPC_TOKEN`, and shall refuse a non-loopback bind without one |
+| FR-21 | Must | `rpc serve` and `serve` shall use `--host` and `--port` for the listen address |
 
 ## Non-Functional Requirements
 
@@ -234,6 +241,61 @@ The server is the app already built by `slackx.server.app.create_app`, which `sl
       When a program calls `await RpcClient(url).call("users.list", {"fetch": False})`
       Then it receives the result
       And a JSON-RPC error raises RpcError
+    ```
+
+- [ ] **FR-17**
+
+    ```gherkin
+    @FR-17
+    Scenario: Run a CLI command over RPC
+      Given a running slackx server
+      When a client calls cli.run with args ["cache", "status", "--json"]
+      Then the result contains stdout, stderr, and exitCode 0
+      And the stdout is the CLI's JSON status payload
+    ```
+
+- [ ] **FR-18**
+
+    ```gherkin
+    @FR-18
+    Scenario: Command execution is disabled
+      Given a server started with --no-allow-exec
+      When a client calls rpc.discover
+      Then cli.run is absent from the catalog
+      When a client calls cli.run
+      Then the server returns -32601
+    ```
+
+- [ ] **FR-19**
+
+    ```gherkin
+    @FR-19
+    Scenario: Forward a command from the CLI
+      Given a running slackx server
+      When the user runs `slackx rpc exec -- cache status --json`
+      Then the server runs the command and the output is printed
+      And a failing remote command makes the client exit with its code
+    ```
+
+- [ ] **FR-20**
+
+    ```gherkin
+    @FR-20
+    Scenario: Token authentication
+      Given a server started with --token secret
+      When a request arrives without the token
+      Then it receives HTTP 401
+      When the request sends Authorization: Bearer secret
+      Then it is handled normally
+    ```
+
+- [ ] **FR-21**
+
+    ```gherkin
+    @FR-21
+    Scenario: Listen address flags
+      When the user runs `slackx rpc serve --host 127.0.0.1 --port 9000`
+      Then the server listens on 127.0.0.1:9000
     ```
 
 - [ ] **NFR-1**

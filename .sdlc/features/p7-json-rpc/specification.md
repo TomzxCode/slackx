@@ -55,6 +55,11 @@ Every handler receives an `RpcContext` with those values and builds a `CommonArg
 Request-level failures always use HTTP 200, as JSON-RPC 2.0 requires for application and request errors.
 HTTP 204 is used only when a batch yields no responses.
 
+When the server is configured with a token, every request must send it as `Authorization: Bearer <token>` or `X-Slackx-Token: <token>`, compared in constant time.
+A missing or wrong token gets HTTP 401 with a `WWW-Authenticate` header.
+The token comes from `--token` or `SLACKX_RPC_TOKEN`.
+`rpc serve` and `serve` refuse a non-loopback `--host` without a token, and both take an execution toggle (`--allow-exec` on `rpc serve`, `--rpc-allow-exec` on `serve`, default true) to control `cli.run`.
+
 ## Request validation
 
 `rpc/protocol.py::parse_request` enforces:
@@ -87,8 +92,12 @@ It logs the failure with structlog and never returns a traceback.
 ## Method registry
 
 `rpc/methods.py` defines a `Method` dataclass and a `@method(name, description, params)` decorator.
-`_METHODS` maps names to handlers, and `list_methods()` returns the catalog sorted by name.
-`system.methods` returns that catalog.
+`_METHODS` maps names to handlers, and `list_methods(allow_exec)` returns the catalog sorted by name, omitting `cli.run` when execution is disabled.
+`rpc.discover` returns the server name, version, and that catalog.
+`system.methods` is kept as an alias for clients written against the first revision.
+`server.info` reports the workspace, database path, API base URL, execution setting, method count, and start time.
+`cli.run` runs `python -m slackx` with the forwarded args plus the server's `--db`, `--api-base-url`, and `--log-level` flags, and returns stdout, stderr, and the exit code.
+`dispatch` rejects `cli.run` with `-32601` when execution is disabled, so hiding it from the catalog and refusing it agree.
 
 Handlers are `async def handler(ctx: RpcContext, params: dict) -> Any`.
 Network-touching imports (`cache`, `slack_api`, `workspace`) stay inside handlers or helpers, consistent with the CLI's lazy-import rule.
@@ -97,7 +106,10 @@ Network-touching imports (`cache`, `slack_api`, `workspace`) stay inside handler
 
 | Method | Parameters (all optional unless noted) | Result |
 |---|---|---|
-| `system.methods` | none | `{"methods": [{name, description, params}]}` |
+| `rpc.discover` | none | `{name, version, methods: [{name, description, params}]}` |
+| `system.methods` | none | Alias of `rpc.discover`, returning `{"methods": [...]}` |
+| `server.info` | none | `{name, version, workspace, dbPath, apiBaseUrl, execEnabled, methods, startedAt}` |
+| `cli.run` | `args` (required array), `stdin` | `{stdout, stderr, exitCode}` |
 | `cache.status` | none | `{workspace, db_path, ...DbStatus}` |
 | `cache.clear` | `target`: `all` (default), `messages`, `channels`, `users`, `read` | `{messages, threads, channels, users, read_markers}` |
 | `users.list` | `limit` (0), `fields`, `fetch` (true) | `{user_count, users}` |
@@ -144,19 +156,25 @@ The RPC call is the explicit action; there is no interactive terminal to confirm
 
 | Command | Behavior |
 |---|---|
-| `slackx rpc serve` | Starts the same uvicorn app as `slackx serve` |
-| `slackx rpc methods` | Calls `system.methods` and prints a human list, or JSON with `--json` |
-| `slackx rpc call METHOD` | Calls a method and prints pretty JSON; `--compact` prints one line |
+| `slackx rpc serve` | Starts the same uvicorn app as `slackx serve`; `--host`, `--port`, `--token`, `--allow-exec` |
+| `slackx rpc methods` | Calls `rpc.discover` and prints a method table, or JSON with `--json` |
+| `slackx rpc call METHOD [PARAMS]` | Calls a method and prints pretty JSON; `--compact` prints one line |
+| `slackx rpc exec -- ARGS...` | Runs a command through `cli.run`, forwards output and exit code |
+| `slackx --remote [URL] COMMAND` | Runs any command through `cli.run`; `--rpc-token` sets the token |
 
-`rpc call` accepts `--params JSON` or `--params-file PATH` (`-` reads stdin).
+`rpc call` takes the parameters as JSON in the second argument, or from `-` (stdin) or `@path`.
+The older `--params` and `--params-file` flags remain.
 The endpoint is `--url`/`--server`, then `SLACKX_RPC_URL`, then `http://127.0.0.1:8280/rpc`.
+A bare host or host:port normalizes to `/rpc`.
 JSON-RPC errors go to stderr and exit 1; malformed local parameters exit 2.
+Remote execution mirrors the child's stdout, stderr, and exit code, and forwards piped stdin.
 
 ## Python client
 
 `slackx.rpc.client.RpcClient` wraps an `httpx.AsyncClient`.
-`call(method, params)` assigns an incrementing id, posts the request, raises `RpcError` for an error object, and raises `RpcTransportError` for connection, HTTP, or invalid-JSON failures.
-`methods()` is a convenience over `system.methods`.
+`call(method, params)` assigns an incrementing id, posts the request with the bearer token when set, raises `RpcError` for an error object, and raises `RpcTransportError` for connection, HTTP, or invalid-JSON failures.
+`methods()` is a convenience over `rpc.discover`, and `exec(args, stdin)` is a convenience over `cli.run`.
+`endpoint_url` normalizes a bare host, a host:port, or a URL without a path to `/rpc`.
 The client owns its transport unless one is injected, and supports `async with`.
 
 ## Security

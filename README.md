@@ -187,14 +187,23 @@ operation. The `serve` app exposes a JSON-RPC 2.0 endpoint at `POST /rpc`, and
 ```bash
 slackx rpc serve --db ~/.cache/slackx/acme/threads.db --port 8280
 slackx rpc methods
-slackx rpc call users.list --params '{"limit": 20}'
-slackx rpc call conversations.get --params '{"target": "#general", "fetch": false}'
+slackx rpc call users.list '{"limit": 20}'
+slackx rpc call conversations.get '{"target": "#general", "fetch": false}'
 ```
 
 The default endpoint is `http://127.0.0.1:8280/rpc`; override it with `--url`
 or `SLACKX_RPC_URL`. Results match the CLI's `--json` payloads. The methods
 cover cache status and clearing, users, channels, conversations (fetch, get,
-search), and read markers. A Python client is available at
+search), and read markers. `cli.run` reaches every other command, and
+`rpc exec` and `--remote` wrap it:
+
+```bash
+slackx rpc exec -- conversations search "deploy" --json
+slackx --remote http://127.0.0.1:8280 conversations get C1 --json
+```
+
+Set `SLACKX_RPC_TOKEN` and `--token` to require a bearer token. Binding a
+non-loopback host without a token is refused. A Python client is available at
 `slackx.rpc.client.RpcClient`. See the
 [JSON-RPC API guide](docs/user-guide/json-rpc.md) for the method table and
 protocol details.

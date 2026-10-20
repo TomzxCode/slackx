@@ -7,9 +7,11 @@ from typing import Annotated
 from cyclopts import Parameter
 
 from slackx.cli._internal._shared import (
+    AllowExecArg,
     ApiBaseUrlArg,
     DbArg,
     LogLevelArg,
+    RpcTokenArg,
     WorkspaceArg,
     rpc_app,
 )
@@ -29,6 +31,8 @@ def serve(
     *,
     host: HostArg = "127.0.0.1",
     port: PortArg = 8280,
+    token: RpcTokenArg = None,
+    allow_exec: AllowExecArg = True,
     db: DbArg = None,
     workspace: WorkspaceArg = None,
     api_base_url: ApiBaseUrlArg = None,
@@ -39,12 +43,16 @@ def serve(
     The JSON-RPC endpoint is POST /rpc on the same server as the web UI.
     Point clients at http://HOST:PORT/rpc, or call them with
     'slackx rpc call METHOD --url http://HOST:PORT/rpc'.
+    Binding a non-loopback host requires --token, because clients can modify
+    the cache and run CLI commands.
     """
     from slackx.cli.commands.serve import serve as serve_web
 
     return serve_web(
         host=host,
         port=port,
+        token=token,
+        allow_exec=allow_exec,
         db=db,
         workspace=workspace,
         api_base_url=api_base_url,

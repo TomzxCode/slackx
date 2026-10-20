@@ -140,6 +140,8 @@ def create_app(
     db_path: Path | None = None,
     api_base_url: str | None = None,
     log_level: str = "info",
+    rpc_token: str | None = None,
+    rpc_allow_exec: bool = True,
 ) -> FastAPI:
     """Build the FastAPI app bound to a cache database path."""
     db = db_path or default_db_path()
@@ -431,7 +433,22 @@ def create_app(
 
     from slackx.rpc.server import add_rpc_routes
 
-    add_rpc_routes(fastapp, db_path=db, api_base_url=api_base_url, log_level=log_level)
+    # Every CLI command accepts these as trailing flags. Passing them to
+    # cli.run keeps the child process on this server's cache and Slack target.
+    base_args = ["--db", str(db)]
+    if api_base_url:
+        base_args.extend(["--api-base-url", api_base_url])
+    if log_level != "info":
+        base_args.extend(["--log-level", log_level])
+    add_rpc_routes(
+        fastapp,
+        db_path=db,
+        api_base_url=api_base_url,
+        log_level=log_level,
+        token=rpc_token,
+        allow_exec=rpc_allow_exec,
+        base_args=tuple(base_args),
+    )
 
     # ------------------------------------------------------------------
     # Static UI

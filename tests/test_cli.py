@@ -3069,6 +3069,7 @@ HELP_PATHS = [
     ["rpc"],
     ["rpc", "serve"],
     ["rpc", "call"],
+    ["rpc", "exec"],
     ["rpc", "methods"],
     ["serve"],
 ]

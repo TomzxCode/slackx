@@ -10,12 +10,19 @@ from typing import Annotated
 
 from cyclopts import Parameter
 
-from slackx.cli._internal._shared import rpc_app
+from slackx.cli._internal._shared import RpcTokenArg, RpcUrlArg, rpc_app
 from slackx.rpc.protocol import DEFAULT_RPC_URL, RpcError
 
 MethodArg = Annotated[
     str,
     Parameter(help="JSON-RPC method to call, for example users.list."),
+]
+ParamsJsonArg = Annotated[
+    str | None,
+    Parameter(
+        help="JSON object of method parameters. Use '-' to read from stdin or "
+        "'@path' to read from a file."
+    ),
 ]
 ParamsArg = Annotated[
     str | None,
@@ -31,13 +38,6 @@ ParamsFileArg = Annotated[
         help="Read the JSON parameters from a file, or from stdin with '-'.",
     ),
 ]
-UrlArg = Annotated[
-    str | None,
-    Parameter(
-        name=["--url", "--server"],
-        help="JSON-RPC endpoint (default: SLACKX_RPC_URL, then http://127.0.0.1:8280/rpc).",
-    ),
-]
 CompactArg = Annotated[
     bool,
     Parameter(name="--compact", help="Print the result as one compact JSON line."),
@@ -47,10 +47,12 @@ CompactArg = Annotated[
 @rpc_app.command(name="call")
 async def call(
     method: MethodArg,
+    params_json: ParamsJsonArg = None,
     *,
     params: ParamsArg = None,
     params_file: ParamsFileArg = None,
-    url: UrlArg = None,
+    url: RpcUrlArg = None,
+    token: RpcTokenArg = None,
     compact: CompactArg = False,
 ) -> int:
     """Call a JSON-RPC method on a running slackx server and print the result.
@@ -58,17 +60,21 @@ async def call(
     This lets a client use a server instance instead of running a CLI command
     per operation. The result is printed as JSON; JSON-RPC errors go to stderr
     and exit non-zero. Run 'slackx rpc methods' to list the available methods.
+
+    Parameters can be passed as the second argument, as --params, or from a
+    file with --params-file. Use '-' to read them from stdin.
     """
     from slackx.rpc.client import RpcClient, RpcTransportError
 
     try:
-        payload = _load_params(params, params_file)
-    except ValueError as exc:
+        payload = _load_params(params_json, params, params_file)
+    except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
     endpoint = url or os.environ.get("SLACKX_RPC_URL") or DEFAULT_RPC_URL
-    async with RpcClient(endpoint) as client:
+    token = token or os.environ.get("SLACKX_RPC_TOKEN") or None
+    async with RpcClient(endpoint, token=token) as client:
         try:
             result = await client.call(method, payload)
         except RpcError as exc:
@@ -84,14 +90,24 @@ async def call(
     return 0
 
 
-def _load_params(raw: str | None, params_file: Path | None) -> dict:
-    """Parse the parameters from --params or --params-file."""
-    if raw is not None and params_file is not None:
-        raise ValueError("--params and --params-file are mutually exclusive")
-    if params_file is not None:
+def _load_params(raw_json: str | None, raw: str | None, params_file: Path | None) -> dict:
+    """Parse method parameters from the positional argument or the legacy flags."""
+    supplied = [value for value in (raw_json, raw, params_file) if value is not None]
+    if len(supplied) > 1:
+        raise ValueError("use only one of the params argument, --params, or --params-file")
+
+    if raw_json is not None:
+        if raw_json == "-":
+            text = sys.stdin.read()
+        elif raw_json.startswith("@"):
+            text = Path(raw_json[1:]).read_text()
+        else:
+            text = raw_json
+    elif params_file is not None:
         text = sys.stdin.read() if str(params_file) == "-" else params_file.read_text()
     else:
         text = raw or ""
+
     if not text.strip():
         return {}
     try:

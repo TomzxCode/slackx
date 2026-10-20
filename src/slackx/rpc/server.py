@@ -9,6 +9,7 @@ always answers request-level failures with a JSON-RPC error object and HTTP
 
 from __future__ import annotations
 
+import hmac
 import json
 from pathlib import Path
 from typing import Any
@@ -48,17 +49,43 @@ async def _handle_one(ctx: RpcContext, payload: Any) -> dict[str, Any] | None:
     return success_response(request.id, result)
 
 
+def _authorized(request: Request, token: str) -> bool:
+    """Check a bearer token supplied in either accepted header."""
+    header = request.headers.get("authorization", "")
+    supplied = header[7:].strip() if header.lower().startswith("bearer ") else ""
+    if not supplied:
+        supplied = request.headers.get("x-slackx-token", "").strip()
+    return hmac.compare_digest(supplied, token)
+
+
 def add_rpc_routes(
     fastapp: FastAPI,
     db_path: Path,
     api_base_url: str | None = None,
     log_level: str = "info",
+    *,
+    token: str | None = None,
+    allow_exec: bool = True,
+    executable: str | None = None,
+    base_args: tuple[str, ...] = (),
 ) -> None:
     """Register the JSON-RPC endpoint on ``fastapp``."""
-    ctx = RpcContext(db_path=db_path, api_base_url=api_base_url, log_level=log_level)
+    ctx = RpcContext(
+        db_path=db_path,
+        api_base_url=api_base_url,
+        log_level=log_level,
+        allow_exec=allow_exec,
+        executable=executable,
+        base_args=base_args,
+    )
 
     @fastapp.post(RPC_PATH, include_in_schema=False)
     async def json_rpc(request: Request) -> Response:
+        if token and not _authorized(request, token):
+            return Response(
+                status_code=401,
+                headers={"WWW-Authenticate": 'Bearer realm="slackx"'},
+            )
         try:
             payload = json.loads(await request.body())
         except (ValueError, UnicodeDecodeError):

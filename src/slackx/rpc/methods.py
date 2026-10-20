@@ -12,9 +12,15 @@ the commands themselves. They never write command output; failures are raised as
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
+import subprocess
+import sys
+import time
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +68,10 @@ class RpcContext:
     db_path: Path
     api_base_url: str | None = None
     log_level: str = "info"
+    allow_exec: bool = True
+    executable: str | None = None
+    base_args: tuple[str, ...] = ()
+    started_at: float = field(default_factory=time.time)
 
     @property
     def common(self) -> CommonArgs:
@@ -99,20 +109,33 @@ def method(name: str, description: str, params: Sequence[str] = ()) -> Callable[
     return register
 
 
-def list_methods() -> list[dict[str, Any]]:
+def list_methods(allow_exec: bool = True) -> list[dict[str, Any]]:
     """Return the method catalog, sorted by name."""
+    entries = _METHODS.values()
+    if not allow_exec:
+        entries = [entry for entry in entries if entry.name != "cli.run"]
     return [
         {
             "name": entry.name,
             "description": entry.description,
             "params": list(entry.params),
         }
-        for entry in sorted(_METHODS.values(), key=lambda item: item.name)
+        for entry in sorted(entries, key=lambda item: item.name)
     ]
+
+
+def server_version() -> str:
+    """Return the installed slackx version, or a fallback for source checkouts."""
+    try:
+        return version("slackx")
+    except PackageNotFoundError:
+        return "0.1.0"
 
 
 async def dispatch(ctx: RpcContext, name: str, params: dict[str, Any]) -> Any:
     """Run one method, converting application failures into JSON-RPC errors."""
+    if name == "cli.run" and not ctx.allow_exec:
+        raise RpcError(METHOD_NOT_FOUND, f"Method not found: {name}")
     entry = _METHODS.get(name)
     if entry is None:
         raise RpcError(METHOD_NOT_FOUND, f"Method not found: {name}")
@@ -335,10 +358,77 @@ async def _mark_read(
 # ---------------------------------------------------------------------------
 
 
-@method("system.methods", "List the JSON-RPC methods this server exposes.")
-async def _system_methods(_ctx: RpcContext, params: dict[str, Any]) -> dict[str, Any]:
+@method("rpc.discover", "List the JSON-RPC methods this server exposes.")
+async def _rpc_discover(ctx: RpcContext, params: dict[str, Any]) -> dict[str, Any]:
     _check_params(params, ())
-    return {"methods": list_methods()}
+    return {
+        "name": "slackx",
+        "version": server_version(),
+        "methods": list_methods(ctx.allow_exec),
+    }
+
+
+@method("system.methods", "List the JSON-RPC methods this server exposes.")
+async def _system_methods(ctx: RpcContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Alias kept for clients written against the first revision."""
+    _check_params(params, ())
+    return {"methods": list_methods(ctx.allow_exec)}
+
+
+@method("server.info", "Report the server version, database, and method count.")
+async def _server_info(ctx: RpcContext, params: dict[str, Any]) -> dict[str, Any]:
+    _check_params(params, ())
+    from slackx.workspace import workspace_name_from_db_path
+
+    return {
+        "name": "slackx",
+        "version": server_version(),
+        "workspace": workspace_name_from_db_path(ctx.db_path),
+        "dbPath": str(ctx.db_path),
+        "apiBaseUrl": ctx.api_base_url or "",
+        "execEnabled": ctx.allow_exec,
+        "methods": len(list_methods(ctx.allow_exec)),
+        "startedAt": datetime.fromtimestamp(ctx.started_at, UTC).isoformat(),
+    }
+
+
+@method(
+    "cli.run",
+    "Run a slackx CLI command on the server and return its output and exit code.",
+    ("args", "stdin"),
+)
+async def _cli_run(ctx: RpcContext, params: dict[str, Any]) -> dict[str, Any]:
+    """Execute one CLI invocation in a child process.
+
+    The server's database and API settings are appended as trailing flags, so
+    the child reads and writes the same cache as the process holding it.
+    """
+    _check_params(params, ("args", "stdin"))
+    args = params.get("args")
+    if not isinstance(args, list) or not args or not all(isinstance(item, str) for item in args):
+        raise RpcError(INVALID_PARAMS, "args must be a non-empty array of strings")
+    stdin = params.get("stdin", "")
+    if stdin is None:
+        stdin = ""
+    if not isinstance(stdin, str):
+        raise RpcError(INVALID_PARAMS, "stdin must be a string")
+
+    # RPC subcommands do not accept the cache flags, so leave them untouched.
+    base_args = () if args[0] == "rpc" else ctx.base_args
+    command = [ctx.executable or sys.executable, "-m", "slackx", *args, *base_args]
+    process = await asyncio.to_thread(
+        subprocess.run,
+        command,
+        input=stdin,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return {
+        "stdout": process.stdout,
+        "stderr": process.stderr,
+        "exitCode": process.returncode,
+    }
 
 
 # ---------------------------------------------------------------------------

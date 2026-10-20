@@ -1,5 +1,6 @@
 """Shared CLI infrastructure: the cyclopts app, parameter aliases, and setup helpers."""
 
+import ipaddress
 import sys
 import time
 from collections.abc import Iterator
@@ -78,6 +79,41 @@ LogLevelArg = Annotated[
         name="--log-level",
         help="Logging verbosity: debug, info, warning, error, or critical "
         "(default: info). Use 'debug' for per-query SQL timings.",
+    ),
+]
+RpcUrlArg = Annotated[
+    str | None,
+    Parameter(
+        name=["--url", "--server"],
+        help="JSON-RPC endpoint (default: SLACKX_RPC_URL, then http://127.0.0.1:8280/rpc).",
+    ),
+]
+RpcTokenArg = Annotated[
+    str | None,
+    Parameter(
+        name="--token",
+        help="Bearer token sent to the RPC server (default: SLACKX_RPC_TOKEN).",
+    ),
+]
+AllowExecArg = Annotated[
+    bool,
+    Parameter(
+        name="--allow-exec",
+        help="Expose cli.run, which executes slackx commands for clients.",
+    ),
+]
+ServeRpcTokenArg = Annotated[
+    str | None,
+    Parameter(
+        name=["--rpc-token", "--token"],
+        help="Require this bearer token from JSON-RPC clients (default: SLACKX_RPC_TOKEN).",
+    ),
+]
+ServeRpcAllowExecArg = Annotated[
+    bool,
+    Parameter(
+        name=["--rpc-allow-exec", "--allow-exec"],
+        help="Expose cli.run over JSON-RPC, which executes slackx commands for clients.",
     ),
 ]
 JsonArg = Annotated[
@@ -220,6 +256,18 @@ LastReadArg = Annotated[
         "message in the targeted channel or thread.",
     ),
 ]
+
+
+def is_loopback_host(host: str) -> bool:
+    """Report whether binding to ``host`` stays on this machine."""
+    if not host:
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 @dataclass

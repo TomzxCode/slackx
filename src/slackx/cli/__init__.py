@@ -9,12 +9,16 @@ Subcommands:
 - conversations poll: poll channels in a loop for new messages.
 - conversations read mark/show/clear: track per-consumer last-read pointers.
 - cache status/clear: inspect and manage the local cache.
-- rpc serve/call/methods: serve the JSON-RPC API or call a running server.
+- rpc serve/call/methods/exec: serve the JSON-RPC API or call a running server.
 - serve: browse the cache through a local web UI (and the JSON-RPC endpoint).
+
+Pass --remote before any command to run it on a server instead of locally.
 """
 
+import sys
 from collections.abc import Sequence
 
+from slackx.cli._internal._remote import run_remote, take_remote_args
 from slackx.cli._internal._shared import app
 
 # Import command modules so their @app.command decorators register them.
@@ -32,6 +36,7 @@ from slackx.cli.commands import (  # noqa: F401
     read_mark,
     read_show,
     rpc_call,
+    rpc_exec,
     rpc_methods,
     rpc_serve,
     serve,
@@ -45,7 +50,14 @@ __all__ = ["app", "main"]
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point used by tests and the ``slackx`` console script."""
-    return app(argv, result_action="return_int_as_exit_code_else_zero")
+    args = list(sys.argv[1:] if argv is None else argv)
+    remote = take_remote_args(args)
+    if remote is not None:
+        import asyncio
+
+        url, token, rest = remote
+        return asyncio.run(run_remote(url, token, rest))
+    return app(args, result_action="return_int_as_exit_code_else_zero")
 
 
 if __name__ == "__main__":

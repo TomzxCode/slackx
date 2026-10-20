@@ -523,14 +523,16 @@ def test_rpc_and_cli_json_payloads_match(db_path: Path, capsys: pytest.CaptureFi
 
 
 class _FakeCliClient:
-    """Stand-in for RpcClient used by the ``rpc call`` command tests."""
+    """Stand-in for RpcClient used by the ``rpc`` command tests."""
 
     calls: list[tuple[str, dict[str, Any]]] = []
     result: Any = {"ok": True}
     error: RpcError | None = None
+    exec_calls: list[tuple[list[str], str]] = []
+    exec_result: dict[str, Any] = {"stdout": "", "stderr": "", "exitCode": 0}
 
-    def __init__(self, _url: str) -> None:
-        pass
+    def __init__(self, _url: str, token: str | None = None) -> None:
+        self.token = token
 
     async def __aenter__(self) -> _FakeCliClient:
         return self
@@ -547,6 +549,10 @@ class _FakeCliClient:
     async def methods(self) -> list[dict[str, Any]]:
         return [{"name": "users.list", "description": "List users.", "params": ["limit"]}]
 
+    async def exec(self, args: list[str], stdin: str = "") -> dict[str, Any]:
+        self.exec_calls.append((args, stdin))
+        return self.exec_result
+
 
 def test_rpc_methods_lists_catalog(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
@@ -556,7 +562,7 @@ def test_rpc_methods_lists_catalog(
     rc = cli.main(["rpc", "methods", "--url", "http://x/rpc"])
     assert rc == 0
     out = capsys.readouterr().out
-    assert "users.list(limit)" in out
+    assert "users.list" in out
     assert "List users." in out
 
 
@@ -606,3 +612,96 @@ def test_rpc_call_rejects_invalid_params_json(capsys: pytest.CaptureFixture[str]
     rc = cli.main(["rpc", "call", "users.list", "--params", "[1, 2]"])
     assert rc == 2
     assert "JSON object" in capsys.readouterr().err
+
+
+def test_rpc_discover_lists_server_and_methods(client: TestClient) -> None:
+    body = _rpc(client, "rpc.discover")
+    result = body["result"]
+    assert result["name"] == "slackx"
+    assert result["version"]
+    names = {entry["name"] for entry in result["methods"]}
+    assert {"rpc.discover", "server.info", "cli.run", "users.list"} <= names
+
+
+def test_system_methods_remains_an_alias(client: TestClient) -> None:
+    body = _rpc(client, "system.methods")
+    names = {entry["name"] for entry in body["result"]["methods"]}
+    assert "rpc.discover" in names
+    assert "users.list" in names
+
+
+def test_server_info(client: TestClient, db_path: Path) -> None:
+    result = _rpc(client, "server.info")["result"]
+    assert result["name"] == "slackx"
+    assert result["dbPath"] == str(db_path)
+    assert result["execEnabled"] is True
+    assert result["startedAt"]
+
+
+def test_cli_run_executes_a_command(client: TestClient, db_path: Path) -> None:
+    result = _rpc(client, "cli.run", {"args": ["cache", "status", "--json"]})["result"]
+    assert result["exitCode"] == 0
+    assert result["stderr"] == ""
+    assert json.loads(result["stdout"])["db_path"] == str(db_path)
+
+
+def test_cli_run_is_hidden_and_rejected_when_disabled(db_path: Path) -> None:
+    with TestClient(server_app.create_app(db_path=db_path, rpc_allow_exec=False)) as test_client:
+        names = {entry["name"] for entry in _rpc(test_client, "rpc.discover")["result"]["methods"]}
+        assert "cli.run" not in names
+        body = _rpc(test_client, "cli.run", {"args": ["cache", "status"]})
+        assert body["error"]["code"] == -32601
+
+
+def test_rpc_requires_a_bearer_token(db_path: Path) -> None:
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "server.info"}
+    with TestClient(server_app.create_app(db_path=db_path, rpc_token="secret")) as test_client:
+        assert test_client.post("/rpc", json=payload).status_code == 401
+        wrong = test_client.post("/rpc", json=payload, headers={"Authorization": "Bearer nope"})
+        assert wrong.status_code == 401
+        allowed = test_client.post("/rpc", json=payload, headers={"Authorization": "Bearer secret"})
+        assert allowed.status_code == 200
+        header_token = test_client.post("/rpc", json=payload, headers={"X-Slackx-Token": "secret"})
+        assert header_token.status_code == 200
+
+
+def test_rpc_call_accepts_positional_params(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _FakeCliClient.calls = []
+    _FakeCliClient.result = {"ok": True}
+    _FakeCliClient.error = None
+    monkeypatch.setattr(rpc_client, "RpcClient", _FakeCliClient)
+
+    rc = cli.main(["rpc", "call", "users.list", '{"fetch": false}', "--url", "http://x/rpc"])
+    assert rc == 0
+    assert _FakeCliClient.calls == [("users.list", {"fetch": False})]
+    assert json.loads(capsys.readouterr().out) == {"ok": True}
+
+
+def test_remote_forwards_to_cli_run(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _FakeCliClient.exec_calls = []
+    _FakeCliClient.exec_result = {"stdout": "hello\n", "stderr": "warning\n", "exitCode": 3}
+    monkeypatch.setattr(rpc_client, "RpcClient", _FakeCliClient)
+
+    rc = cli.main(["--remote", "http://x", "conversations", "get", "C1"])
+    assert rc == 3
+    assert _FakeCliClient.exec_calls == [(["conversations", "get", "C1"], "")]
+    captured = capsys.readouterr()
+    assert captured.out == "hello\n"
+    assert captured.err == "warning\n"
+
+
+def test_rpc_exec_forwards_arguments(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _FakeCliClient.exec_calls = []
+    _FakeCliClient.exec_result = {"stdout": "ok\n", "stderr": "", "exitCode": 0}
+    monkeypatch.setattr(rpc_client, "RpcClient", _FakeCliClient)
+
+    rc = cli.main(["rpc", "exec", "--url", "http://x", "--", "cache", "status", "--json"])
+    assert rc == 0
+    assert _FakeCliClient.exec_calls == [(["cache", "status", "--json"], "")]
+    assert capsys.readouterr().out == "ok\n"
