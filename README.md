@@ -333,4 +333,28 @@ uv run ruff format --check
 
 ## Related projects
 
-- [slacrawl](https://github.com/openclaw/slacrawl)
+Tools that also pull Slack history into a local database, each aimed at a
+somewhat different job:
+
+- [slacrawl](https://github.com/openclaw/slacrawl) is a Go terminal app that
+  mirrors a workspace into local SQLite for full-text search, terminal
+  browsing, reporting, and read-only SQL. It syncs from the API, imports Slack
+  exports, and ships a TUI. Closest match to slackx, but TUI-first and
+  archive-wide rather than thread-first.
+- [slackdump](https://github.com/rusq/slackdump) is a Go archiver that dumps
+  channels, threads, users, and files without admin rights, either as a Slack
+  Export folder or as a resumable SQLite archive. It is the mature heavyweight
+  option, with conversion, search, a viewer, and an MCP server.
+- [slackcache](https://github.com/rogerchappel/slackcache) is a small
+  local-first CLI that imports Slack export JSON, redacts risky text by
+  default, then supports search and thread viewing from files instead of the
+  live API.
+- [slackslaw](https://github.com/salam/slackslaw-cli) is a bash and sqlite
+  wrapper around slackdump that adds multi-workspace sync, search, stats,
+  LLM context dumps, and a live tail.
+- [traul](https://github.com/dandaka/traul) syncs Slack along with Discord,
+  Telegram, and other sources into one local SQLite database with FTS5 and
+  optional vector search, in a form an agent can query.
+
+For a live terminal client rather than a cache, [slack-term](https://github.com/jpbruinsslot/slack-term)
+is a well-known choice.
