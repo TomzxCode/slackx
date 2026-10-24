@@ -344,6 +344,26 @@ def test_read_marker_thread_and_explicit_value(client: TestClient) -> None:
     assert body["markers"][0]["last_read_ts"] == "1700000100000002"
 
 
+def test_read_marker_channel_explicit_value_round_trip(client: TestClient) -> None:
+    """The web UI stores the top visible message, which is an explicit older ts."""
+    response = client.put(
+        "/api/read",
+        json={
+            "reader": "web-ui",
+            "channel": "C1",
+            "last_read_ts": "1700000000.000001",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["marker"]["last_read_ts"] == "1700000000.000001"
+
+    listed = client.get("/api/read", params={"reader": "web-ui"}).json()
+    assert listed["read_count"] == 1
+    assert listed["markers"][0]["channel"] == "C1"
+    assert listed["markers"][0]["thread_ts"] is None
+    assert listed["markers"][0]["last_read_ts"] == "1700000000.000001"
+
+
 def test_read_marker_put_unknown_channel_is_404(client: TestClient) -> None:
     response = client.put("/api/read", json={"reader": "web", "channel": "CNOPE"})
     assert response.status_code == 404

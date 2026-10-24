@@ -110,7 +110,7 @@ Thread messages serialize the same fields without the reply-count fields.
 
 | Field | Type | Constraints | Description |
 |---|---|---|---|
-| reader | string | required, non-empty after trimming | Reader name, for example `web` |
+| reader | string | required, non-empty after trimming | Reader name, for example `web-ui` |
 | channel | string | required | Channel id |
 | thread_ts | string or null | optional | Thread root ts, null for the channel-level pointer |
 | last_read_ts | string or null | optional | Explicit ts, defaults to the newest cached message in scope |
@@ -161,6 +161,38 @@ Error codes shared across endpoints:
 | 503 | service unavailable | A refresh ran without configured Slack credentials |
 
 A `GET /api/channels/{channel_id}/messages` call for an unknown channel returns 200 with an empty message list and a null channel name, because search can cache messages for a channel whose row was never fetched.
+
+## Web UI viewed positions
+
+The SPA remembers where the reader was looking in every channel and thread, so leaving a conversation and returning resumes at the same viewport.
+
+- The SPA owns a distinct reader named `web-ui`, so its positions never overwrite the `default`, `web`, or other readers' pointers on the same cache.
+- A channel position is stored as the channel-level read marker (`thread_ts` null) and a thread position as that thread's marker.
+- The stored value is the ts of the message at the top edge of the viewport, including a partially visible message.
+- Positions are written after the reader stops scrolling (a short debounce), and any pending write is flushed when the conversation closes, the page is hidden, or the page is unloaded.
+- Opening a channel or thread restores its marker, aligning that message to the top of the viewport.
+- A message permalink or a `thread_ts` deep link wins over the stored position in both panes, so a linked message or thread still opens at the target rather than at the last viewed message. A thread link also brings its root into view in the channel and keeps the panel open across the automatic refresh.
+- The SPA owns scroll restoration (`history.scrollRestoration = 'manual'`) and re-applies the routed target while the content settles, so a reload or back/forward navigation does not restore the browser's own scroll offset over the linked position.
+- A refresh-triggered reload keeps the reader where they were: the message that was at the top of the viewport is put back at the same offset instead of the stored position being applied. An open thread panel stays open.
+- When the stored message is no longer in the loaded page (for example it was deleted or the cache refreshed), the SPA aligns the nearest following message instead.
+
+### Restore viewed position
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser SPA
+    participant A as FastAPI app
+    participant DB as SQLite
+    B->>A: GET /api/read?reader=web-ui
+    A->>DB: load read markers for the reader
+    DB-->>A: channel and thread pointers
+    A-->>B: markers
+    B->>B: scroll channel/thread to the marked ts
+    Note over B: reader scrolls to another message
+    B->>A: PUT /api/read (reader web-ui, channel, optional thread_ts, ts)
+    A->>DB: upsert read marker
+```
 
 ## Sequences
 

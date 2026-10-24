@@ -150,7 +150,7 @@
           </button>
         </header>
 
-        <div class="flex-1 overflow-y-auto py-3" ref="msgScroll">
+        <div class="flex-1 overflow-y-auto py-3" ref="msgScroll" @scroll.passive="onMessageScroll">
           <div class="text-center" v-if="hasMore">
             <button class="btn btn-xs btn-outline" :disabled="loadingOlder" @click.stop="loadOlder">
               <span v-if="loadingOlder" class="loading loading-spinner loading-xs"></span>
@@ -187,7 +187,7 @@
             </button>
             <button class="btn btn-ghost btn-xs" title="Close" @click.stop="closeThread">&#10005;</button>
           </header>
-          <div class="flex-1 overflow-y-auto py-2.5" ref="threadScroll">
+          <div class="flex-1 overflow-y-auto py-2.5" ref="threadScroll" @scroll.passive="onThreadScroll">
             <div v-if="thread.loading" class="px-5 py-2.5 text-sm opacity-60">Loading thread…</div>
             <template v-else v-for="group in threadGroups" :key="group.label">
               <div class="divider my-2 text-xs font-bold opacity-60">{{ group.label }}</div>

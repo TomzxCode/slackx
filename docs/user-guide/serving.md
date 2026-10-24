@@ -28,6 +28,9 @@ The interface mimics Slack's layout over the cached database:
   "Load older messages" paging.
 - A thread panel: click the reply count under a message to read the full
   thread alongside the channel.
+- Every channel and thread remembers the message at the top of its viewport,
+  so switching away and back resumes where you left off (see
+  [Tracking last read](tracking-last-read.md)).
 - Every message's timestamp is a link to that message. Clicking it jumps to
   the message (messages inside a thread open the thread panel); the URL can
   also be copied or opened in a new tab, e.g. to share an exact spot in the
@@ -98,11 +101,15 @@ remember how far each reader has read:
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/read?reader=web&channel=C123` | List pointers, optionally filtered. |
+| `GET /api/read?reader=web-ui&channel=C123` | List pointers, optionally filtered. |
 | `PUT /api/read` | Create or advance a pointer (body: `reader`, `channel`, optional `thread_ts`, optional `last_read_ts`). |
 | `DELETE /api/read/{reader}` | Delete all pointers for a reader (optional `?channel=`). |
 | `DELETE /api/read/{reader}/{channel}` | Delete the channel-level pointer. |
 | `DELETE /api/read/{reader}/{channel}/{thread_ts}` | Delete one thread pointer. |
+
+The UI itself uses the `web-ui` reader: it saves the top visible message of the
+open channel or thread and restores it when you come back.
+Inspect those positions with `slackx conversations read show --reader web-ui`.
 
 ## Notes
 

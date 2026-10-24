@@ -15,6 +15,14 @@
     return; // index.html already surfaced the CDN failure message.
   }
 
+  // The app restores the viewport itself, from a permalink target or a
+  // stored position. Letting the browser restore a scroll offset as well
+  // would pull the view to wherever the reader was last (typically the end
+  // of the channel) on a reload or back/forward navigation.
+  if (window.history && 'scrollRestoration' in window.history) {
+    window.history.scrollRestoration = 'manual';
+  }
+
   // ------------------------------------------------------------- helpers
 
   function escapeHtml(s) {
@@ -248,6 +256,60 @@
     return html;
   }
 
+  // The reader name the web UI stores its viewed positions under. Read
+  // markers are namespaced by reader, so this stays separate from the
+  // positions the CLI or other consumers keep over the same cache.
+  var WEB_UI_READER = 'web-ui';
+
+  // Wait this long after the last scroll event before saving a position, so
+  // a fast scroll sends one write instead of one per frame.
+  var POSITION_SAVE_DELAY_MS = 400;
+
+  // Input that means the reader is scrolling, which ends an alignment.
+  var USER_INPUT_EVENTS = ['wheel', 'touchstart', 'touchmove', 'keydown', 'mousedown'];
+
+  // The top message plus where it starts relative to the viewport, so a
+  // reload can put the same spot back even when the message is partly
+  // scrolled above the top edge (a negative offset).
+  function topVisibleAnchor(scroller) {
+    if (!scroller) return null;
+    var boundary = scroller.getBoundingClientRect().top;
+    var rows = scroller.querySelectorAll('[data-ts]');
+    for (var i = 0; i < rows.length; i++) {
+      var rect = rows[i].getBoundingClientRect();
+      if (rect.bottom > boundary + 1) {
+        return { ts: rows[i].getAttribute('data-ts'), offset: rect.top - boundary };
+      }
+    }
+    return null;
+  }
+
+  // The ts of the message at the top of a scroller. Any partially visible
+  // top message counts, so restoring it puts the reader back at the same
+  // viewport rather than at the next message below it.
+  function topVisibleTs(scroller) {
+    var anchor = topVisibleAnchor(scroller);
+    if (anchor) return anchor.ts;
+    if (!scroller) return null;
+    var rows = scroller.querySelectorAll('[data-ts]');
+    return rows.length ? rows[rows.length - 1].getAttribute('data-ts') : null;
+  }
+
+  // The row for ts, or the nearest following message when that exact ts is
+  // no longer cached (deleted, edited away, or outside the loaded page).
+  function findMessageRow(scroller, ts) {
+    if (!scroller) return null;
+    var rows = scroller.querySelectorAll('[data-ts]');
+    var wanted = parseFloat(ts);
+    var nearest = null;
+    for (var i = 0; i < rows.length; i++) {
+      var rowTs = rows[i].getAttribute('data-ts');
+      if (rowTs === ts) return rows[i];
+      if (!nearest && !isNaN(wanted) && parseFloat(rowTs) >= wanted) nearest = rows[i];
+    }
+    return nearest;
+  }
+
   // How far back the automatic on-switch refresh re-reads history. Within
   // this window new messages, edits and deletions are all picked up; older
   // changes need the full "Refresh from Slack" button.
@@ -342,6 +404,15 @@
 
         thread: null,            // {channel_id, thread_ts, messages, loading}
         highlightTs: null,
+
+        // Viewing positions persisted as read markers under WEB_UI_READER:
+        // '<channel>|<thread ts or empty>' -> top visible message ts. Dirty
+        // entries wait for the debounced PUT.
+        readPositions: {},
+        dirtyPositions: {},
+        positionTimer: null,
+        readPositionsReady: null,
+        readPositionsLoaded: false,
 
         refreshing: null,        // label of the refresh in progress
         toasts: [],
@@ -461,6 +532,7 @@
       boot: function () {
         var self = this;
         this.booted = true;
+        this.readPositionsReady = this.loadReadPositions();
         this.applyLocation();
         this._api('/api/summary').then(function (body) {
           self.summary = body;
@@ -496,12 +568,150 @@
         this.userAvatars = avatars;
       },
 
+      // -------------------------------------------------- viewed position
+
+      positionKey: function (channelId, threadTs) {
+        return channelId + '|' + (threadTs || '');
+      },
+
+      // Load every stored position once at boot, so opening a channel or
+      // thread can restore its viewport from memory.
+      loadReadPositions: function () {
+        var self = this;
+        return this._api('/api/read?reader=' + encodeURIComponent(WEB_UI_READER))
+          .then(function (body) {
+            var positions = {};
+            (body.markers || []).forEach(function (marker) {
+              positions[self.positionKey(marker.channel, marker.thread_ts)] =
+                marker.last_read_ts;
+            });
+            self.readPositions = positions;
+          })
+          .catch(function () {
+            // Best effort: without stored positions the UI opens at the
+            // top of the loaded page, as it did before.
+          })
+          .then(function () { self.readPositionsLoaded = true; });
+      },
+
+      readPosition: function (channelId, threadTs) {
+        if (!channelId) return null;
+        return this.readPositions[this.positionKey(channelId, threadTs)] || null;
+      },
+
+      // Record the message now at the top of the viewport. Updating the
+      // in-memory map is immediate (so a quick switch back restores the
+      // right place); the PUT is debounced and flushed on navigation.
+      rememberPosition: function (channelId, threadTs, ts) {
+        if (!this.readPositionsLoaded || !channelId || !ts) return;
+        var key = this.positionKey(channelId, threadTs);
+        if (this.readPositions[key] === ts) return;
+        var positions = Object.assign({}, this.readPositions);
+        positions[key] = ts;
+        this.readPositions = positions;
+        var dirty = Object.assign({}, this.dirtyPositions);
+        dirty[key] = { channel: channelId, thread_ts: threadTs || null, ts: ts };
+        this.dirtyPositions = dirty;
+        this.schedulePositionSave();
+      },
+
+      schedulePositionSave: function () {
+        var self = this;
+        if (this.positionTimer) clearTimeout(this.positionTimer);
+        this.positionTimer = setTimeout(function () {
+          self.positionTimer = null;
+          self.flushReadPositions();
+        }, POSITION_SAVE_DELAY_MS);
+      },
+
+      flushReadPositions: function () {
+        if (this.positionTimer) {
+          clearTimeout(this.positionTimer);
+          this.positionTimer = null;
+        }
+        var pending = this.dirtyPositions;
+        this.dirtyPositions = {};
+        Object.keys(pending).forEach(function (key) {
+          var p = pending[key];
+          // keepalive lets the last write finish while the page unloads.
+          fetch('/api/read', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              reader: WEB_UI_READER,
+              channel: p.channel,
+              thread_ts: p.thread_ts,
+              last_read_ts: p.ts,
+            }),
+            keepalive: true,
+          }).catch(function () {
+            // Position tracking is best effort; a failed write must not
+            // interrupt reading.
+          });
+        });
+      },
+
+      onMessageScroll: function (e) {
+        // Ignore the scroll events produced while a channel's content is
+        // being replaced, or they would record the previous channel's
+        // position under the channel being opened.
+        if (this.loadingMessages) return;
+        // While an alignment is running, scrolls come from the app itself or
+        // from the browser restoring a nested scroller on reload; neither is
+        // the reader moving, and the alignment keeps re-applying the target.
+        if (this._aligning && this._aligning.msgScroll) return;
+        this.rememberPosition(this.channelId, null, topVisibleTs(e.target));
+      },
+
+      onThreadScroll: function (e) {
+        if (!this.thread || this.thread.loading) return;
+        if (this._aligning && this._aligning.threadScroll) return;
+        this.rememberPosition(
+          this.thread.channel_id, this.thread.thread_ts, topVisibleTs(e.target));
+      },
+
+      // A real scroll by the reader (wheel, trackpad, touch, keys, or a
+      // scrollbar drag) ends any alignment so it stops fighting them.
+      cancelAlignment: function () {
+        var aligning = this._aligning || {};
+        var scopes = Object.keys(aligning);
+        if (!scopes.length) return;
+        var tokens = this._scrollToken || {};
+        scopes.forEach(function (scope) {
+          tokens[scope] = (tokens[scope] || 0) + 1;
+        });
+        this._scrollToken = tokens;
+        this._aligning = {};
+      },
+
+      // Restore the stored position once the markers are loaded and the
+      // messages rendered. Ignored if the user navigated away meanwhile.
+      restoreViewPosition: function (channelId, threadTs, scrollerRef) {
+        var self = this;
+        var ready = this.readPositionsReady || Promise.resolve();
+        return ready.then(function () {
+          if (self.channelId !== channelId) return;
+          if (threadTs && (!self.thread || self.thread.thread_ts !== threadTs)) return;
+          var ts = self.readPosition(channelId, threadTs);
+          if (ts) {
+            self.scrollToMessage(ts, scrollerRef, { align: 'top', highlight: false });
+          }
+        });
+      },
+
+      onVisibilityChange: function () {
+        if (document.visibilityState === 'hidden') this.flushReadPositions();
+      },
+
       // -------------------------------------------------- channel view
 
       openChannel: function (channelId, opts) {
         opts = opts || {};
         var self = this;
         var switched = channelId !== this.channelId;
+        // Persist the position in the conversation being left before its
+        // messages are replaced.
+        this.flushReadPositions();
         this.view = 'channel';
         this.channelId = channelId;
         this.channel = this.channelsById[channelId] ||
@@ -509,7 +719,9 @@
         this.messages = [];
         this.hasMore = false;
         this.loadingMessages = true;
-        this.closeThread();
+        // A refresh reload keeps the open thread panel; a real navigation
+        // to another conversation closes it.
+        if (!opts.keepThread) this.closeThread();
         return this._api('/api/channels/' + encodeURIComponent(channelId) + '/messages')
           .then(function (body) {
             if (body.channel && body.channel.name) {
@@ -521,7 +733,12 @@
             self.messages = body.messages;
             self.hasMore = body.has_more;
             self.loadingMessages = false;
-            if (opts.highlight) self.scrollToMessage(opts.highlight);
+            if (opts.highlight) {
+              self.scrollToMessage(opts.highlight);
+            } else if (opts.restore !== false) {
+              // Returning to a conversation resumes where it was last read.
+              self.restoreViewPosition(channelId, null, 'msgScroll');
+            }
             if (switched) self.attemptChannelRefresh(channelId);
           })
           .catch(function (err) {
@@ -556,8 +773,12 @@
 
       // -------------------------------------------------- thread panel
 
-      openThread: function (threadTs, highlightTs) {
+      openThread: function (threadTs, highlightTs, opts) {
+        opts = opts || {};
         var self = this;
+        // Persist the position in the thread being left (if any) before
+        // the panel is replaced.
+        this.flushReadPositions();
         this.thread = {
           channel_id: this.channelId,
           thread_ts: threadTs,
@@ -573,6 +794,9 @@
             self.thread.loading = false;
             if (highlightTs) {
               Vue.nextTick(function () { self.scrollToMessage(highlightTs, 'threadScroll'); });
+            } else if (opts.restore !== false) {
+              // Reopening a thread resumes the reply the reader was on.
+              self.restoreViewPosition(self.thread.channel_id, threadTs, 'threadScroll');
             }
           })
           .catch(function (err) {
@@ -583,7 +807,10 @@
           });
       },
 
-      closeThread: function () { this.thread = null; },
+      closeThread: function () {
+        this.flushReadPositions();
+        this.thread = null;
+      },
 
       openRootThread: function (msg) {
         if (msg.reply_count > 0) this.openThread(msg.ts);
@@ -613,9 +840,16 @@
 
       applyRoute: function (route) {
         var self = this;
+        // A URL that names a message or a thread wins over the stored
+        // viewport, so the web-ui position must not pull either pane away
+        // from the target the link points at.
+        var targeted = !!(route.messageTs || route.threadTs);
         if (route.channelId === this.channelId && this.view === 'channel') {
           if (route.threadTs) {
-            this.openThread(route.threadTs, route.messageTs);
+            // Show the thread root in the channel, then the linked reply in
+            // the panel.
+            this.scrollToMessage(route.threadTs, 'msgScroll', { highlight: false });
+            this.openThread(route.threadTs, route.messageTs, { restore: !targeted });
           } else {
             this.closeThread();
             if (route.messageTs) this.scrollToMessage(route.messageTs);
@@ -624,8 +858,12 @@
         }
         this.openChannel(route.channelId, {
           highlight: route.threadTs ? null : route.messageTs,
+          restore: !targeted,
         }).then(function () {
-          if (route.threadTs) self.openThread(route.threadTs, route.messageTs);
+          if (route.threadTs) {
+            self.scrollToMessage(route.threadTs, 'msgScroll', { highlight: false });
+            self.openThread(route.threadTs, route.messageTs, { restore: !targeted });
+          }
         });
       },
 
@@ -688,6 +926,33 @@
         return '';
       },
 
+      // Reload a conversation after a refresh without moving the reader.
+      // The reload skips the stored position, so a permalink target or the
+      // message the reader is on is never traded for the last viewed marker,
+      // and the viewport is put back on the message that was at its top.
+      reloadChannelAtViewport: function (channelId) {
+        var self = this;
+        if (this.channelId !== channelId) return Promise.resolve();
+        var anchor = topVisibleAnchor(this.$refs.msgScroll);
+        if (anchor) this.rememberPosition(channelId, null, anchor.ts);
+        return this.openChannel(channelId, { restore: false, keepThread: true }).then(function () {
+          if (!anchor || self.channelId !== channelId) return;
+          self.scrollToMessage(anchor.ts, 'msgScroll', { offset: anchor.offset, highlight: false });
+        });
+      },
+
+      reloadThreadAtViewport: function () {
+        var self = this;
+        var thread = this.thread;
+        if (!thread) return Promise.resolve();
+        var anchor = topVisibleAnchor(this.$refs.threadScroll);
+        if (anchor) this.rememberPosition(thread.channel_id, thread.thread_ts, anchor.ts);
+        return this.openThread(thread.thread_ts, null, { restore: false }).then(function () {
+          if (!anchor || !self.thread || self.thread.thread_ts !== thread.thread_ts) return;
+          self.scrollToMessage(anchor.ts, 'threadScroll', { offset: anchor.offset, highlight: false });
+        });
+      },
+
       // Switching conversations silently refreshes the target in the
       // background: cached messages render immediately, fresh ones replace
       // them when the fetch lands. Best effort, so failures (no
@@ -705,7 +970,7 @@
           '/api/channels/' + encodeURIComponent(channelId) + '/refresh' + query,
           function () {
             // Only reload if the user is still on that conversation.
-            if (self.channelId === channelId) self.openChannel(channelId);
+            if (self.channelId === channelId) self.reloadChannelAtViewport(channelId);
           },
           { silent: true });
       },
@@ -715,7 +980,7 @@
         var id = this.channelId;
         this.refresh('Channel refresh',
           '/api/channels/' + encodeURIComponent(id) + '/refresh',
-          function () { self.openChannel(id); });
+          function () { self.reloadChannelAtViewport(id); });
       },
 
       refreshThread: function () {
@@ -727,7 +992,7 @@
         this.refresh('Thread refresh',
           '/api/channels/' + encodeURIComponent(this.channelId) +
           '/threads/' + encodeURIComponent(ts) + '/refresh?full=true',
-          function () { self.openThread(ts); });
+          function () { self.reloadThreadAtViewport(); });
       },
 
       refreshUsers: function () {
@@ -914,20 +1179,63 @@
         this.applyRoute(target);
       },
 
-      scrollToMessage: function (ts, scrollerRef) {
+      scrollToMessage: function (ts, scrollerRef, opts) {
+        opts = opts || {};
         var self = this;
-        this.highlightTs = ts;
+        var scope = scrollerRef || 'msgScroll';
+        // Each call cancels the alignment loop of a previous one for the
+        // same scroller; the two panes align independently.
+        var tokens = this._scrollToken || {};
+        var token = (tokens[scope] = (tokens[scope] || 0) + 1);
+        this._scrollToken = tokens;
+        if (opts.highlight !== false) this.highlightTs = ts;
         Vue.nextTick(function () {
-          var el = document.getElementById('m-' + String(ts).replace('.', '-'));
-          var scroller = self.$refs[scrollerRef || 'msgScroll'];
-          if (el && scroller) {
+          var scroller = self.$refs[scope];
+          var el = findMessageRow(scroller, ts);
+          if (!el || !scroller) return;
+          // Reapply the alignment for a short while: the browser injects
+          // Tailwind styles and fonts after the first render, which shifts
+          // rows and would otherwise leave the viewport a few messages off.
+          // A real scroll by the reader cancels the loop (see on*Scroll).
+          var delays = [50, 100, 200, 400, 800];
+          var attempts = 0;
+          var align = function () {
+            if (tokens[scope] !== token || !document.contains(el)) return;
             // offsetTop is unreliable here (positioned ancestors); use rects.
             var top = el.getBoundingClientRect().top -
               scroller.getBoundingClientRect().top + scroller.scrollTop;
-            scroller.scrollTop = top - scroller.clientHeight / 3;
-          }
-          setTimeout(function () { self.highlightTs = null; }, 2500);
+            if (opts.offset != null) {
+              // Put an anchor row back where it was in the viewport; a
+              // negative offset means it started above the top edge.
+              scroller.scrollTop = top - opts.offset;
+            } else if (opts.align === 'top') {
+              // A restored position puts the message at the top so the
+              // viewport matches when it was left.
+              scroller.scrollTop = top;
+            } else {
+              // Permalinks center the message for context.
+              scroller.scrollTop = top - scroller.clientHeight / 3;
+            }
+            var aligning = Object.assign({}, self._aligning);
+            aligning[scope] = { top: scroller.scrollTop };
+            self._aligning = aligning;
+            if (attempts < delays.length) {
+              setTimeout(align, delays[attempts]);
+              attempts += 1;
+            } else {
+              setTimeout(function () {
+                if (tokens[scope] !== token) return;
+                var done = Object.assign({}, self._aligning);
+                delete done[scope];
+                self._aligning = done;
+              }, 200);
+            }
+          };
+          align();
         });
+        if (opts.highlight !== false) {
+          setTimeout(function () { self.highlightTs = null; }, 2500);
+        }
       },
 
       // -------------------------------------------------- profile
@@ -985,12 +1293,21 @@
     },
 
     mounted: function () {
+      var self = this;
       document.addEventListener('keydown', this.globalKey);
       window.addEventListener('popstate', this.onPopState);
+      // Save the last position when the page is hidden or closed; the
+      // debounced write may not have fired yet.
+      window.addEventListener('pagehide', this.flushReadPositions);
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+      // A real scroll by the reader takes over from an in-flight alignment.
+      this._onUserInput = function () { self.cancelAlignment(); };
+      USER_INPUT_EVENTS.forEach(function (type) {
+        document.addEventListener(type, self._onUserInput, { passive: true, capture: true });
+      });
       // Follow OS light/dark changes while "System" is selected.
       if (window.matchMedia) {
         var mq = window.matchMedia('(prefers-color-scheme: dark)');
-        var self = this;
         this._onSystemThemeChange = function () {
           if (self.theme === 'system') self.applyTheme();
         };
@@ -1011,6 +1328,12 @@
     beforeUnmount: function () {
       document.removeEventListener('keydown', this.globalKey);
       window.removeEventListener('popstate', this.onPopState);
+      window.removeEventListener('pagehide', this.flushReadPositions);
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
+      var self = this;
+      USER_INPUT_EVENTS.forEach(function (type) {
+        document.removeEventListener(type, self._onUserInput, true);
+      });
       if (window.matchMedia) {
         var mq = window.matchMedia('(prefers-color-scheme: dark)');
         if (mq.removeEventListener) {
@@ -1094,7 +1417,7 @@
       rel: fmtRelative,
     },
     template: [
-      '<div class="msg flex gap-2.5 px-5 py-1" :id="\'m-\' + msg.ts.replace(\'.\', \'-\')" :class="{highlight: highlight}">',
+      '<div class="msg flex gap-2.5 px-5 py-1" :data-ts="msg.ts" :id="\'m-\' + msg.ts.replace(\'.\', \'-\')" :class="{highlight: highlight}">',
       '  <user-avatar :src="avatar" :name="author" :id="msg.user"></user-avatar>',
       '  <div class="min-w-0 flex-1">',
       '    <div class="flex items-baseline gap-2">',

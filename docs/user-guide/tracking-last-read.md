@@ -11,8 +11,8 @@ Every reader has its own independent set of markers.
 
 ## Concepts
 
-- **Reader** names the consumer that owns a set of markers (for example `web` or
-  `poll`).
+- **Reader** names the consumer that owns a set of markers (for example `web`,
+  `web-ui`, or `poll`).
   Readers are free-form strings, so you can use one per tool, per user, or per
   device.
 - **Channel marker** records that the reader has read a whole channel up to a
@@ -25,6 +25,11 @@ The marker's timestamp is the newest message the reader has seen.
 When you do not pass an explicit value, slackx uses the newest cached message in
 scope: the newest message of the thread for a thread marker, or the newest
 message anywhere in the channel for a channel marker.
+
+The web UI uses its own `web-ui` reader to remember a viewport rather than how
+far you have read: it stores the message at the top of the screen for each
+channel and thread and scrolls back to it next time.
+Those markers can therefore point at an older message than the newest one seen.
 
 ## Marking read
 

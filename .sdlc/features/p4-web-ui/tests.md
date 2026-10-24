@@ -10,7 +10,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 This plan covers the FastAPI JSON API, the read-marker write routes, the refresh routes, and static SPA serving in `src/slackx/server/app.py`.
 Tests live in `tests/test_server.py` and drive the app through the FastAPI `TestClient`, and the `serve` command registration and database resolution are covered in `tests/test_cli.py`.
-Out of scope: the SPA JavaScript itself, uvicorn binding behavior, and live Slack network fetches (the refresh routes are only tested up to the no-credentials and unknown-channel guards).
+The SPA's viewed-position behavior is covered by browser-driven end-to-end cases (TC-27 to TC-32); the rest of the SPA JavaScript is out of scope, as are uvicorn binding behavior and live Slack network fetches (the refresh routes are only tested up to the no-credentials and unknown-channel guards).
 
 ## Unit Tests
 
@@ -35,7 +35,7 @@ Out of scope: the SPA JavaScript itself, uvicorn binding behavior, and live Slac
 | TC-10 | Read one thread | Thread root with one reply cached | Both messages with resolved author names |
 | TC-11 | Full-text search | One cached message contains `deploys` | One hit with channel, author, and snippet |
 | TC-12 | Set a read pointer with a default timestamp | Channel `C1` has cached messages | Pointer `last_read_ts` is the newest cached message and `GET /api/read` lists it |
-| TC-13 | Set a thread read pointer with an explicit timestamp | Channel `C1` exists | Stored `thread_ts` and `last_read_ts` match the request body |
+| TC-13 | Set a read pointer with an explicit timestamp | Channel `C1` exists; separately, a channel-level pointer with an older ts | Stored `thread_ts` (or null) and `last_read_ts` match the request body |
 | TC-14 | Delete read pointers at each scope | One reader has a channel pointer and a thread pointer | Each delete reports the removed count and clears only the targeted scope |
 | TC-15 | Refresh routes without credentials | No credentials configured | Each refresh POST returns 503 with a no-credentials message |
 | TC-16 | Refresh an unknown channel | Channel id not cached | 404 |
@@ -48,6 +48,12 @@ Out of scope: the SPA JavaScript itself, uvicorn binding behavior, and live Slac
 | TC-18 | Slack-style deep links serve the SPA | Request `/archives/C1`, `/archives/C1/p1700000000000001`, and a threaded variant | Each returns the SPA HTML; `/archives` and an over-long path return 404 |
 | TC-19 | `serve` command is registered | Run `slackx serve --help` | `serve` appears and accepts `--host` and `--port` |
 | TC-20 | `serve` resolves a database before binding | Run `serve` with credentials, then without | With credentials it resolves via auth.test; without credentials it falls back to offline resolution |
+| TC-27 | Store and restore a channel position | Open a channel with many cached roots, scroll so message A is at the top, switch to another channel, then return and reload the page | The viewport shows A at the top each time, and `GET /api/read?reader=web-ui` lists A as the channel pointer |
+| TC-28 | Store and restore a thread position | Open a thread, scroll so reply B is at the top, close the panel, then reopen it | The panel shows B at the top and `GET /api/read?reader=web-ui` lists B under that thread root |
+| TC-29 | A thread deep link wins over the stored position | Store a channel position and a thread position, then open a thread permalink in that channel | The channel and thread panes open at the link's target, not at either stored position |
+| TC-30 | A refresh keeps the viewport in place | Open a channel, scroll to a message, then refresh from Slack with a different channel position stored | After the reload the viewport is on the same message at the same offset, not on the stored position |
+| TC-31 | A reload keeps the linked message | Open a message permalink, scroll to the end of the channel, then reload | The viewport returns to the linked message, not to the browser's restored offset |
+| TC-32 | A thread link opens the thread in context | Open a thread permalink in a channel with a stored position | The channel shows the thread root and the panel shows the linked reply, including after the automatic refresh |
 
 ## Edge Cases and Failure Scenarios
 
@@ -83,7 +89,8 @@ Out of scope: the SPA JavaScript itself, uvicorn binding behavior, and live Slac
 | FR-9 | TC-14 |
 | FR-10 | TC-16 |
 | FR-11 | TC-17, TC-18 |
-| FR-12 | TC-15, TC-25 |
+| FR-12 | TC-27, TC-28, TC-29, TC-30, TC-31, TC-32 |
+| FR-13 | TC-15, TC-25 |
 | NFR-1 | TC-19 |
 | NFR-2 | TC-6 |
 | NFR-3 | TC-6, TC-11 |

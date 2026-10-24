@@ -37,7 +37,8 @@ Order rows by priority: Must first, then Should, then May.
 | FR-9 | Must | The system shall expose `DELETE` routes to delete a reader's pointers, a channel-level pointer, or one thread pointer |
 | FR-10 | Must | The system shall expose POST refresh routes for users, channels, a channel, and a thread that run a live Slack fetch |
 | FR-11 | Must | The system shall serve the single-page application at `/` and at Slack-style `/archives/{channel_id}` and `/archives/{channel_id}/{message_ref}` deep links, plus its `/static` assets |
-| FR-12 | Should | The refresh routes shall report an error that the browser surfaces when no Slack credentials are configured, while browsing the existing cache stays available |
+| FR-12 | Must | The web UI shall store the message at the top of the viewport for each channel and thread as a read marker owned by the `web-ui` reader, and shall restore that position when the channel or thread is opened again |
+| FR-13 | Should | The refresh routes shall report an error that the browser surfaces when no Slack credentials are configured, while browsing the existing cache stays available |
 
 ## Non-Functional Requirements
 
@@ -176,6 +177,19 @@ Order criteria by FRs first (sorted by ID), then NFRs (sorted by ID).
 
     ```gherkin
     @FR-12
+    Scenario: Resume at the last viewed message
+      Given the reader scrolled a channel so message A is at the top of the viewport
+      And the reader opened a thread and scrolled so reply B is at the top
+      When the reader switches to another channel and back, and reopens the thread
+      Then the channel viewport shows message A at the top
+      And the thread viewport shows reply B at the top
+      And `GET /api/read?reader=web-ui` lists both pointers with those timestamps
+    ```
+
+- [ ] **FR-13**
+
+    ```gherkin
+    @FR-13
     Scenario: Refresh without credentials
       Given no Slack credentials are configured
       When the browser sends a refresh POST

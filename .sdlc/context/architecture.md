@@ -199,7 +199,8 @@ Per-cycle summaries are printed, or emitted as JSON with `--json`.
 `slackx conversations read clear` removes one or more pointers with `storage.delete_read_marker` and `storage.delete_read_markers`.
 `slackx conversations get` also advances the pointer for the shown channel or thread after printing, so showing a conversation counts as reading it.
 The `read` group lives under `conversations`, next to the `get` command that advances the same pointers.
-Each pointer is owned by a reader (a consumer, for example `web`), so several consumers can track the same channel independently.
+Each pointer is owned by a reader (a consumer, for example `web-ui`), so several consumers can track the same channel independently.
+The web UI writes its reader's pointers from the top visible message of the open channel or thread, then restores that message when the conversation is opened again.
 
 ### Web API read path
 

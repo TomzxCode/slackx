@@ -177,6 +177,8 @@ workspace. Use `Ctrl+P` to search all cached users and channels and full-text
 search conversations (SQLite FTS5), then jump straight to a match. Channel
 messages and threads render with readable author names even before the sidebar
 has loaded.
+Opening a channel or thread resumes at the message you last viewed, because the
+UI stores its viewed position as a read marker under the `web-ui` reader.
 Refresh buttons can trigger live Slack fetches when credentials are
 configured; browsing the cache itself needs none.
 
@@ -227,7 +229,9 @@ channel-level pointer plus one per thread. The value defaults to the newest
 cached message in scope; pass `--last-read TS` to set it explicitly. Showing a
 channel or thread with `conversations get --reader ID` advances the same
 pointer automatically, so showing is reading. The `serve` web API exposes the
-pointers under `/api/read`. Use `slackx cache clear read` to drop every pointer.
+pointers under `/api/read`, and the web UI stores the message at the top of its
+viewport under the `web-ui` reader so it can resume there. Use
+`slackx cache clear read` to drop every pointer.
 
 ### Users and channels
 
