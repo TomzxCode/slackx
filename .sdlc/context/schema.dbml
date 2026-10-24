@@ -96,6 +96,7 @@ Table channels {
 
   indexes {
     fetched_at [name: 'idx_channels_fetched_at']
+    name [name: 'idx_channels_name']
   }
 
   Note: 'One row per cached channel, group, or direct message.'

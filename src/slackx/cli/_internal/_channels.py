@@ -4,13 +4,16 @@ import sqlite3
 import sys
 from collections.abc import Iterable
 
+from slackx._log import get_logger
 from slackx.cli._internal._shared import CommonArgs
 from slackx.storage import (
+    find_channel_ids_by_name,
     find_im_channel_for_user,
     find_user_by_handle,
     load_channel_display_names,
-    load_channels,
 )
+
+log = get_logger(__name__)
 
 
 def _is_channel_id(token: str) -> bool:
@@ -26,9 +29,9 @@ def _is_channel_id(token: str) -> bool:
     return has_upper or not has_lower
 
 
-def _channel_name_index(conn: sqlite3.Connection) -> dict[str, str]:
-    """Return a {name: id} map of cached channels."""
-    return {ch.name: ch.id for ch in load_channels(conn) if ch.name}
+def _channel_name_index(conn: sqlite3.Connection, names: Iterable[str]) -> dict[str, str]:
+    """Return a {name: id} map for just the requested channel names."""
+    return find_channel_ids_by_name(conn, names)
 
 
 def _channel_id_names(conn: sqlite3.Connection, channel_ids: Iterable[str]) -> dict[str, str]:
@@ -71,19 +74,35 @@ async def _resolve_channels(common: CommonArgs, entries: Iterable[str]) -> list[
     name_to_id: dict[str, str] = {}
     try:
         async with _client._open_db(common) as conn:
-            name_to_id = _channel_name_index(conn)
+            name_to_id = _channel_name_index(conn, names)
     except SystemExit:
         name_to_id = {}
 
-    if any(n not in name_to_id for n in names):
+    # Log the miss so the full channel enumeration it triggers can be traced
+    # back to the names that caused it. A typo costs the same sweep as a
+    # channel that is genuinely new to the cache.
+    missing = [n for n in names if n not in name_to_id]
+    if missing:
+        log.info(
+            "channel_name_cache_miss",
+            names=missing,
+            matched_channels=len(name_to_id),
+        )
         async with (
             _client._open_client(common) as client,
             _client._open_db(common, client) as conn,
         ):
-            name_to_id = _channel_name_index(conn)
-            if any(n not in name_to_id for n in names):
+            name_to_id = _channel_name_index(conn, names)
+            missing = [n for n in names if n not in name_to_id]
+            if missing:
+                log.info(
+                    "channel_list_fetch_required",
+                    names=missing,
+                    matched_channels=len(name_to_id),
+                    reason="name_not_in_cache",
+                )
                 await fetch_channels(conn, client)
-            name_to_id = _channel_name_index(conn)
+            name_to_id = _channel_name_index(conn, names)
 
     unresolved: list[str] = []
     for name in names:

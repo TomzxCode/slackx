@@ -110,6 +110,9 @@ CREATE TABLE IF NOT EXISTS channels (
 CREATE INDEX IF NOT EXISTS idx_channels_fetched_at
     ON channels (fetched_at);
 
+CREATE INDEX IF NOT EXISTS idx_channels_name
+    ON channels (name);
+
 CREATE TABLE IF NOT EXISTS meta (
     key    TEXT NOT NULL,
     value  TEXT NOT NULL,
@@ -1032,6 +1035,30 @@ def load_channel_display_names(
             if peer_id in peer_names:
                 names[channel_id] = peer_names[peer_id]
     return names
+
+
+def find_channel_ids_by_name(conn: sqlite3.Connection, names: Iterable[str]) -> dict[str, str]:
+    """Return a {name: id} map for just the requested channel names.
+
+    Filters in SQL so a name lookup reads only the matching rows instead of
+    every cached channel. Duplicate names resolve to the highest id, matching
+    the order an id-ordered full-table scan produced.
+    """
+    unique = list(dict.fromkeys(n for n in names if n))
+    if not unique:
+        return {}
+    found: dict[str, str] = {}
+    # Chunk to stay well under SQLite's bound-variable limit (default 999).
+    for start in range(0, len(unique), 900):
+        chunk = unique[start : start + 900]
+        placeholders = ", ".join("?" for _ in chunk)
+        rows = conn.execute(
+            f"SELECT id, name FROM channels WHERE name IN ({placeholders}) ORDER BY id ASC",
+            chunk,
+        ).fetchall()
+        for row in rows:
+            found[row["name"]] = row["id"]
+    return found
 
 
 def load_im_channel_ids(conn: sqlite3.Connection, channel_ids: Iterable[str]) -> set[str]:
