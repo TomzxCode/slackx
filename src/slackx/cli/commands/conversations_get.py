@@ -266,7 +266,13 @@ async def _show_channel(
                             f"fetching messages for {channel} from Slack...",
                             file=sys.stderr,
                         )
-                await fetch_channel_messages(conn, client, channel, oldest=oldest)
+                await fetch_channel_messages(
+                    conn,
+                    client,
+                    channel,
+                    full_threads=with_thread_message,
+                    oldest=oldest,
+                )
             messages = load_channel_messages(
                 conn, channel, include_thread_replies=with_thread_message
             )

@@ -1263,6 +1263,38 @@ def test_show_channel_with_thread_message_json(
     assert by_text["standalone"]["is_thread_reply"] is False
 
 
+def test_show_channel_with_thread_message_fetches_replies(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--with-thread-message fetches thread replies when the channel is empty.
+
+    The flag must drive the fetch itself, not only the rendering: a cold cache
+    otherwise returns top-level messages and silently drops every reply.
+    """
+    db_path = tmp_path / "cache.db"
+    monkeypatch.setattr(
+        cli._internal._client, "_build_client", lambda args: _threaded_channel_client()
+    )
+
+    rc = cli.main(
+        [
+            "conversations",
+            "show",
+            "C1",
+            "--with-thread-message",
+            "--fetch",
+            "--db",
+            str(db_path),
+            "--json",
+        ]
+    )
+    assert rc == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    texts = [m["text"] for m in payload["messages"]]
+    assert texts == ["parent", "reply", "standalone"]
+
+
 def test_show_channel_with_thread_message_human(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
