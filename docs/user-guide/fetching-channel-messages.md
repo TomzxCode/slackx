@@ -81,6 +81,13 @@ Filter by time with `--last`:
 slackx conversations get C01234 --last 7d
 ```
 
+`--last` bounds both the Slack fetch and what is printed: a message cached by an
+earlier wider fetch (for example `conversations fetch --last all`, a search, or a
+previous `--last 30d`) is hidden when it falls outside the window. The default is
+`1d`, so pass `--last all` to see everything in the cache. When the window is empty
+but older messages are cached, `slackx` logs `channel_window_empty` to stderr; use
+`--fetch` to load the window from Slack.
+
 Display as JSON:
 
 ```bash

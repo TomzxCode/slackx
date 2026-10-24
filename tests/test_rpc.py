@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -161,7 +162,11 @@ def test_channels_get_missing_is_server_error(client: TestClient) -> None:
 
 
 def test_conversations_get_channel(client: TestClient) -> None:
-    body = _rpc(client, "conversations.get", {"target": "C1", "fetch": False, "reader": None})
+    body = _rpc(
+        client,
+        "conversations.get",
+        {"target": "C1", "fetch": False, "last": "all", "reader": None},
+    )
     result = body["result"]
     assert result["channel"] == "C1"
     assert result["channel_name"] == "general"
@@ -205,6 +210,37 @@ def test_conversations_get_null_reader_does_not_mark(client: TestClient) -> None
     assert "error" not in body
     shown = _rpc(client, "read.show", {})
     assert shown["result"]["read_count"] == 0
+
+
+def test_conversations_get_channel_last_filters_display(client: TestClient, db_path: Path) -> None:
+    """conversations.get hides cached rows outside the requested lookback."""
+    now = time.time()
+    old_ts = f"{now - 400 * 86400:.6f}"
+    recent_ts = f"{now - 60:.6f}"
+    conn = storage.connect(db_path)
+    try:
+        storage.record_thread_refresh(conn, "C2", old_ts, None)
+        storage.upsert_messages(
+            conn, "C2", old_ts, [{"ts": old_ts, "user": "U1", "text": "from-2025"}]
+        )
+        storage.record_thread_refresh(conn, "C2", recent_ts, None)
+        storage.upsert_messages(
+            conn, "C2", recent_ts, [{"ts": recent_ts, "user": "U1", "text": "from-today"}]
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    def shown(last: str) -> list[str]:
+        body = _rpc(
+            client,
+            "conversations.get",
+            {"target": "C2", "fetch": False, "last": last, "reader": None},
+        )
+        return [m["text"] for m in body["result"]["messages"]]
+
+    assert shown("1d") == ["from-today"]
+    assert shown("all") == ["from-2025", "from-today"]
 
 
 def test_conversations_get_unknown_id_returns_empty(client: TestClient) -> None:

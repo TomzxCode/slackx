@@ -304,10 +304,13 @@ def _load_channel_view(
     conn: sqlite3.Connection,
     channel: str,
     with_thread_message: bool,
+    oldest: str | None = None,
 ) -> tuple[list[Any], dict[str, str], str | None]:
     from slackx.storage import load_channel_display_names, load_channel_messages
 
-    messages = load_channel_messages(conn, channel, include_thread_replies=with_thread_message)
+    messages = load_channel_messages(
+        conn, channel, oldest=oldest, include_thread_replies=with_thread_message
+    )
     return (
         messages,
         _build_user_names(conn, messages),
@@ -759,17 +762,17 @@ async def _get_channel(
             need_fetch = True
         else:
             messages, user_names, channel_name = _load_channel_view(
-                conn, channel, with_thread_message
+                conn, channel, with_thread_message, oldest
             )
 
     if need_fetch:
         async with _open_db(ctx.common) as conn:
             still_empty = count_channel_messages(conn, channel) == 0
         if fetch is True or still_empty:
-            await _fetch_channel_view(ctx, channel, oldest=oldest)
+            await _fetch_channel_view(ctx, channel, full_threads=with_thread_message, oldest=oldest)
         async with _open_db(ctx.common) as conn:
             messages, user_names, channel_name = _load_channel_view(
-                conn, channel, with_thread_message
+                conn, channel, with_thread_message, oldest
             )
 
     return _channel_payload(channel, messages, user_names, channel_name)

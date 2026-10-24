@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -200,7 +201,7 @@ def test_show_channel_fetch_refreshes_cached(
     rc = cli.main(["conversations", "fetch", "C1", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["conversations", "get", "C1", "--fetch", "--db", str(db_path)])
+    rc = cli.main(["conversations", "get", "C1", "--fetch", "--last", "all", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -702,9 +703,19 @@ def test_get_has_show_alias(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
     assert cli.main(["conversations", "fetch", "C1", "--db", str(db_path)]) == 0
-    assert cli.main(["conversations", "get", "C1", "--db", str(db_path), "--no-fetch"]) == 0
+    assert (
+        cli.main(
+            ["conversations", "get", "C1", "--db", str(db_path), "--no-fetch", "--last", "all"]
+        )
+        == 0
+    )
     assert "hello" in capsys.readouterr().out
-    assert cli.main(["conversations", "show", "C1", "--db", str(db_path), "--no-fetch"]) == 0
+    assert (
+        cli.main(
+            ["conversations", "show", "C1", "--db", str(db_path), "--no-fetch", "--last", "all"]
+        )
+        == 0
+    )
     assert "hello" in capsys.readouterr().out
 
 
@@ -1165,7 +1176,7 @@ def test_show_channel_without_ts_human(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["conversations", "get", "C1", "--db", str(db_path)])
+    rc = cli.main(["conversations", "get", "C1", "--last", "all", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1190,6 +1201,8 @@ def test_show_channel_via_url(
             "conversations",
             "show",
             "https://acme.slack.com/archives/C1",
+            "--last",
+            "all",
             "--db",
             str(db_path),
         ]
@@ -1217,7 +1230,19 @@ def test_show_channel_excludes_thread_replies(
     rc = cli.main(["conversations", "fetch", "C1", "--full-threads", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["conversations", "get", "C1", "--db", str(db_path), "--no-fetch", "--json"])
+    rc = cli.main(
+        [
+            "conversations",
+            "get",
+            "C1",
+            "--last",
+            "all",
+            "--db",
+            str(db_path),
+            "--no-fetch",
+            "--json",
+        ]
+    )
     assert rc == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -1243,6 +1268,8 @@ def test_show_channel_with_thread_message_json(
             "show",
             "C1",
             "--with-thread-message",
+            "--last",
+            "all",
             "--db",
             str(db_path),
             "--no-fetch",
@@ -1283,6 +1310,8 @@ def test_show_channel_with_thread_message_fetches_replies(
             "C1",
             "--with-thread-message",
             "--fetch",
+            "--last",
+            "all",
             "--db",
             str(db_path),
             "--json",
@@ -1312,6 +1341,8 @@ def test_show_channel_with_thread_message_human(
             "show",
             "C1",
             "--with-thread-message",
+            "--last",
+            "all",
             "--db",
             str(db_path),
             "--no-fetch",
@@ -1337,7 +1368,7 @@ def test_show_channel_without_ts_json(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["conversations", "get", "C1", "--db", str(db_path), "--json"])
+    rc = cli.main(["conversations", "get", "C1", "--last", "all", "--db", str(db_path), "--json"])
     assert rc == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -1359,7 +1390,7 @@ def test_show_channel_without_ts_jsonl(
     )
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
 
-    rc = cli.main(["conversations", "get", "C1", "--db", str(db_path), "--jsonl"])
+    rc = cli.main(["conversations", "get", "C1", "--last", "all", "--db", str(db_path), "--jsonl"])
     assert rc == 0
 
     lines = capsys.readouterr().out.splitlines()
@@ -1394,11 +1425,116 @@ def test_show_channel_without_ts_uses_cached(
 
     monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: NoCallClient())
 
-    rc = cli.main(["conversations", "get", "C1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(
+        ["conversations", "get", "C1", "--last", "all", "--db", str(db_path), "--no-fetch"]
+    )
     assert rc == 0
 
     out = capsys.readouterr().out
     assert "cached_msg" in out
+
+
+def _old_and_recent_messages() -> list[dict]:
+    """A message from last year and one from a minute ago."""
+    now = time.time()
+    return [
+        {"ts": f"{now - 400 * 86400:.6f}", "user": "U1", "text": "from-2025"},
+        {"ts": f"{now - 60:.6f}", "user": "U2", "text": "from-today"},
+    ]
+
+
+def test_show_channel_last_filters_cached_messages(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--last narrows the output, not only the fetch.
+
+    A row cached by an earlier wider fetch (``--last all``) must not come back
+    when the requested lookback excludes it.
+    """
+    db_path = tmp_path / "cache.db"
+    client = FakeChannelClient(messages=_old_and_recent_messages())
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    assert cli.main(["conversations", "fetch", "C1", "--last", "all", "--db", str(db_path)]) == 0
+
+    def shown(*extra: str) -> list[str]:
+        rc = cli.main(
+            ["conversations", "get", "C1", "--db", str(db_path), "--no-fetch", "--json", *extra]
+        )
+        assert rc == 0
+        return [m["text"] for m in json.loads(capsys.readouterr().out)["messages"]]
+
+    assert shown("--last", "1d") == ["from-today"]
+    assert shown() == ["from-today"]  # the default lookback is 1d
+    assert shown("--last", "1h") == ["from-today"]
+    assert shown("--last", "all") == ["from-2025", "from-today"]
+
+
+def test_show_channel_with_thread_message_last_filters_replies(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Thread replies outside the lookback window are hidden with their thread."""
+    db_path = tmp_path / "cache.db"
+    now = time.time()
+    old_parent = f"{now - 400 * 86400:.6f}"
+    old_reply = f"{now - 400 * 86400 + 60:.6f}"
+    parent = f"{now - 120:.6f}"
+    reply = f"{now - 60:.6f}"
+    client = FakeChannelClient(
+        messages=[
+            {
+                "ts": old_parent,
+                "user": "U1",
+                "text": "old-parent",
+                "thread_ts": old_parent,
+                "reply_count": 1,
+                "latest_reply": old_reply,
+            },
+            {
+                "ts": parent,
+                "user": "U1",
+                "text": "new-parent",
+                "thread_ts": parent,
+                "reply_count": 1,
+                "latest_reply": reply,
+            },
+        ],
+        thread_replies={
+            old_parent: [
+                {"ts": old_parent, "user": "U1", "text": "old-parent", "thread_ts": old_parent},
+                {"ts": old_reply, "user": "U2", "text": "old-reply", "thread_ts": old_parent},
+            ],
+            parent: [
+                {"ts": parent, "user": "U1", "text": "new-parent", "thread_ts": parent},
+                {"ts": reply, "user": "U2", "text": "new-reply", "thread_ts": parent},
+            ],
+        },
+    )
+    monkeypatch.setattr(cli._internal._client, "_build_client", lambda args: client)
+
+    rc = cli.main(
+        ["conversations", "fetch", "C1", "--full-threads", "--last", "all", "--db", str(db_path)]
+    )
+    assert rc == 0
+
+    rc = cli.main(
+        [
+            "conversations",
+            "get",
+            "C1",
+            "--with-thread-message",
+            "--last",
+            "1d",
+            "--no-fetch",
+            "--json",
+            "--db",
+            str(db_path),
+        ]
+    )
+    assert rc == 0
+
+    texts = [m["text"] for m in json.loads(capsys.readouterr().out)["messages"]]
+    assert texts == ["new-parent", "new-reply"]
 
 
 def test_show_channel_with_name(
@@ -1453,7 +1589,9 @@ def test_show_direct_channel_resolves_peer_name(
     rc = cli.main(["conversations", "fetch", "D1", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["conversations", "get", "D1", "--db", str(db_path), "--no-fetch"])
+    rc = cli.main(
+        ["conversations", "get", "D1", "--last", "all", "--db", str(db_path), "--no-fetch"]
+    )
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1477,7 +1615,19 @@ def test_show_direct_channel_json_resolves_peer_name(
     rc = cli.main(["conversations", "fetch", "D1", "--db", str(db_path)])
     assert rc == 0
 
-    rc = cli.main(["conversations", "get", "D1", "--db", str(db_path), "--no-fetch", "--json"])
+    rc = cli.main(
+        [
+            "conversations",
+            "get",
+            "D1",
+            "--last",
+            "all",
+            "--db",
+            str(db_path),
+            "--no-fetch",
+            "--json",
+        ]
+    )
     assert rc == 0
 
     payload = json.loads(capsys.readouterr().out)
@@ -1518,7 +1668,7 @@ def test_show_channel_resolves_bare_name(
     assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()  # clear seeding output
 
-    rc = cli.main(["conversations", "get", "general", "--db", str(db_path)])
+    rc = cli.main(["conversations", "get", "general", "--last", "all", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out
@@ -1541,7 +1691,7 @@ def test_show_channel_resolves_hash_prefixed_name(
     assert cli.main(["channels", "fetch", "--db", str(db_path)]) == 0
     capsys.readouterr()
 
-    rc = cli.main(["conversations", "get", "#general", "--db", str(db_path)])
+    rc = cli.main(["conversations", "get", "#general", "--last", "all", "--db", str(db_path)])
     assert rc == 0
 
     out = capsys.readouterr().out

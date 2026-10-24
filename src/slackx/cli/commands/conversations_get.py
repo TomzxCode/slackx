@@ -226,6 +226,10 @@ async def _show_channel(
 
     By default only top-level messages are shown; ``with_thread_message``
     includes thread replies, each marked with its thread root.
+
+    ``last`` bounds both the Slack fetch and the output: rows cached by an
+    earlier wider fetch (``--last all``, ``conversations fetch``, search) are
+    not shown when they fall outside the lookback window.
     """
     oldest = _oldest_ts_from_last(last)
 
@@ -243,7 +247,7 @@ async def _show_channel(
             need_fetch = True
         else:
             messages = load_channel_messages(
-                conn, channel, include_thread_replies=with_thread_message
+                conn, channel, oldest=oldest, include_thread_replies=with_thread_message
             )
             user_names = _build_user_names(conn, messages)
             channel_name = load_channel_display_names(conn, [channel]).get(channel)
@@ -274,10 +278,23 @@ async def _show_channel(
                     oldest=oldest,
                 )
             messages = load_channel_messages(
-                conn, channel, include_thread_replies=with_thread_message
+                conn, channel, oldest=oldest, include_thread_replies=with_thread_message
             )
             user_names = _build_user_names(conn, messages)
             channel_name = load_channel_display_names(conn, [channel]).get(channel)
+
+    if not messages and oldest is not None:
+        # The window is empty but the channel may still hold older rows from a
+        # wider earlier fetch; say so instead of leaving a bare "0 message(s)".
+        async with _client._open_db(common) as conn:
+            cached_total = count_channel_messages(conn, channel)
+        if cached_total:
+            log.info(
+                "channel_window_empty",
+                channel=channel,
+                last=last,
+                cached_messages=cached_total,
+            )
 
     with _timed("render", format=fmt, messages=len(messages)):
         if fmt in ("json", "jsonl"):
