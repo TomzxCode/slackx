@@ -108,6 +108,55 @@ def test_list_users_avatar_picks_largest_image(client: TestClient) -> None:
     assert by_id["U2"]["avatar"] is None
 
 
+def test_directory_lists_are_bounded_and_search_entire_cache(client: TestClient) -> None:
+    users = client.get("/api/users", params={"limit": 1}).json()
+    assert users["user_count"] == 2
+    assert len(users["users"]) == 1
+    assert [u["id"] for u in client.get("/api/users", params={"q": "bob"}).json()["users"]] == [
+        "U2"
+    ]
+    channels = client.get("/api/channels", params={"limit": 1}).json()
+    assert channels["channel_count"] == 3
+    assert len(channels["channels"]) == 1
+    matches = client.get("/api/channels", params={"q": "secret"}).json()["channels"]
+    assert [c["id"] for c in matches] == ["C2"]
+    # DM peers are searchable even when the conversation has no name.
+    dm = client.get("/api/channels", params={"q": "Alice"}).json()["channels"]
+    assert [c["id"] for c in dm] == ["D1"]
+    assert dm[0]["display_name"] == "Alice Smith (alice)"
+    assert client.get("/api/channels", params={"q": "%"}).json()["channels"] == []
+    assert client.get("/api/users", params={"limit": 101}).status_code == 422
+    assert client.get("/api/channels", params={"limit": 0}).status_code == 422
+
+
+def test_directory_defaults_remain_bounded_with_large_cache(
+    client: TestClient, db_path: Path
+) -> None:
+    conn = storage.connect(db_path)
+    try:
+        storage.upsert_users(
+            conn,
+            ({"id": f"UX{i:03}", "name": f"handle{i}"} for i in range(120)),
+        )
+        storage.upsert_channels(
+            conn,
+            ({"id": f"CX{i:03}", "name": f"project-{i:03}"} for i in range(120)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    users = client.get("/api/users").json()
+    channels = client.get("/api/channels").json()
+    assert users["user_count"] == 122
+    assert len(users["users"]) == 20
+    assert channels["channel_count"] == 123
+    assert len(channels["channels"]) == 40
+    matches = client.get("/api/users", params={"q": "handle119"}).json()["users"]
+    assert [u["id"] for u in matches] == ["UX119"]
+    matches = client.get("/api/channels", params={"q": "project-119"}).json()["channels"]
+    assert [c["id"] for c in matches] == ["CX119"]
+
+
 def test_list_channels_with_counts(client: TestClient) -> None:
     body = client.get("/api/channels").json()
     assert body["channel_count"] == 3
@@ -132,6 +181,8 @@ def test_channel_messages_newest_first_with_reply_counts(client: TestClient) -> 
     assert body["messages"][0]["latest_reply_ts"] == "1700000100.000003"
     assert body["messages"][0]["user_name"] == "Alice Smith (alice)"
     assert body["has_more"] is False
+    assert [u["id"] for u in body["users"]] == ["U1"]
+    assert body["users"][0]["avatar"] == "https://ca.slack-edge.com/U1-512.png"
 
 
 def test_direct_channel_messages_expose_peer_name(client: TestClient) -> None:
@@ -155,6 +206,23 @@ def test_thread_messages(client: TestClient) -> None:
     body = client.get("/api/channels/C1/threads/1700000100.000002").json()
     assert [m["ts"] for m in body["messages"]] == ["1700000100.000002", "1700000100.000003"]
     assert body["messages"][1]["user_name"] == "bob"
+    assert {u["id"] for u in body["users"]} == {"U1", "U2"}
+
+
+def test_message_page_includes_mentioned_user_profiles(client: TestClient, db_path: Path) -> None:
+    conn = storage.connect(db_path)
+    try:
+        storage.upsert_messages(
+            conn,
+            "C1",
+            "1700000000.000001",
+            [{"ts": "1700000000.000001", "user": "U1", "text": "Hi <@U2>"}],
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    body = client.get("/api/channels/C1/messages").json()
+    assert {u["id"] for u in body["users"]} == {"U1", "U2"}
 
 
 def test_thread_messages_404(client: TestClient) -> None:

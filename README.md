@@ -172,9 +172,11 @@ Browse the cache in a browser with a Slack-like interface:
 slackx serve          # then open http://127.0.0.1:8280
 ```
 
-Lists users and channels, renders channel messages and threads with readable
-author names, and offers a `Ctrl+P` palette that full-text searches every
-cached conversation (SQLite FTS5) and jumps straight to the matched message.
+Shows a small initial list of users and channels rather than loading the whole
+workspace. Use `Ctrl+P` to search all cached users and channels and full-text
+search conversations (SQLite FTS5), then jump straight to a match. Channel
+messages and threads render with readable author names even before the sidebar
+has loaded.
 Refresh buttons can trigger live Slack fetches when credentials are
 configured; browsing the cache itself needs none.
 

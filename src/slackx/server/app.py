@@ -12,6 +12,7 @@ by design (see cache.py).
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -136,6 +137,16 @@ def _with_names(
     return out
 
 
+def _message_users(conn: sqlite3.Connection, messages: list[Any]) -> list[dict[str, Any]]:
+    """Send profile data only for authors and mentions on the displayed page."""
+    ids = [m.user for m in messages if m.user]
+    for message in messages:
+        # Mentions may also be inside blocks and attachments.
+        ids.extend(re.findall(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", str(message.payload)))
+        ids.extend(re.findall(r"<@([A-Z0-9]+)(?:\|[^>]*)?>", message.text or ""))
+    return [_user_payload(u) for u in storage.load_users_by_ids(conn, ids)]
+
+
 def create_app(
     db_path: Path | None = None,
     api_base_url: str | None = None,
@@ -211,13 +222,17 @@ def create_app(
         }
 
     @fastapp.get("/api/users")
-    async def list_users(conn: Conn) -> dict[str, Any]:
-        users = storage.load_users(conn)
-        return {"user_count": len(users), "users": [_user_payload(u) for u in users]}
+    async def list_users(
+        conn: Conn, q: str = "", limit: int = Query(default=20, ge=1, le=100)
+    ) -> dict[str, Any]:
+        users = storage.list_users_for_web(conn, q.strip(), limit)
+        return {"user_count": storage.count_users(conn), "users": [_user_payload(u) for u in users]}
 
     @fastapp.get("/api/channels")
-    async def list_channels(conn: Conn) -> dict[str, Any]:
-        channels = storage.list_channel_summaries(conn)
+    async def list_channels(
+        conn: Conn, q: str = "", limit: int = Query(default=40, ge=1, le=100)
+    ) -> dict[str, Any]:
+        channels = storage.list_channel_summaries(conn, query=q.strip(), limit=limit)
         ids = [c.id for c in channels]
         display = storage.load_channel_display_names(conn, ids)
         ims = storage.load_im_channel_ids(conn, ids)
@@ -228,7 +243,7 @@ def create_app(
             d["is_im"] = c.id in ims
             payload.append(d)
         return {
-            "channel_count": len(channels),
+            "channel_count": storage.count_channels(conn),
             "channels": payload,
         }
 
@@ -247,6 +262,7 @@ def create_app(
         return {
             "channel": _channel_view(conn, channel, channel_id),
             "messages": _with_names(roots, names),
+            "users": _message_users(conn, roots),
             "has_more": len(roots) == limit,
         }
 
@@ -264,6 +280,7 @@ def create_app(
             "channel": _channel_view(conn, channel, channel_id),
             "thread_ts": thread_ts,
             "messages": _with_names(messages, names),
+            "users": _message_users(conn, messages),
         }
 
     @fastapp.get("/api/search")

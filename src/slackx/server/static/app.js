@@ -324,6 +324,7 @@
     data: function () {
       return {
         booted: false,
+        directoryLoaded: false,
         summary: null,
         users: [],
         channels: [],
@@ -352,6 +353,7 @@
         paletteActive: 0,
         paletteMsgsLoading: false,
         paletteTimer: null,
+        paletteSearchSeq: 0,
 
         profile: null,
 
@@ -458,34 +460,40 @@
 
       boot: function () {
         var self = this;
-        var finish = function () {
-          self.booted = true;
-          self.applyLocation();
-        };
-        Promise.all([
-          this._api('/api/summary'),
-          this._api('/api/users'),
-          this._api('/api/channels'),
-        ]).then(function (results) {
-          self.summary = results[0];
-          self.users = results[1].users;
-          self.channels = results[2].channels;
-          var byId = {};
-          var names = {};
-          var avatars = {};
-          self.channels.forEach(function (c) { byId[c.id] = c; });
-          self.users.forEach(function (u) {
-            names[u.id] = u.display_name;
-            avatars[u.id] = u.avatar || '';
+        this.booted = true;
+        this.applyLocation();
+        this._api('/api/summary').then(function (body) {
+          self.summary = body;
+        }).catch(function (err) { self.toast('Failed to load summary: ' + err.message, 'error'); });
+        this.loadDirectory();
+      },
+
+      loadDirectory: function () {
+        var self = this;
+        Promise.all([this._api('/api/users'), this._api('/api/channels')])
+          .then(function (results) {
+            self.users = results[0].users;
+            self.channels = results[1].channels;
+            var byId = {};
+            self.channels.forEach(function (c) { byId[c.id] = c; });
+            self.channelsById = Object.assign({}, self.channelsById, byId);
+            self.rememberUsers(self.users);
+            self.directoryLoaded = true;
+          }).catch(function (err) {
+            self.directoryLoaded = true;
+            self.toast('Failed to load directory: ' + err.message, 'error');
           });
-          self.channelsById = byId;
-          self.userNames = names;
-          self.userAvatars = avatars;
-          finish();
-        }).catch(function (err) {
-          self.toast('Failed to load cache: ' + err.message, 'error');
-          finish();
+      },
+
+      rememberUsers: function (users) {
+        var names = Object.assign({}, this.userNames);
+        var avatars = Object.assign({}, this.userAvatars);
+        (users || []).forEach(function (u) {
+          names[u.id] = u.display_name;
+          avatars[u.id] = u.avatar || '';
         });
+        this.userNames = names;
+        this.userAvatars = avatars;
       },
 
       // -------------------------------------------------- channel view
@@ -509,6 +517,7 @@
               self.channelsById[channelId] = body.channel;
             }
             self.channel = body.channel;
+            self.rememberUsers(body.users);
             self.messages = body.messages;
             self.hasMore = body.has_more;
             self.loadingMessages = false;
@@ -531,6 +540,7 @@
         this._api('/api/channels/' + encodeURIComponent(this.channelId) +
           '/messages?before=' + encodeURIComponent(oldest))
           .then(function (body) {
+            self.rememberUsers(body.users);
             self.messages = self.messages.concat(body.messages);
             self.hasMore = body.has_more;
             self.loadingOlder = false;
@@ -558,6 +568,7 @@
           '/threads/' + encodeURIComponent(threadTs))
           .then(function (body) {
             if (!self.thread || self.thread.thread_ts !== threadTs) return;
+            self.rememberUsers(body.users);
             self.thread.messages = body.messages;
             self.thread.loading = false;
             if (highlightTs) {
@@ -720,11 +731,19 @@
       },
 
       refreshUsers: function () {
-        this.refresh('User refresh', '/api/users/refresh', this.boot.bind(this));
+        var self = this;
+        this.refresh('User refresh', '/api/users/refresh', function () {
+          self.loadDirectory();
+          self._api('/api/summary').then(function (body) { self.summary = body; });
+        });
       },
 
       refreshChannels: function () {
-        this.refresh('Channel refresh', '/api/channels/refresh', this.boot.bind(this));
+        var self = this;
+        this.refresh('Channel refresh', '/api/channels/refresh', function () {
+          self.loadDirectory();
+          self._api('/api/summary').then(function (body) { self.summary = body; });
+        });
       },
 
       // -------------------------------------------------- palette
@@ -733,6 +752,7 @@
         this.closeProfile();
         this.paletteOpen = true;
         this.paletteQuery = '';
+        this.paletteMsgsLoading = false;
         this.paletteItems = this.localMatches('');
         this.paletteActive = 0;
         var self = this;
@@ -743,6 +763,7 @@
 
       closePalette: function () {
         this.paletteOpen = false;
+        this.paletteSearchSeq++;
         if (this.paletteTimer) clearTimeout(this.paletteTimer);
       },
 
@@ -782,28 +803,57 @@
       onPaletteInput: function () {
         var self = this;
         var q = this.paletteQuery;
+        var seq = ++this.paletteSearchSeq;
         if (this.paletteTimer) clearTimeout(this.paletteTimer);
-        this.paletteTimer = setTimeout(function () { self.searchPaletteMessages(q); }, 180);
-        this.paletteItems = this.localMatches(q);
+        this.paletteItems = [];
         this.paletteActive = 0;
+        this.paletteMsgsLoading = false;
+        this.paletteTimer = setTimeout(function () { self.searchPalette(q, seq); }, 180);
       },
 
-      searchPaletteMessages: function (q) {
+      searchPalette: function (q, seq) {
         var trimmed = q.trim();
-        if (trimmed.length < 2 || q !== this.paletteQuery) return;
+        if (!trimmed || q !== this.paletteQuery || !this.paletteOpen) return;
         var self = this;
-        this.paletteMsgsLoading = true;
-        this._api('/api/search?q=' + encodeURIComponent(trimmed) + '&limit=12')
-          .then(function (body) {
-            self.paletteMsgsLoading = false;
-            if (self.paletteQuery !== q) return;
-            var msgs = body.hits.map(function (h) {
-              return { key: 'm-' + h.channel + '-' + h.ts, type: 'message', hit: h };
-            });
-            self.paletteItems = self.localMatches(q).concat(msgs);
-            if (self.paletteActive >= self.paletteItems.length) self.paletteActive = 0;
-          })
-          .catch(function () { self.paletteMsgsLoading = false; });
+        var param = '?q=' + encodeURIComponent(trimmed);
+        this.paletteMsgsLoading = trimmed.length >= 2;
+        Promise.all([
+          this._api('/api/channels' + param + '&limit=8'),
+          this._api('/api/users' + param + '&limit=5'),
+        ]).then(function (results) {
+          if (seq !== self.paletteSearchSeq || !self.paletteOpen) return;
+          var channels = results[0].channels.map(function (c) {
+            return { key: 'c-' + c.id, type: 'channel', id: c.id,
+              name: c.display_name || c.name || c.id, is_im: c.is_im,
+              is_private: c.is_private, message_count: c.message_count };
+          });
+          var people = results[1].users.map(function (u) {
+            return { key: 'u-' + u.id, type: 'person', user: u };
+          });
+          // Keep any message hits that arrived before the directory lookup.
+          self.paletteItems = channels.concat(people, self.paletteItems.filter(function (item) {
+            return item.type === 'message';
+          }));
+          if (self.paletteActive >= self.paletteItems.length) self.paletteActive = 0;
+        }).catch(function (err) {
+          if (seq !== self.paletteSearchSeq) return;
+          self.toast('Search failed: ' + err.message, 'error');
+        });
+        if (trimmed.length < 2) return;
+        this._api('/api/search' + param + '&limit=12').then(function (body) {
+          if (seq !== self.paletteSearchSeq || !self.paletteOpen) return;
+          self.paletteMsgsLoading = false;
+          self.paletteItems = self.paletteItems.filter(function (item) {
+            return item.type !== 'message';
+          }).concat(body.hits.map(function (h) {
+            return { key: 'm-' + h.channel + '-' + h.ts, type: 'message', hit: h };
+          }));
+          if (self.paletteActive >= self.paletteItems.length) self.paletteActive = 0;
+        }).catch(function (err) {
+          if (seq !== self.paletteSearchSeq) return;
+          self.paletteMsgsLoading = false;
+          self.toast('Message search failed: ' + err.message, 'error');
+        });
       },
 
       onPaletteKey: function (e) {

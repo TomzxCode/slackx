@@ -881,6 +881,42 @@ def load_users(
     return [_row_to_user(row, include_payload=include_payload) for row in rows]
 
 
+def list_users_for_web(conn: sqlite3.Connection, query: str, limit: int) -> list[CachedUser]:
+    """Return a bounded list of users, searching names/handles when requested."""
+    sql = "SELECT id, name, real_name, fetched_at, payload FROM users"
+    params: list[Any] = []
+    if query:
+        pattern = f"%{_escape_like(query)}%"
+        sql += (
+            " WHERE name LIKE ? ESCAPE '\\' OR real_name LIKE ? ESCAPE '\\' "
+            "OR id LIKE ? ESCAPE '\\'"
+        )
+        params.extend((pattern, pattern, pattern))
+    sql += " ORDER BY real_name IS NULL, real_name COLLATE NOCASE, id LIMIT ?"
+    params.append(limit)
+    return [_row_to_user(row) for row in conn.execute(sql, params)]
+
+
+def load_users_by_ids(conn: sqlite3.Connection, user_ids: Iterable[str]) -> list[CachedUser]:
+    """Load only users needed to render a page of messages."""
+    ids = list(dict.fromkeys(user_ids))
+    result = []
+    for start in range(0, len(ids), 900):
+        chunk = ids[start : start + 900]
+        placeholders = ", ".join("?" for _ in chunk)
+        rows = conn.execute(
+            "SELECT id, name, real_name, fetched_at, payload "
+            f"FROM users WHERE id IN ({placeholders})",
+            chunk,
+        )
+        result.extend(_row_to_user(row) for row in rows)
+    return result
+
+
+def _escape_like(query: str) -> str:
+    return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def load_user_display_names(conn: sqlite3.Connection, user_ids: Iterable[str]) -> dict[str, str]:
     """Return a {user_id: display_name} map for just the requested users.
 
@@ -1261,19 +1297,33 @@ def search_messages(conn: sqlite3.Connection, query: str, limit: int = 20) -> li
     ]
 
 
-def list_channel_summaries(conn: sqlite3.Connection) -> list[ChannelSummary]:
-    """Return every cached channel with message/thread counts and last activity.
-
-    Channels without cached messages still appear, with zero counts.
-    """
+def list_channel_summaries(
+    conn: sqlite3.Connection, *, query: str = "", limit: int = 40
+) -> list[ChannelSummary]:
+    """List a bounded set of channels; aggregate messages only for those rows."""
+    where = ""
+    params: list[Any] = []
+    if query:
+        pattern = f"%{_escape_like(query)}%"
+        where = (
+            "WHERE c.name LIKE ? ESCAPE '\\' OR c.id LIKE ? ESCAPE '\\' "
+            "OR (c.name IS NULL AND EXISTS ("
+            "SELECT 1 FROM users u WHERE u.id = json_extract(c.payload, '$.user') "
+            "AND (u.real_name LIKE ? ESCAPE '\\' OR u.name LIKE ? ESCAPE '\\')))"
+        )
+        params.extend((pattern, pattern, pattern, pattern))
     rows = conn.execute(
-        "SELECT c.id, c.name, c.is_private, "
+        "WITH selected AS ("
+        "SELECT c.id, c.name, c.is_private FROM channels c "
+        f"{where} ORDER BY c.name IS NULL, c.name COLLATE NOCASE, c.id LIMIT ?"
+        ") SELECT s.id, s.name, s.is_private, "
         "COUNT(m.ts) AS message_count, "
         "COUNT(DISTINCT m.thread_ts) AS thread_count, "
         "MAX(CAST(m.ts AS REAL)) AS latest "
-        "FROM channels c LEFT JOIN messages m ON m.channel = c.id "
-        "GROUP BY c.id, c.name, c.is_private "
-        "ORDER BY c.name COLLATE NOCASE ASC, c.id ASC"
+        "FROM selected s LEFT JOIN messages m ON m.channel = s.id "
+        "GROUP BY s.id, s.name, s.is_private "
+        "ORDER BY s.name IS NULL, s.name COLLATE NOCASE, s.id",
+        (*params, limit),
     ).fetchall()
     return [
         ChannelSummary(

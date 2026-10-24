@@ -92,7 +92,10 @@
                 </a>
               </li>
             </ul>
-            <div v-if="booted && !channels.length" class="px-4 py-3 text-xs opacity-50">
+            <div v-if="directoryLoaded && summary && summary.channels > channels.length" class="px-4 py-2 text-xs opacity-60">
+              Showing {{ channels.length }} of {{ summary.channels }}. Use Ctrl P to find another channel.
+            </div>
+            <div v-if="booted && summary && !summary.channels" class="px-4 py-3 text-xs opacity-50">
               No channels cached yet.<br>
               Use the &#x27F3; button above to fetch them from Slack.
             </div>
@@ -117,7 +120,10 @@
                 </a>
               </li>
             </ul>
-            <div v-if="booted && !users.length" class="px-4 py-3 text-xs opacity-50">
+            <div v-if="directoryLoaded && summary && summary.users > users.length" class="px-4 py-2 text-xs opacity-60">
+              Showing {{ users.length }} of {{ summary.users }}. Use Ctrl P to find someone.
+            </div>
+            <div v-if="booted && summary && !summary.users" class="px-4 py-3 text-xs opacity-50">
               No users cached yet.<br>
               Use the &#x27F3; button above to fetch them from Slack.
             </div>
@@ -236,7 +242,7 @@
           </div>
 
           <template v-if="recentChannels.length">
-            <h3 class="mt-6 font-bold text-base-content">Recently active</h3>
+            <h3 class="mt-6 font-bold text-base-content">Cached activity in listed channels</h3>
             <ul class="menu w-full p-0">
               <li v-for="c in recentChannels" :key="c.id">
                 <a @click.stop="openChannel(c.id)" class="justify-between">
