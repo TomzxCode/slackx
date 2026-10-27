@@ -19,6 +19,7 @@ Terms within each table are sorted alphabetically by the first column.
 | deleted-message marking | Setting deleted: true in a cached message's payload when Slack omits it from a history response, rather than removing the row, so the UI can flag it |
 | fake server | Local HTTP server (the fake_slack package, also run as the slack-fake-server console script) that mimics the Slack Web API for testing |
 | incremental fetch | A refresh that passes `oldest` to the API to only get new/edited messages |
+| JSON-RPC method | An operation exposed at `POST /rpc` with a dot name like `conversations.get`; parameters are one JSON object and results match the CLI's `--json` payloads |
 | permalink | A Slack URL in the form https://workspace.slack.com/archives/CHANNEL/pXXXXXXXXXXXXXXXX |
 | poll cycle | One pass of conversations poll that fetches new messages for every listed channel, then waits for the interval before the next pass |
 | read marker / last-read pointer | A stored position marking how far a consumer has read in a channel or thread |
@@ -45,6 +46,7 @@ Terms within each table are sorted alphabetically by the first column.
 | chat.postMessage | Slack API endpoint that sends a message to a channel or thread |
 | cli/_internal | Package of shared CLI plumbing: command app and groups, DB and client resolution, rendering, and field helpers |
 | cli/commands | Package holding one module per CLI command, for example conversations_fetch, users_list, read_mark |
+| `cli.run` | JSON-RPC method that executes a slackx CLI command in a child process and returns stdout, stderr, and the exit code; hidden with --no-allow-exec |
 | conversations.history | Slack API endpoint that returns top-level messages in a channel |
 | conversations.info | Slack API endpoint that returns a single conversation's metadata |
 | conversations.list | Slack API endpoint that returns all visible conversations/channels |
@@ -56,17 +58,26 @@ Terms within each table are sorted alphabetically by the first column.
 | fake_slack | Package implementing the standalone fake Slack Web API server for testing |
 | FetchResult | Frozen dataclass holding thread fetch statistics (channel, thread_ts, fetched_messages, total_messages, incremental) |
 | FTS5 | SQLite full-text search extension backing the messages_fts virtual table over messages.text |
+| JSON-RPC 2.0 | Request/response protocol encoded in JSON that the /rpc endpoint implements: single requests, batch arrays, and notifications (requests without an id) |
 | last-workspace pointer | File at `~/.cache/slackx/last_workspace` recording the most recently used workspace so read-only commands can resolve their database offline |
 | ListFetchResult | Dataclass holding list fetch statistics (processed, added, total) for user and channel list fetches |
+| method catalog | The list of JSON-RPC methods a server exposes, returned by `rpc.discover` and its alias `system.methods` |
 | RateLimitState / rate limit bucket | Shared tracker of Slack rate limit headers per endpoint, used to throttle proactively when a bucket is nearly exhausted instead of waiting for HTTP 429 responses |
 | ReadMarker | Dataclass holding a consumer's read position (reader, channel, thread_ts, last_read_ts, updated_at) |
+| RpcClient | Async JSON-RPC client in `slackx.rpc.client` that posts requests over httpx |
+| RpcContext | Frozen dataclass of server-owned state (db_path, api_base_url, exec setting) passed to every RPC method handler |
+| RpcError | Exception carrying a JSON-RPC error code and message, raised by handlers and re-raised client-side |
+| RpcTransportError | Client-side exception raised when the JSON-RPC server cannot be reached |
 | search.messages | Slack API endpoint that searches messages matching a query |
 | SearchFetchResult | Dataclass holding search fetch statistics (query, matches, threads_seen, threads_new, messages_seen, messages_new) |
 | SearchHit | Dataclass holding a search match with channel, thread_ts, ts, user, text, and snippet |
+| SLACKX_RPC_TOKEN | Environment variable holding the bearer token a JSON-RPC server requires (same as `--token`) |
+| SLACKX_RPC_URL | Environment variable holding the JSON-RPC endpoint URL used by `rpc call`, `rpc methods`, and `--remote` |
 | server | FastAPI package exposing the cache as a JSON API (for example /api/channels, /api/search, /api/read) and static web UI, served by the serve command |
 | ThreadRef | Internal dataclass holding a channel id and thread_ts pair |
 | ThreadState | Dataclass tracking the fetch state of a thread (latest_reply, last_fetched) |
 | ts | Slack timestamp string in epoch seconds with microseconds, e.g. "1700000000.123456" |
+| transparent remote mode | The global `--remote [URL]` CLI prefix that forwards any command to a server's `cli.run` method through RpcClient and mirrors its output and exit code |
 | users.info | Slack API endpoint that returns a single user's profile |
 | users.list | Slack API endpoint that returns all workspace members |
 | workspace database | The per-workspace SQLite cache under `~/.cache/slackx`, one `threads.db` per workspace name |
@@ -91,5 +102,6 @@ Terms within each table are sorted alphabetically by the first column.
 | MPIM | Multi-Party Instant Message (Slack group DM) |
 | NFR | Non-Functional Requirement |
 | RNG | Random Number Generator |
+| RPC | Remote Procedure Call |
 | SQL | Structured Query Language |
 | XDG | X Desktop Group (the freedesktop.org base directory spec) |

@@ -5,16 +5,19 @@
 
 slackx (package `slackx`) is a single-user Python 3.13 tool with two entry points: a cyclopts CLI and a FastAPI web server.
 The CLI talks to a cache orchestration layer, which calls an async Slack client and writes to a per-workspace SQLite database through a synchronous storage layer.
+The same FastAPI app also exposes the CLI's operations as a JSON-RPC 2.0 API at `POST /rpc`, which other programs call directly or through the CLI's transparent `--remote` mode.
 A standalone fake Slack server provides deterministic data for tests and local development.
 
 ```mermaid
 flowchart TB
     subgraph CLI["CLI groups (cyclopts)"]
         conv["conversations fetch / get / search / poll"]
-        chans["channels fetch / list"]
-        usrs["users fetch / list"]
+        chans["channels fetch / get / list"]
+        usrs["users fetch / get / list"]
         caches["cache status / clear"]
         reads["conversations read mark / show / clear"]
+        rpcs["rpc serve / call / exec / methods"]
+        remote["--remote (forward any command)"]
         serve["serve"]
     end
 
@@ -36,6 +39,12 @@ flowchart TB
         spa["SPA (server/static): index.html, app.js, style.css"]
     end
 
+    subgraph RPCL["JSON-RPC surface"]
+        endpoint["rpc/server.py: POST /rpc mounted on the app"]
+        registry["rpc/methods.py: method registry and handlers"]
+        rpcclient["rpc/client.py: RpcClient (httpx)"]
+    end
+
     cfg["config.py: credentials + XDG paths"]
     urls["urls.py: permalink to ThreadRef"]
     ws["workspace.py: per-workspace DB resolution"]
@@ -46,6 +55,13 @@ flowchart TB
     caches --> storage
     reads --> storage
     serve --> api
+    rpcs --> api
+    api -. "mounts" .-> endpoint
+    endpoint --> registry
+    registry --> cache
+    registry --> storage
+    remote --> rpcclient
+    rpcclient --> endpoint
     cache --> client
     cache --> storage
     client -. "configurable base_url" .-> fake
@@ -131,14 +147,15 @@ A read marker is keyed by `(reader, channel, thread_ts)` and points at a channel
 
 | Component | Responsibility | Technology |
 |---|---|---|
-| CLI | Command groups (`conversations`, `channels`, `users`, `cache`, `serve`) and the `conversations read` subgroup, argument parsing, rendering | cyclopts, structlog |
+| CLI | Command groups (`conversations`, `channels`, `users`, `cache`, `rpc`, `serve`) and the `conversations read` subgroup, argument parsing, rendering, and the `--remote` forwarding mode | cyclopts, structlog |
 | Cache orchestration | Full and incremental thread fetch, channel message fetch, search caching, user/channel fetch, result dataclasses | asyncio, dataclasses, structlog |
 | `SlackClient` | Slack Web API calls with cursor and page pagination, `Retry-After` backoff, proactive rate-limit throttling, configurable base URL | httpx (async), structlog |
 | `storage` | SQLite schema, upsert and query operations, incremental state, deleted-message marking, FTS5 search, read markers, status and clear, per-query SQL timing | sqlite3, structlog |
 | `config` | Credential resolution (env then config file), XDG config and cache paths, API base URL override | python-dotenv, os |
 | `urls` | Slack permalink parsing into `ThreadRef`, channel URL parsing, channel and ts validation | urllib.parse, dataclasses |
 | `workspace` | Per-workspace database resolution via `auth.test`, name cache keyed by hashed credentials, last-used pointer, offline fallback | pathlib, hashlib, structlog |
-| `server/app` | FastAPI JSON API (summary, users, channels, messages, threads, search, read markers) and refresh endpoints, plus SPA serving | FastAPI, uvicorn, pydantic |
+| `server/app` | FastAPI JSON API (summary, users, channels, messages, threads, search, read markers), the JSON-RPC endpoint (`POST /rpc`), and refresh endpoints, plus SPA serving | FastAPI, uvicorn, pydantic |
+| `rpc` | JSON-RPC 2.0 method registry, parameter validation, transport routes, and the async Python client; handlers reuse the CLI helpers and payload builders | FastAPI route, dataclasses, httpx (client) |
 | `fake_slack` | Deterministic in-process fake Slack API server with seeded workspace generation and per-endpoint rate limiting | http.server, random, structlog |
 | Web SPA | Static browser UI for browsing channels, messages, and threads, with search and refresh, served under `/` and `/archives/...` | HTML, JavaScript, CSS (server/static) |
 
@@ -214,6 +231,34 @@ The SPA at `server/static` is served at `/`, `/archives/{channel_id}`, and `/arc
 POST refresh routes (`/api/users/refresh`, `/api/channels/refresh`, `/api/channels/{id}/refresh`, `/api/channels/{id}/threads/{ts}/refresh`) build a `SlackClient` lazily from configured credentials and the app's API base URL.
 They run the matching cache fetch function and return the updated counts; without credentials they fail with HTTP 503.
 
+### JSON-RPC request path
+
+`slackx rpc serve` starts the same FastAPI app as `serve`, with `POST /rpc` mounted by `rpc.server.add_rpc_routes`.
+The transport validates the JSON-RPC 2.0 envelope (single request, batch array, notification), checks the bearer token when one is configured, and dispatches to the registry in `rpc.methods`.
+Each handler receives an `RpcContext` that pins the database path and API base URL at startup, reuses the CLI helpers and cache orchestration functions, and builds results with the same payload builders the CLI's `--json` output uses.
+`cli.run` executes a CLI command in a child process with the server's database and API flags appended, so the child reads and writes the same cache; `--no-allow-exec` removes it from the catalog.
+`slackx --remote [URL]` and `slackx rpc exec` forward any command to `cli.run` through `rpc.client.RpcClient` and mirror the output and exit code locally.
+A non-loopback bind without a token is refused at startup.
+
+```mermaid
+sequenceDiagram
+    participant Client as "Client program / slackx --remote"
+    participant RPC as "POST /rpc (rpc/server.py)"
+    participant Methods as "rpc/methods.py"
+    participant Store as "storage (SQLite)"
+    participant Child as "slackx child (cli.run)"
+    Client->>RPC: JSON-RPC request
+    RPC->>RPC: token check (when configured)
+    RPC->>Methods: dispatch(name, params)
+    Methods->>Store: cached reads via shared payload builders
+    Methods-->>RPC: result or RpcError
+    RPC-->>Client: JSON-RPC response
+    Client->>RPC: cli.run {"args": [...]}
+    RPC->>Child: subprocess with server db flags
+    Child-->>RPC: stdout, stderr, exit code
+    RPC-->>Client: result
+```
+
 ```mermaid
 sequenceDiagram
     participant Browser
@@ -258,4 +303,8 @@ Monitoring, logging, and alerting live in `observability.md`.
 - Workspace identity comes from `auth.test` (URL subdomain preferred, team id fallback), so every command resolves the workspace the same way.
 - The token-to-workspace mapping is cached on disk under a hashed key, so `auth.test` runs once per credential set and no secret is stored.
 - A last-used workspace pointer lets read-only commands resolve their database offline.
+- The JSON-RPC handlers reuse the CLI's helpers and payload builders, so RPC results match the CLI's `--json` output and the logic is not duplicated.
+- The RPC endpoint is mounted on the same FastAPI app as the web UI, so `serve` and `rpc serve` run one process with one warm cache.
+- `cli.run` appends the server's database path, API base URL, and log level to the forwarded command, so remote commands target the same cache and Slack instance.
+- Command execution over RPC is on by default but removable (`--no-allow-exec`), and a non-loopback bind requires a bearer token.
 - The legacy single `threads.db` is never migrated; it stays in place and only serves offline fallback reads.

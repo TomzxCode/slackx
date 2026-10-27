@@ -3,7 +3,7 @@
 
 ## Purpose
 
-slackx (package `slackx`) is a single-user Python 3.13 command-line tool that caches Slack threads, channel messages, users, channels, and search results into a local SQLite database, one database per workspace. It fetches on demand through the Slack Web API over async httpx and stores everything with sqlite3, so cached conversations can be read offline and queried without a workspace export. It also serves a local FastAPI web UI (`serve`) to browse the cache in a Slack-like interface, and ships a built-in fake Slack API server for testing and development without hitting the real Slack API.
+slackx (package `slackx`) is a single-user Python 3.13 command-line tool that caches Slack threads, channel messages, users, channels, and search results into a local SQLite database, one database per workspace. It fetches on demand through the Slack Web API over async httpx and stores everything with sqlite3, so cached conversations can be read offline and queried without a workspace export. It also serves a local FastAPI web UI (`serve`) to browse the cache in a Slack-like interface, exposes the same operations as a JSON-RPC 2.0 API (`POST /rpc`, started with `rpc serve` or reachable through the global `--remote` prefix), and ships a built-in fake Slack API server for testing and development without hitting the real Slack API.
 
 ## Key Stakeholders
 
@@ -11,7 +11,7 @@ slackx (package `slackx`) is a single-user Python 3.13 command-line tool that ca
 |---|---|---|
 | Developer / researcher | Author and primary user | Reliable offline access to cached Slack conversations for analysis, archival, or reading |
 | Slack workspace members | Data subjects | Their messages are fetched and stored locally |
-| Cache consumers | Other local programs sharing one cache | Stable read markers so each consumer tracks its own last-read position without overwriting others |
+| Cache consumers | Other local programs sharing one cache | Stable read markers so each consumer tracks its own last-read position without overwriting others, and a typed JSON-RPC surface to call instead of spawning a process per operation |
 | Maintainer | Repository owner | A working CLI, web UI, and fake server that pass CI |
 
 Named individuals cannot be determined from the code alone. The author listed in pyproject.toml is Tom Rochette, and CODEOWNERS lists `@tomzx`.
@@ -24,11 +24,12 @@ Named individuals cannot be determined from the code alone. The author listed in
 - Fetching channel message histories via conversations.history, with optional full thread reply expansion
 - Live workspace search via search.messages, caching each match under its channel and thread
 - Polling multiple channels concurrently for new messages
-- Bulk caching of all workspace users and visible channels, plus single-entity refresh via users.info and conversations.info
+- Bulk caching of all workspace users and visible channels, plus single-entity fetch and lookup via users.info and conversations.info (`users get`, `channels get`, and the matching RPC methods)
 - Read markers that track each consumer's last-read position in a channel or thread
 - Local full-text search over cached messages using SQLite FTS5
 - Human-readable, JSON, and JSONL output, with selectable fields
 - A local web UI and JSON HTTP API (`serve`) to browse the cache, search it, and trigger refreshes when credentials are configured
+- A JSON-RPC 2.0 endpoint on the same server (`POST /rpc`) exposing the CLI's operations, callable with `rpc call`, `rpc exec`, or the global `--remote` prefix, with optional bearer-token auth
 - Cache inspection and clearing via `cache status` and `cache clear`
 - Credential management via environment variables and a config file
 - Per-workspace cache databases, with the workspace discovered automatically via auth.test
@@ -47,6 +48,7 @@ Named individuals cannot be determined from the code alone. The author listed in
 - Slack API rate limits: the client retries up to 5 times on HTTP 429 with exponential backoff based on the Retry-After header, and proactively throttles using X-RateLimit-Remaining
 - Authentication requires either a bot token (xoxb) or a browser token (xoxc) with its matching d cookie (xoxd), both from the same browser session
 - SQLite is single-writer, so concurrent writes from multiple processes are not supported
-- The tool runs as a single-user CLI; the only server components are the local web UI (`serve`) and the built-in fake Slack API server for testing
+- The tool runs as a single-user CLI; the only server components are the local web UI (`serve`, which also carries the JSON-RPC endpoint) and the built-in fake Slack API server for testing
+- The RPC endpoint refuses a non-loopback bind without a bearer token, and command execution over RPC (`cli.run`) can be disabled with `--no-allow-exec`
 - Python 3.13 or newer is required
 - Full-text search depends on SQLite FTS5, which is optional and degrades gracefully when unavailable

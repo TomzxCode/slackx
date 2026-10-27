@@ -32,9 +32,11 @@ The build backend is `uv_build`.
 | ruff | Linting and formatting | `uv run ruff check` / `uv run ruff format --check` (apply with `uv run ruff format`) |
 | pytest | Testing | `uv run pytest` |
 | mkdocs | Documentation site build | `uv run mkdocs build`, preview with `uv run mkdocs serve` |
+| test-slackx agent skill | Traced test runs by level (cli-fake, cli-real, ui-fake, ui-real, static, test), including Playwright checks for the web UI | `/test-slackx <level>` (`.agents/skills/test-slackx`, not yet committed) |
 
 There is no type checker configured (no mypy or pyright dependency or configuration), so no type-check command exists.
-There is no separate build step for the Python package beyond `uv build`, and the web SPA ships prebuilt under `src/slackx/web/dist`.
+There is no separate build step for the Python package beyond `uv build`.
+The web SPA source and build live under `web/` (`web/dist`); the assets served by the server are committed under `src/slackx/server/static`.
 
 ## Environments
 
@@ -93,4 +95,5 @@ They are read at runtime from environment variables (`SLACK_TOKEN` and `SLACK_CO
 An optional `SLACK_API_BASE_URL` override is resolved the same way.
 The `.env` file is gitignored and is not committed.
 Credential resolution prefers environment variables over the config file, and an `xoxc-` token requires its matching `xoxd-` cookie from the same browser session.
+The JSON-RPC server takes an optional bearer token from `SLACKX_RPC_TOKEN` (or `--token`), which clients must present on every request and which is required for a non-loopback bind; clients locate a server through `SLACKX_RPC_URL`.
 No secret values are recorded in this file.

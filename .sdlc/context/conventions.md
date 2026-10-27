@@ -4,7 +4,7 @@
 ## Naming
 
 - **Files:** snake_case for Python modules.
-  - Modules ending in `_fetch`, `_list`, `_show`, `_search`, `_poll`, `_mark`, `_clear`, `_status`, or `_serve` name one CLI command each.
+  - Modules ending in `_fetch`, `_get`, `_list`, `_show`, `_search`, `_poll`, `_mark`, `_clear`, `_status`, `_call`, `_exec`, `_methods`, or `_serve` name one CLI command each.
   - Modules starting with `_` are package-private helpers.
   - Test files are `test_<module>.py` matching the module under test.
 - **Variables:** snake_case (e.g. `thread_ts`, `latest_reply`, `user_names`).
@@ -13,6 +13,7 @@
 - **Constants:** UPPER_SNAKE_CASE (e.g. `SCHEMA`, `SEARCH_SCHEMA`, `DEFAULT_LIMIT`, `MAX_RETRIES`, `CHANNEL_PREFIXES`).
 - **Private helpers:** prefixed with an underscore (e.g. `_build_client`, `_format_ts`, `_latest_ts`, `_log_sql`).
 - **CLI subcommands:** noun-verb groups built with cyclopts (e.g. `conversations fetch`, `channels list`, `users fetch`, `conversations read mark`).
+- **RPC methods:** dot-namespaced `group.verb` names mirroring the CLI groups (e.g. `cache.status`, `conversations.get`, `read.mark`, `cli.run`).
 
 ## Directory Structure
 
@@ -31,10 +32,17 @@ slackx/
       storage.py             # SQLite schema, CRUD, FTS5 search, read markers
       urls.py                # Permalink parsing into ThreadRef
       workspace.py           # Per-workspace cache database resolution
+      __main__.py            # python -m slackx entry point
+      rpc/
+        __init__.py
+        client.py            # RpcClient: async JSON-RPC client over httpx
+        methods.py           # RPC method registry, parameter validation, handlers
+        protocol.py          # JSON-RPC 2.0 error codes and RpcError
+        server.py            # POST /rpc routes mounted on the FastAPI app
       cli/
         __init__.py          # main entry point, registers command modules
         commands/            # One module per command (cache_clear, channels_fetch, ...)
-        _internal/           # Shared app, args, client, rendering helpers (_render, _blocks, _mrkdwn, _style, _format, _fields, _refs, _poll, _duration, _channels, _client, _shared)
+        _internal/           # Shared app, args, client, rendering helpers (_render, _blocks, _mrkdwn, _style, _format, _fields, _refs, _poll, _duration, _channels, _client, _remote, _shared)
       server/
         app.py               # FastAPI JSON API and static SPA serving
         static/              # Served SPA assets
@@ -49,6 +57,7 @@ slackx/
     test_config.py           # Tests for config resolution
     test_fake_slack.py       # Tests for fake Slack server
     test_mrkdwn.py           # Tests for mrkdwn rendering
+    test_rpc.py              # Tests for the JSON-RPC endpoint, methods, and CLI surfaces
     test_server.py           # Tests for FastAPI JSON API
     test_slack_api.py        # Tests for Slack API client
     test_storage.py          # Tests for SQLite storage

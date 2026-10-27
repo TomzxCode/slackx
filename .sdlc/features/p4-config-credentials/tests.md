@@ -10,7 +10,7 @@ session_link: "http://localhost:10000/?session=ses_ecd146300ffene4fNEdCg3uMTJ"
 
 This plan covers the credential and path helpers in `src/slackx/config.py`: environment and config file resolution, environment precedence, the missing-token failure, and the XDG cache path default.
 The tests live in `tests/test_config.py` and call the `config` functions directly.
-It does not cover the API base URL override (FR-08), the `require=False` path (FR-09), the xoxc- without cookie error (FR-05), the `--db` and `--api-base-url` CLI wiring in `cli/_internal/_client.py`, or the per-workspace database path resolution (FEAT-0008, covered by `tests/test_workspace.py`).
+It does not cover the API base URL override (FR-08), the `require=False` path (FR-09), the xoxc- without cookie error (FR-05), the `--db` and `--api-base-url` CLI wiring in `cli/_internal/_client.py`, or the per-workspace database path resolution (FEAT-p8, covered by `tests/test_workspace.py`).
 
 ## Unit Tests
 

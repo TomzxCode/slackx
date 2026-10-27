@@ -13,7 +13,7 @@ Covers `cache.fetch_channel_messages` and its `ChannelFetchResult`, the
 helpers (`mark_channel_roots_deleted_not_in`, `mark_thread_messages_deleted_not_in`,
 `count_channel_messages`), and the `conversations fetch <target> [--full-threads]`
 CLI path including `--last`.
-Out of scope: thread-only fetching (FEAT-0001), search expansion, user and
+Out of scope: thread-only fetching (FEAT-p1), search expansion, user and
 channel caching, the web UI, and rendering internals.
 
 ## Unit Tests

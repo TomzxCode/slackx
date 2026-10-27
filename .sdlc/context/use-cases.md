@@ -27,8 +27,9 @@ Each entry is a goal an actor has for using the tool, not an operation the tool 
 | UC-5 | Browse the whole cached workspace in a UI | Developer / researcher | Serve a local Slack-like web UI to read channels and threads and full-text search every cached message. |
 | UC-6 | Share one cache across programs | Cache consumer (other local program) | Keep an independent read position per consumer, so several local programs read the same cache without overwriting each other's place. |
 | UC-7 | Develop and test without a live workspace | Contributor | Run the built-in fake Slack server with deterministic data and point the CLI at it. |
+| UC-8 | Drive the tool from other local programs | Cache consumer (other local program) | Call one long-running server over JSON-RPC (`POST /rpc`, discovered via `rpc.discover`) or forward any command with `--remote` and `rpc exec`, getting the CLI's JSON payloads without spawning a process per operation. |
 
-Operational capabilities the tool also offers (credential setup, `cache status`, `cache clear`, and direct listing of cached users and channels) are recorded in `project-overview.md` scope.
+Operational capabilities the tool also offers (credential setup, `cache status`, `cache clear`, and direct lookup and listing of cached users and channels via `users get`, `users list`, `channels get`, and `channels list`) are recorded in `project-overview.md` scope.
 They support the goals above rather than being goals themselves.
 
 ## Wanted

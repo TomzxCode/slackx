@@ -64,29 +64,29 @@ nav:
     - Observability: sdlc/context/observability.md
   - Features:
     - Thread caching:
-      - Requirements: sdlc/features/FEAT-0001-thread-caching/requirements.md
-      - Specification: sdlc/features/FEAT-0001-thread-caching/specification.md
+      - Requirements: sdlc/features/p1-thread-caching/requirements.md
+      - Specification: sdlc/features/p1-thread-caching/specification.md
     - User caching:
-      - Requirements: sdlc/features/FEAT-0002-user-caching/requirements.md
-      - Specification: sdlc/features/FEAT-0002-user-caching/specification.md
+      - Requirements: sdlc/features/p2-user-caching/requirements.md
+      - Specification: sdlc/features/p2-user-caching/specification.md
     - Channel caching:
-      - Requirements: sdlc/features/FEAT-0003-channel-caching/requirements.md
-      - Specification: sdlc/features/FEAT-0003-channel-caching/specification.md
+      - Requirements: sdlc/features/p3-channel-caching/requirements.md
+      - Specification: sdlc/features/p3-channel-caching/specification.md
     - Configuration:
-      - Requirements: sdlc/features/FEAT-0004-config-credentials/requirements.md
-      - Specification: sdlc/features/FEAT-0004-config-credentials/specification.md
+      - Requirements: sdlc/features/p4-config-credentials/requirements.md
+      - Specification: sdlc/features/p4-config-credentials/specification.md
     - URL parsing:
-      - Requirements: sdlc/features/FEAT-0005-url-parsing/requirements.md
-      - Specification: sdlc/features/FEAT-0005-url-parsing/specification.md
+      - Requirements: sdlc/features/p5-url-parsing/requirements.md
+      - Specification: sdlc/features/p5-url-parsing/specification.md
     - Channel message fetching:
-      - Requirements: sdlc/features/FEAT-0006-channel-message-fetching/requirements.md
-      - Specification: sdlc/features/FEAT-0006-channel-message-fetching/specification.md
+      - Requirements: sdlc/features/p6-channel-message-fetching/requirements.md
+      - Specification: sdlc/features/p6-channel-message-fetching/specification.md
     - Fake Slack server:
-      - Requirements: sdlc/features/FEAT-0007-fake-slack-server/requirements.md
-      - Specification: sdlc/features/FEAT-0007-fake-slack-server/specification.md
+      - Requirements: sdlc/features/p7-fake-slack-server/requirements.md
+      - Specification: sdlc/features/p7-fake-slack-server/specification.md
     - Per-workspace database:
-      - Requirements: sdlc/features/FEAT-0008-per-workspace-database/requirements.md
-      - Specification: sdlc/features/FEAT-0008-per-workspace-database/specification.md
+      - Requirements: sdlc/features/p8-per-workspace-database/requirements.md
+      - Specification: sdlc/features/p8-per-workspace-database/specification.md
 
 exclude_docs: |
   sdlc/templates/

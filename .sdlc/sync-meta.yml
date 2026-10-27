@@ -1,15 +1,85 @@
-agents_ref: 72b7e83c9bfdb0efb7a1ed359fd8566f8bd0516a
+agents_ref: ba8ed18fe5dda1d3276e9487f5697c3a6b1a472d
 agents_remote: https://github.com/tomzx/agents.git
-last_synced: 2026-10-13
-code_ref: d5cdf8ba842cc9caa49daf421847d921591df7ab
+last_synced: 2026-10-27
+code_ref: bd1e25a60535a44fd3bb4d9d9e95cc073e1579aa
 code_index:
-  "p3-read-markers":
+  "p1-thread-caching":
+    - src/slackx/cache.py
+    - src/slackx/cli/commands/conversations_fetch.py
+    - src/slackx/urls.py
+    - tests/test_cache.py
+    - docs/user-guide/fetching-threads.md
+  "p2-user-caching":
+    - src/slackx/cli/commands/users_fetch.py
+    - src/slackx/cli/commands/users_get.py
+    - src/slackx/cli/commands/users_list.py
+    - src/slackx/cache.py
+    - tests/test_cli.py
+    - docs/user-guide/caching-users.md
+  "p3-channel-caching":
+    - src/slackx/cli/commands/channels_fetch.py
+    - src/slackx/cli/commands/channels_get.py
+    - src/slackx/cli/commands/channels_list.py
+    - src/slackx/cache.py
+    - tests/test_cli.py
+    - docs/user-guide/caching-channels.md
+  "p4-config-credentials":
+    - src/slackx/config.py
+    - tests/test_config.py
+    - docs/user-guide/configuration.md
+    - docs/user-guide/getting-started.md
+  "p5-url-parsing":
+    - src/slackx/urls.py
+    - tests/test_urls.py
+  "p6-channel-message-fetching":
+    - src/slackx/cli/commands/conversations_fetch.py
+    - src/slackx/cache.py
+    - docs/user-guide/fetching-channel-messages.md
+  "p7-fake-slack-server":
+    - src/slackx/fake_slack
+    - tests/test_fake_slack.py
+    - docs/developer-guide/fake-slack-server.md
+    - .agents/skills/fake-slack-server
+  "p8-per-workspace-database":
+    - src/slackx/workspace.py
+    - tests/test_workspace.py
+  "p9-conversation-search":
+    - src/slackx/cli/commands/conversations_search.py
+    - src/slackx/cache.py
+    - tests/test_cache.py
+    - docs/user-guide/searching.md
+  "p10-channel-polling":
+    - src/slackx/cli/commands/conversations_poll.py
+    - src/slackx/cli/_internal/_poll.py
+    - src/slackx/cli/commands/conversations_fetch.py
+  "p11-read-markers":
     - src/slackx/cli/commands/read_mark.py
     - src/slackx/cli/commands/read_show.py
     - src/slackx/cli/commands/read_clear.py
     - src/slackx/cli/commands/conversations_get.py
     - docs/user-guide/tracking-last-read.md
-  "p4-web-ui":
+  "p12-web-ui":
     - src/slackx/server/app.py
     - src/slackx/server/static
+    - tests/test_server.py
     - docs/user-guide/serving.md
+  "p13-cache-management":
+    - src/slackx/cli/commands/cache_clear.py
+    - src/slackx/cli/commands/cache_status.py
+  "p14-message-rendering":
+    - src/slackx/cli/_internal/_render.py
+    - src/slackx/cli/_internal/_blocks.py
+    - src/slackx/cli/_internal/_mrkdwn.py
+    - src/slackx/cli/_internal/_style.py
+    - tests/test_blocks.py
+    - tests/test_mrkdwn.py
+    - tests/test_style.py
+  "p15-json-rpc":
+    - src/slackx/rpc
+    - src/slackx/cli/commands/rpc_call.py
+    - src/slackx/cli/commands/rpc_exec.py
+    - src/slackx/cli/commands/rpc_methods.py
+    - src/slackx/cli/commands/rpc_serve.py
+    - src/slackx/cli/_internal/_remote.py
+    - tests/test_rpc.py
+    - docs/user-guide/json-rpc.md
