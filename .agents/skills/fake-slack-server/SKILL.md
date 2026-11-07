@@ -130,9 +130,9 @@ from slackx.fake_slack import Workspace, WorkspaceParams, run_server
 # Generate workspace data without starting a server
 params = WorkspaceParams(seed=42, num_users=10, num_channels=5, num_ims=2, num_threads=15)
 workspace = Workspace(params=params)
-print(len(workspace.users))   # 10
+print(len(workspace.users))  # 10
 print(len(workspace.channels))  # 7 (5 channels + 2 direct messages)
-print(len(workspace.threads))   # 15
+print(len(workspace.threads))  # 15
 
 # Start an HTTP server
 server = run_server(host="127.0.0.1", port=0, params=params)
