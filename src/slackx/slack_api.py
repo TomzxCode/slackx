@@ -191,6 +191,7 @@ class SlackClient:
         return self._auth_test_data
 
     async def aclose(self) -> None:
+        """Close the underlying ``httpx.AsyncClient`` if this instance created one."""
         if self._client is not None:
             await self._client.aclose()
 
