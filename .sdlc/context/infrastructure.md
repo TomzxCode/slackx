@@ -55,7 +55,7 @@ The CLI runs on the developer's own machine and the web UI is served locally by 
 | `.github/workflows/ci.yml` | push and pull request to `main` or `master` | `uv sync --all-extras --dev`, `uv run ruff check`, `uv run ruff format --check`, `uv run pytest` |
 | `.github/workflows/static-docs.yml` | push to `main` and manual `workflow_dispatch` | build docs with `uv run mkdocs build` and deploy the site to GitHub Pages |
 
-Dependabot (`.github/dependabot.yml`) opens weekly update pull requests for both `github-actions` and `pip` dependencies.
+Dependabot (`.github/dependabot.yml`) opens daily update pull requests for both `github-actions` and `uv` dependencies.
 Code ownership is declared in `.github/CODEOWNERS` as `* @tomzx`.
 
 ## Deployment
