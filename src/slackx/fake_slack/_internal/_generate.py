@@ -205,12 +205,7 @@ def _generate_threads(
     available_channel_names = [c["name"] for c in channels if c.get("name")]
     # Map template channel names to available channels (try exact match first)
     # Build routes from engineering/design/etc to actual channel IDs
-
     # Build a mapping from generic channel names to actual IDs
-    def _channel_id(channel_name: str) -> str | None:
-        if channel_name in channel_lookup:
-            return channel_lookup[channel_name]
-        return None
 
     # Direct message channels host two-person conversations between the
     # authenticated user (the first generated user) and the IM's peer.
@@ -414,12 +409,6 @@ def _generate_threads(
 
         # Build context for placeholder filling
         context: dict[str, str] = {}
-
-        def _ctx_val(template: str, known: dict[str, str]) -> str:
-            result = template
-            for k, v in known.items():
-                result = result.replace(f"{{{k}}}", v)
-            return result
 
         # Pre-fill some common placeholders
         for key in [
