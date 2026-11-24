@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -60,94 +61,94 @@ def _msg(ts: str, text: str = "hi", user: str = "U1") -> dict[str, Any]:
 
 
 def test_fetch_thread_initial_full_fetch(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
-    client = FakeClient(
-        batches=[
-            [
-                _msg("1700000000.000100", text="root"),
-                _msg("1700000000.000200", text="reply1"),
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+        client = FakeClient(
+            batches=[
+                [
+                    _msg("1700000000.000100", text="root"),
+                    _msg("1700000000.000200", text="reply1"),
+                ]
             ]
-        ]
-    )
+        )
 
-    result = asyncio.run(fetch_thread(conn, client, ref))
+        result = asyncio.run(fetch_thread(conn, client, ref))
 
-    assert result.incremental is False
-    assert result.fetched_messages == 2
-    assert result.total_messages == 2
-    assert client.calls[0]["oldest"] is None
+        assert result.incremental is False
+        assert result.fetched_messages == 2
+        assert result.total_messages == 2
+        assert client.calls[0]["oldest"] is None
 
-    state = get_thread_state(conn, "C1", "1700000000.000100")
-    assert state is not None
-    assert state.latest_reply == "1700000000.000200"
+        state = get_thread_state(conn, "C1", "1700000000.000100")
+        assert state is not None
+        assert state.latest_reply == "1700000000.000200"
 
 
 def test_fetch_thread_incremental_uses_latest_reply(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
-    client = FakeClient(
-        batches=[
-            [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
-            [_msg("1700000000.000200", text="r1"), _msg("1700000000.000300", text="r2")],
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+        client = FakeClient(
+            batches=[
+                [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
+                [_msg("1700000000.000200", text="r1"), _msg("1700000000.000300", text="r2")],
+            ]
+        )
+
+        asyncio.run(fetch_thread(conn, client, ref))
+        result = asyncio.run(fetch_thread(conn, client, ref))
+
+        assert result.incremental is True
+        assert client.calls[1]["oldest"] == "1700000000.000200"
+        assert result.total_messages == 3
+
+        messages = load_thread(conn, ref)
+        assert [m.ts for m in messages] == [
+            "1700000000.000100",
+            "1700000000.000200",
+            "1700000000.000300",
         ]
-    )
-
-    asyncio.run(fetch_thread(conn, client, ref))
-    result = asyncio.run(fetch_thread(conn, client, ref))
-
-    assert result.incremental is True
-    assert client.calls[1]["oldest"] == "1700000000.000200"
-    assert result.total_messages == 3
-
-    messages = load_thread(conn, ref)
-    assert [m.ts for m in messages] == [
-        "1700000000.000100",
-        "1700000000.000200",
-        "1700000000.000300",
-    ]
 
 
 def test_fetch_thread_incremental_with_no_new_messages_preserves_state(
     tmp_path: Path,
 ) -> None:
-    conn = connect(tmp_path / "cache.db")
-    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
-    client = FakeClient(
-        batches=[
-            [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
-            [],
-        ]
-    )
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+        client = FakeClient(
+            batches=[
+                [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
+                [],
+            ]
+        )
 
-    asyncio.run(fetch_thread(conn, client, ref))
-    result = asyncio.run(fetch_thread(conn, client, ref))
+        asyncio.run(fetch_thread(conn, client, ref))
+        result = asyncio.run(fetch_thread(conn, client, ref))
 
-    assert result.incremental is True
-    assert result.fetched_messages == 0
-    assert result.total_messages == 2
+        assert result.incremental is True
+        assert result.fetched_messages == 0
+        assert result.total_messages == 2
 
-    state = get_thread_state(conn, "C1", "1700000000.000100")
-    assert state is not None
-    assert state.latest_reply == "1700000000.000200"
+        state = get_thread_state(conn, "C1", "1700000000.000100")
+        assert state is not None
+        assert state.latest_reply == "1700000000.000200"
 
 
 def test_fetch_thread_updates_edited_message(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
-    client = FakeClient(
-        batches=[
-            [_msg("1700000000.000100", text="original")],
-            [_msg("1700000000.000100", text="edited")],
-        ]
-    )
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+        client = FakeClient(
+            batches=[
+                [_msg("1700000000.000100", text="original")],
+                [_msg("1700000000.000100", text="edited")],
+            ]
+        )
 
-    asyncio.run(fetch_thread(conn, client, ref))
-    asyncio.run(fetch_thread(conn, client, ref))
+        asyncio.run(fetch_thread(conn, client, ref))
+        asyncio.run(fetch_thread(conn, client, ref))
 
-    messages = load_thread(conn, ref)
-    assert len(messages) == 1
-    assert messages[0].text == "edited"
+        messages = load_thread(conn, ref)
+        assert len(messages) == 1
+        assert messages[0].text == "edited"
 
 
 class FakeListClient:
@@ -224,83 +225,83 @@ class FakeChannelClient:
 
 
 def test_fetch_users_caches_all(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeListClient(
-        users=[
-            {"id": "U1", "name": "alice"},
-            {"id": "U2", "name": "bob"},
-        ]
-    )
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeListClient(
+            users=[
+                {"id": "U1", "name": "alice"},
+                {"id": "U2", "name": "bob"},
+            ]
+        )
 
-    result = asyncio.run(fetch_users(conn, client))
+        result = asyncio.run(fetch_users(conn, client))
 
-    assert result.processed == 2
-    assert result.added == 2
-    assert result.total == 2
-    assert [u.id for u in load_users(conn)] == ["U1", "U2"]
-    user = get_user(conn, "U1")
-    assert user is not None
-    assert user.name == "alice"
+        assert result.processed == 2
+        assert result.added == 2
+        assert result.total == 2
+        assert [u.id for u in load_users(conn)] == ["U1", "U2"]
+        user = get_user(conn, "U1")
+        assert user is not None
+        assert user.name == "alice"
 
 
 def test_fetch_channels_caches_all(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeListClient(
-        channels=[
-            {"id": "C1", "name": "general", "is_private": False},
-            {"id": "C2", "name": "secret", "is_private": True},
-        ]
-    )
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeListClient(
+            channels=[
+                {"id": "C1", "name": "general", "is_private": False},
+                {"id": "C2", "name": "secret", "is_private": True},
+            ]
+        )
 
-    result = asyncio.run(fetch_channels(conn, client))
+        result = asyncio.run(fetch_channels(conn, client))
 
-    assert result.processed == 2
-    assert result.added == 2
-    assert result.total == 2
-    assert [c.id for c in load_channels(conn)] == ["C1", "C2"]
-    channel = get_channel(conn, "C2")
-    assert channel is not None
-    assert channel.is_private is True
+        assert result.processed == 2
+        assert result.added == 2
+        assert result.total == 2
+        assert [c.id for c in load_channels(conn)] == ["C1", "C2"]
+        channel = get_channel(conn, "C2")
+        assert channel is not None
+        assert channel.is_private is True
 
 
 def test_fetch_channel_caches_single(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeListClient(channels=[{"id": "C1", "name": "general", "is_private": False}])
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeListClient(channels=[{"id": "C1", "name": "general", "is_private": False}])
 
-    channel = asyncio.run(fetch_channel(conn, client, "C1"))
+        channel = asyncio.run(fetch_channel(conn, client, "C1"))
 
-    assert channel is not None
-    assert channel.id == "C1"
-    assert channel.name == "general"
-    assert [c.id for c in load_channels(conn)] == ["C1"]
+        assert channel is not None
+        assert channel.id == "C1"
+        assert channel.name == "general"
+        assert [c.id for c in load_channels(conn)] == ["C1"]
 
 
 def test_fetch_channel_returns_none_for_empty_payload(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeListClient(channels=[])
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeListClient(channels=[])
 
-    assert asyncio.run(fetch_channel(conn, client, "C1")) is None
-    assert load_channels(conn) == []
+        assert asyncio.run(fetch_channel(conn, client, "C1")) is None
+        assert load_channels(conn) == []
 
 
 def test_fetch_user_caches_single(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeListClient(users=[{"id": "U1", "name": "alice", "real_name": "Alice Smith"}])
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeListClient(users=[{"id": "U1", "name": "alice", "real_name": "Alice Smith"}])
 
-    user = asyncio.run(fetch_user(conn, client, "U1"))
+        user = asyncio.run(fetch_user(conn, client, "U1"))
 
-    assert user is not None
-    assert user.id == "U1"
-    assert user.name == "alice"
-    assert [u.id for u in load_users(conn)] == ["U1"]
+        assert user is not None
+        assert user.id == "U1"
+        assert user.name == "alice"
+        assert [u.id for u in load_users(conn)] == ["U1"]
 
 
 def test_fetch_user_returns_none_for_empty_payload(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeListClient(users=[])
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeListClient(users=[])
 
-    assert asyncio.run(fetch_user(conn, client, "U1")) is None
-    assert load_users(conn) == []
+        assert asyncio.run(fetch_user(conn, client, "U1")) is None
+        assert load_users(conn) == []
 
 
 class FailingChannelClient:
@@ -330,309 +331,315 @@ class FailingChannelClient:
 
 
 def test_fetch_channels_persists_progress_before_failure(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    page_size = 3
-    pages_before_failure = 2
-    client = FailingChannelClient(page_size=page_size, pages_before_failure=pages_before_failure)
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        page_size = 3
+        pages_before_failure = 2
+        client = FailingChannelClient(
+            page_size=page_size, pages_before_failure=pages_before_failure
+        )
 
-    with pytest.raises(RuntimeError, match="pagination interrupted"):
-        asyncio.run(fetch_channels(conn, client))
+        with pytest.raises(RuntimeError, match="pagination interrupted"):
+            asyncio.run(fetch_channels(conn, client))
 
-    persisted = page_size * pages_before_failure
-    assert count_channels(conn) == persisted
-    assert get_channel(conn, "C0") is not None
-    assert get_channel(conn, f"C{persisted}") is None
+        persisted = page_size * pages_before_failure
+        assert count_channels(conn) == persisted
+        assert get_channel(conn, "C0") is not None
+        assert get_channel(conn, f"C{persisted}") is None
 
 
 def test_fetch_users_is_idempotent(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeListClient(users=[{"id": "U1", "name": "alice"}])
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeListClient(users=[{"id": "U1", "name": "alice"}])
 
-    first = asyncio.run(fetch_users(conn, client))
-    assert first.added == 1
+        first = asyncio.run(fetch_users(conn, client))
+        assert first.added == 1
 
-    result = asyncio.run(fetch_users(conn, client))
-    assert result.processed == 1
-    assert result.added == 0
-    assert result.total == 1
+        result = asyncio.run(fetch_users(conn, client))
+        assert result.processed == 1
+        assert result.added == 0
+        assert result.total == 1
 
 
 def test_fetch_channel_messages_stores_top_level_only(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeChannelClient(
-        history=[
-            _msg("1700000000.000100", text="standalone"),
-            {
-                "ts": "1700000000.000200",
-                "text": "thread parent",
-                "user": "U1",
-                "thread_ts": "1700000000.000200",
-                "reply_count": 2,
-            },
-            _msg("1700000000.000300", text="another standalone"),
-        ],
-    )
-
-    result = asyncio.run(fetch_channel_messages(conn, client, "C1"))
-
-    assert result.fetched_messages == 3
-    assert result.total_messages == 3
-    assert result.threads_with_replies_fetched == 0
-    assert len(client.calls) == 1
-    assert client.calls[0]["method"] == "history"
-
-
-def test_fetch_channel_messages_full_threads_fetches_replies(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeChannelClient(
-        history=[
-            _msg("1700000000.000100", text="standalone"),
-            {
-                "ts": "1700000000.000200",
-                "text": "thread parent",
-                "user": "U1",
-                "thread_ts": "1700000000.000200",
-                "reply_count": 1,
-                "latest_reply": "1700000000.000400",
-            },
-        ],
-        thread_replies={
-            "1700000000.000200": [
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeChannelClient(
+            history=[
+                _msg("1700000000.000100", text="standalone"),
                 {
                     "ts": "1700000000.000200",
                     "text": "thread parent",
                     "user": "U1",
                     "thread_ts": "1700000000.000200",
+                    "reply_count": 2,
                 },
-                _msg("1700000000.000400", text="reply1"),
+                _msg("1700000000.000300", text="another standalone"),
             ],
-        },
-    )
+        )
 
-    result = asyncio.run(fetch_channel_messages(conn, client, "C1", full_threads=True))
+        result = asyncio.run(fetch_channel_messages(conn, client, "C1"))
 
-    # 3 distinct writes: standalone, parent, reply1. The parent appears in
-    # both history and replies but is deduplicated by its canonical payload
-    # (reply_count/latest_reply are contextual metadata, stripped before
-    # comparison), so it is not double-counted.
-    assert result.fetched_messages == 3
-    assert result.total_messages == 3
-    assert result.threads_with_replies_fetched == 1
-    history_calls = [c for c in client.calls if c["method"] == "history"]
-    replies_calls = [c for c in client.calls if c["method"] == "replies"]
-    assert len(history_calls) == 1
-    assert len(replies_calls) == 1
-    assert replies_calls[0]["thread_ts"] == "1700000000.000200"
+        assert result.fetched_messages == 3
+        assert result.total_messages == 3
+        assert result.threads_with_replies_fetched == 0
+        assert len(client.calls) == 1
+        assert client.calls[0]["method"] == "history"
+
+
+def test_fetch_channel_messages_full_threads_fetches_replies(tmp_path: Path) -> None:
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeChannelClient(
+            history=[
+                _msg("1700000000.000100", text="standalone"),
+                {
+                    "ts": "1700000000.000200",
+                    "text": "thread parent",
+                    "user": "U1",
+                    "thread_ts": "1700000000.000200",
+                    "reply_count": 1,
+                    "latest_reply": "1700000000.000400",
+                },
+            ],
+            thread_replies={
+                "1700000000.000200": [
+                    {
+                        "ts": "1700000000.000200",
+                        "text": "thread parent",
+                        "user": "U1",
+                        "thread_ts": "1700000000.000200",
+                    },
+                    _msg("1700000000.000400", text="reply1"),
+                ],
+            },
+        )
+
+        result = asyncio.run(fetch_channel_messages(conn, client, "C1", full_threads=True))
+
+        # 3 distinct writes: standalone, parent, reply1. The parent appears in
+        # both history and replies but is deduplicated by its canonical payload
+        # (reply_count/latest_reply are contextual metadata, stripped before
+        # comparison), so it is not double-counted.
+        assert result.fetched_messages == 3
+        assert result.total_messages == 3
+        assert result.threads_with_replies_fetched == 1
+        history_calls = [c for c in client.calls if c["method"] == "history"]
+        replies_calls = [c for c in client.calls if c["method"] == "replies"]
+        assert len(history_calls) == 1
+        assert len(replies_calls) == 1
+        assert replies_calls[0]["thread_ts"] == "1700000000.000200"
 
 
 def test_fetch_channel_messages_standalone_messages_use_own_ts_as_thread_ts(
     tmp_path: Path,
 ) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeChannelClient(
-        history=[
-            _msg("1700000000.000100", text="standalone"),
-        ],
-    )
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeChannelClient(
+            history=[
+                _msg("1700000000.000100", text="standalone"),
+            ],
+        )
 
-    asyncio.run(fetch_channel_messages(conn, client, "C1"))
+        asyncio.run(fetch_channel_messages(conn, client, "C1"))
 
-    state = get_thread_state(conn, "C1", "1700000000.000100")
-    assert state is not None
+        state = get_thread_state(conn, "C1", "1700000000.000100")
+        assert state is not None
 
 
 def test_fetch_channel_messages_marks_edits_and_deletions(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    asyncio.run(
-        fetch_channel_messages(
-            conn,
-            FakeChannelClient(
-                history=[
-                    _msg("1700000000.000100", text="kept"),
-                    _msg("1700000000.000200", text="to edit"),
-                    _msg("1700000000.000300", text="to delete"),
-                ],
-            ),
-            "C1",
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        asyncio.run(
+            fetch_channel_messages(
+                conn,
+                FakeChannelClient(
+                    history=[
+                        _msg("1700000000.000100", text="kept"),
+                        _msg("1700000000.000200", text="to edit"),
+                        _msg("1700000000.000300", text="to delete"),
+                    ],
+                ),
+                "C1",
+            )
         )
-    )
 
-    # Second fetch: one message edited, one deleted on Slack. The edited
-    # text overwrites the cached row; the deleted one is kept and flagged.
-    second = FakeChannelClient(
-        history=[
-            _msg("1700000000.000100", text="kept"),
-            _msg("1700000000.000200", text="edited"),
-        ],
-    )
-    result = asyncio.run(fetch_channel_messages(conn, second, "C1"))
+        # Second fetch: one message edited, one deleted on Slack. The edited
+        # text overwrites the cached row; the deleted one is kept and flagged.
+        second = FakeChannelClient(
+            history=[
+                _msg("1700000000.000100", text="kept"),
+                _msg("1700000000.000200", text="edited"),
+            ],
+        )
+        result = asyncio.run(fetch_channel_messages(conn, second, "C1"))
 
-    roots = load_channel_thread_roots(conn, "C1")
-    assert [(r.ts, r.text) for r in roots] == [
-        ("1700000000.000300", "to delete"),
-        ("1700000000.000200", "edited"),
-        ("1700000000.000100", "kept"),
-    ]
-    by_ts = {r.ts: r for r in roots}
-    assert by_ts["1700000000.000300"].payload["deleted"] is True
-    assert "deleted" not in by_ts["1700000000.000100"].payload
-    assert result.deleted_messages == 1
-    assert result.total_messages == 3
+        roots = load_channel_thread_roots(conn, "C1")
+        assert [(r.ts, r.text) for r in roots] == [
+            ("1700000000.000300", "to delete"),
+            ("1700000000.000200", "edited"),
+            ("1700000000.000100", "kept"),
+        ]
+        by_ts = {r.ts: r for r in roots}
+        assert by_ts["1700000000.000300"].payload["deleted"] is True
+        assert "deleted" not in by_ts["1700000000.000100"].payload
+        assert result.deleted_messages == 1
+        assert result.total_messages == 3
 
 
 def test_fetch_channel_messages_reconcile_respects_oldest_window(
     tmp_path: Path,
 ) -> None:
-    conn = connect(tmp_path / "cache.db")
-    asyncio.run(
-        fetch_channel_messages(
-            conn,
-            FakeChannelClient(
-                history=[
-                    _msg("1700000000.000100", text="old"),
-                    _msg("1700000000.000200", text="recent"),
-                ],
-            ),
-            "C1",
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        asyncio.run(
+            fetch_channel_messages(
+                conn,
+                FakeChannelClient(
+                    history=[
+                        _msg("1700000000.000100", text="old"),
+                        _msg("1700000000.000200", text="recent"),
+                    ],
+                ),
+                "C1",
+            )
         )
-    )
 
-    # Windowed refetch starting after the old message: the recent one was
-    # deleted on Slack and gets flagged, while the old one sits outside the
-    # window and must stay unmarked even though the response lacks it.
-    second = FakeChannelClient(history=[])
-    result = asyncio.run(fetch_channel_messages(conn, second, "C1", oldest="1700000000.000150"))
+        # Windowed refetch starting after the old message: the recent one was
+        # deleted on Slack and gets flagged, while the old one sits outside the
+        # window and must stay unmarked even though the response lacks it.
+        second = FakeChannelClient(history=[])
+        result = asyncio.run(fetch_channel_messages(conn, second, "C1", oldest="1700000000.000150"))
 
-    roots = load_channel_thread_roots(conn, "C1")
-    by_ts = {r.ts: r for r in roots}
-    assert set(by_ts) == {"1700000000.000100", "1700000000.000200"}
-    assert by_ts["1700000000.000200"].payload["deleted"] is True
-    assert "deleted" not in by_ts["1700000000.000100"].payload
-    assert result.deleted_messages == 1
+        roots = load_channel_thread_roots(conn, "C1")
+        by_ts = {r.ts: r for r in roots}
+        assert set(by_ts) == {"1700000000.000100", "1700000000.000200"}
+        assert by_ts["1700000000.000200"].payload["deleted"] is True
+        assert "deleted" not in by_ts["1700000000.000100"].payload
+        assert result.deleted_messages == 1
 
 
 def test_fetch_channel_messages_full_threads_marks_deleted_replies(
     tmp_path: Path,
 ) -> None:
-    conn = connect(tmp_path / "cache.db")
-    parent_ts = "1700000000.000200"
-    asyncio.run(
-        fetch_channel_messages(
-            conn,
-            FakeChannelClient(
-                history=[
-                    {
-                        "ts": parent_ts,
-                        "text": "parent",
-                        "user": "U1",
-                        "thread_ts": parent_ts,
-                        "reply_count": 2,
-                    },
-                ],
-                thread_replies={
-                    parent_ts: [
-                        {"ts": parent_ts, "text": "parent", "user": "U1", "thread_ts": parent_ts},
-                        _msg("1700000000.000300", text="reply1"),
-                        _msg("1700000000.000400", text="reply2"),
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        parent_ts = "1700000000.000200"
+        asyncio.run(
+            fetch_channel_messages(
+                conn,
+                FakeChannelClient(
+                    history=[
+                        {
+                            "ts": parent_ts,
+                            "text": "parent",
+                            "user": "U1",
+                            "thread_ts": parent_ts,
+                            "reply_count": 2,
+                        },
                     ],
-                },
-            ),
-            "C1",
-            full_threads=True,
+                    thread_replies={
+                        parent_ts: [
+                            {
+                                "ts": parent_ts,
+                                "text": "parent",
+                                "user": "U1",
+                                "thread_ts": parent_ts,
+                            },
+                            _msg("1700000000.000300", text="reply1"),
+                            _msg("1700000000.000400", text="reply2"),
+                        ],
+                    },
+                ),
+                "C1",
+                full_threads=True,
+            )
         )
-    )
 
-    # reply2 was deleted on Slack: kept in the cache, flagged as deleted.
-    second = FakeChannelClient(
-        history=[
-            {
-                "ts": parent_ts,
-                "text": "parent",
-                "user": "U1",
-                "thread_ts": parent_ts,
-                "reply_count": 1,
-            },
-        ],
-        thread_replies={
-            parent_ts: [
-                {"ts": parent_ts, "text": "parent", "user": "U1", "thread_ts": parent_ts},
-                _msg("1700000000.000300", text="reply1"),
+        # reply2 was deleted on Slack: kept in the cache, flagged as deleted.
+        second = FakeChannelClient(
+            history=[
+                {
+                    "ts": parent_ts,
+                    "text": "parent",
+                    "user": "U1",
+                    "thread_ts": parent_ts,
+                    "reply_count": 1,
+                },
             ],
-        },
-    )
-    result = asyncio.run(fetch_channel_messages(conn, second, "C1", full_threads=True))
+            thread_replies={
+                parent_ts: [
+                    {"ts": parent_ts, "text": "parent", "user": "U1", "thread_ts": parent_ts},
+                    _msg("1700000000.000300", text="reply1"),
+                ],
+            },
+        )
+        result = asyncio.run(fetch_channel_messages(conn, second, "C1", full_threads=True))
 
-    messages = load_thread_messages(conn, "C1", parent_ts)
-    by_ts = {m.ts: m for m in messages}
-    assert set(by_ts) == {parent_ts, "1700000000.000300", "1700000000.000400"}
-    assert by_ts["1700000000.000400"].payload["deleted"] is True
-    assert "deleted" not in by_ts["1700000000.000300"].payload
-    assert result.deleted_messages == 1
+        messages = load_thread_messages(conn, "C1", parent_ts)
+        by_ts = {m.ts: m for m in messages}
+        assert set(by_ts) == {parent_ts, "1700000000.000300", "1700000000.000400"}
+        assert by_ts["1700000000.000400"].payload["deleted"] is True
+        assert "deleted" not in by_ts["1700000000.000300"].payload
+        assert result.deleted_messages == 1
 
 
 def test_fetch_thread_full_marks_deleted_replies(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
-    client = FakeClient(
-        batches=[
-            [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
-        ]
-    )
-    asyncio.run(fetch_thread(conn, client, ref))
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+        client = FakeClient(
+            batches=[
+                [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
+            ]
+        )
+        asyncio.run(fetch_thread(conn, client, ref))
 
-    # force_full refetch where r1 no longer exists on Slack.
-    client = FakeClient(batches=[[_msg("1700000000.000100", text="root")]])
-    result = asyncio.run(fetch_thread(conn, client, ref, force_full=True))
+        # force_full refetch where r1 no longer exists on Slack.
+        client = FakeClient(batches=[[_msg("1700000000.000100", text="root")]])
+        result = asyncio.run(fetch_thread(conn, client, ref, force_full=True))
 
-    messages = load_thread(conn, ref)
-    by_ts = {m.ts: m for m in messages}
-    assert set(by_ts) == {"1700000000.000100", "1700000000.000200"}
-    assert by_ts["1700000000.000200"].payload["deleted"] is True
-    assert result.incremental is False
+        messages = load_thread(conn, ref)
+        by_ts = {m.ts: m for m in messages}
+        assert set(by_ts) == {"1700000000.000100", "1700000000.000200"}
+        assert by_ts["1700000000.000200"].payload["deleted"] is True
+        assert result.incremental is False
 
 
 def test_fetch_thread_incremental_does_not_reconcile(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
-    client = FakeClient(
-        batches=[
-            [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
-            # Incremental window: only the latest reply comes back; the
-            # missing root must NOT be treated as deleted.
-            [_msg("1700000000.000200", text="r1")],
-        ]
-    )
-    asyncio.run(fetch_thread(conn, client, ref))
-    asyncio.run(fetch_thread(conn, client, ref))
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+        client = FakeClient(
+            batches=[
+                [_msg("1700000000.000100", text="root"), _msg("1700000000.000200", text="r1")],
+                # Incremental window: only the latest reply comes back; the
+                # missing root must NOT be treated as deleted.
+                [_msg("1700000000.000200", text="r1")],
+            ]
+        )
+        asyncio.run(fetch_thread(conn, client, ref))
+        asyncio.run(fetch_thread(conn, client, ref))
 
-    messages = load_thread(conn, ref)
-    assert [m.ts for m in messages] == ["1700000000.000100", "1700000000.000200"]
-    assert all("deleted" not in m.payload for m in messages)
+        messages = load_thread(conn, ref)
+        assert [m.ts for m in messages] == ["1700000000.000100", "1700000000.000200"]
+        assert all("deleted" not in m.payload for m in messages)
 
 
 def test_fetch_thread_stores_edited_field(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
-    client = FakeClient(
-        batches=[
-            [
-                dict(
-                    _msg("1700000000.000100", text="root"),
-                    edited={"user": "U1", "ts": "1700000000.000150"},
-                ),
-            ],
-        ]
-    )
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        ref = ThreadRef(channel="C1", thread_ts="1700000000.000100")
+        client = FakeClient(
+            batches=[
+                [
+                    dict(
+                        _msg("1700000000.000100", text="root"),
+                        edited={"user": "U1", "ts": "1700000000.000150"},
+                    ),
+                ],
+            ]
+        )
 
-    asyncio.run(fetch_thread(conn, client, ref))
+        asyncio.run(fetch_thread(conn, client, ref))
 
-    messages = load_thread(conn, ref)
-    assert messages[0].payload["edited"] == {"user": "U1", "ts": "1700000000.000150"}
+        messages = load_thread(conn, ref)
+        assert messages[0].payload["edited"] == {"user": "U1", "ts": "1700000000.000150"}
 
-
-# ---------------------------------------------------------------------------
-# fetch_search
-# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # fetch_search
+    # ---------------------------------------------------------------------------
 
 
 class FakeSearchClient:
@@ -677,9 +684,217 @@ class FakeSearchClient:
 
 
 def test_fetch_search_caches_matches_across_threads(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeSearchClient(
-        matches=[
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeSearchClient(
+            matches=[
+                {
+                    "ts": "1700000000.000100",
+                    "thread_ts": "1700000000.000100",
+                    "user": "U1",
+                    "text": "hello world",
+                    "channel": "C1",
+                    "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
+                },
+                {
+                    "ts": "1700000000.000200",
+                    "user": "U2",
+                    "text": "hello there",
+                    "channel": "C2",
+                    "permalink": "https://acme.slack.com/archives/C2/p1700000000000200",
+                },
+            ]
+        )
+
+        result = asyncio.run(fetch_search(conn, client, query="hello"))
+
+        assert len(result.matches) == 2
+        assert result.threads_seen == 2
+        assert result.threads_new == 2
+        assert result.messages_seen == 2
+        assert result.messages_new == 2
+        assert client.search_calls[0]["query"] == "hello"
+
+        # First match sits in a real thread, second is a standalone (no thread_ts).
+        msgs_c1 = load_thread_messages(conn, "C1", "1700000000.000100")
+        assert len(msgs_c1) == 1
+        assert msgs_c1[0].text == "hello world"
+        msgs_c2 = load_thread_messages(conn, "C2", "1700000000.000200")
+        assert len(msgs_c2) == 1
+        assert msgs_c2[0].text == "hello there"
+
+        state = get_thread_state(conn, "C2", "1700000000.000200")
+        assert state is not None
+
+
+def test_fetch_search_normalizes_object_channel(tmp_path: Path) -> None:
+    # Real ``search.messages`` returns ``channel`` as an object, not a bare id.
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeSearchClient(
+            matches=[
+                {
+                    "ts": "1700000000.000100",
+                    "thread_ts": "1700000000.000100",
+                    "user": "U1",
+                    "text": "hello world",
+                    "channel": {"id": "C1", "name": "general"},
+                    "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
+                },
+            ]
+        )
+
+        result = asyncio.run(fetch_search(conn, client, query="hello"))
+
+        assert result.threads_seen == 1
+        assert result.threads_new == 1
+        assert result.messages_seen == 1
+        assert result.messages_new == 1
+        # The match's channel is normalised in place to the bare id.
+        assert result.matches[0]["channel"] == "C1"
+        msgs = load_thread_messages(conn, "C1", "1700000000.000100")
+        assert len(msgs) == 1
+        assert msgs[0].text == "hello world"
+
+
+def test_fetch_search_full_threads_expands_replies(tmp_path: Path) -> None:
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeSearchClient(
+            matches=[
+                {
+                    "ts": "1700000000.000100",
+                    "thread_ts": "1700000000.000100",
+                    "user": "U1",
+                    "text": "parent",
+                    "channel": "C1",
+                },
+            ],
+            thread_replies={
+                ("C1", "1700000000.000100"): [
+                    {
+                        "ts": "1700000000.000100",
+                        "thread_ts": "1700000000.000100",
+                        "user": "U1",
+                        "text": "parent",
+                    },
+                    {"ts": "1700000000.000300", "user": "U2", "text": "reply"},
+                ],
+            },
+        )
+
+        result = asyncio.run(fetch_search(conn, client, query="parent", full_threads=True))
+
+        assert len(result.matches) == 1
+        assert result.threads_seen == 1
+        assert result.threads_new == 1
+        # In --full-threads mode the match itself is not cached directly; the
+        # parent + reply arrive via conversations.replies, both new.
+        assert result.messages_seen == 2
+        assert result.messages_new == 2
+        assert len(client.replies_calls) == 1
+        assert client.replies_calls[0]["thread_ts"] == "1700000000.000100"
+
+        msgs = load_thread_messages(conn, "C1", "1700000000.000100")
+        assert [m.ts for m in msgs] == ["1700000000.000100", "1700000000.000300"]
+
+
+def test_fetch_search_reply_match_keys_thread_by_permalink_root(tmp_path: Path) -> None:
+    """A reply match has no ``thread_ts`` but its permalink carries the root.
+
+    Slack returns ``thread_ts: null`` for a reply in search results, so keying
+    the cache off the match's own ``ts`` would file it under the reply ts and
+    make every later ``slackx conversations get <reply permalink>`` (which resolves the root
+    from the permalink) a cache miss.
+    """
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeSearchClient(
+            matches=[
+                {
+                    "ts": "1700000000.000200",
+                    "thread_ts": None,
+                    "user": "U2",
+                    "text": "reply",
+                    "channel": "C1",
+                    "permalink": (
+                        "https://acme.slack.com/archives/C1/p1700000000000200"
+                        "?thread_ts=1700000000.000100"
+                    ),
+                },
+            ]
+        )
+
+        result = asyncio.run(fetch_search(conn, client, query="reply"))
+
+        assert result.threads_seen == 1
+        assert result.threads_new == 1
+        # Cached under the root, not the reply's own ts.
+        assert get_thread_state(conn, "C1", "1700000000.000100") is not None
+        assert get_thread_state(conn, "C1", "1700000000.000200") is None
+        msgs = load_thread_messages(conn, "C1", "1700000000.000100")
+        assert [(m.ts, m.text) for m in msgs] == [("1700000000.000200", "reply")]
+
+
+def test_fetch_search_full_threads_reply_match_fetches_permalink_root(
+    tmp_path: Path,
+) -> None:
+    """With --full-threads, a reply match expands its real thread, not itself."""
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeSearchClient(
+            matches=[
+                {
+                    "ts": "1700000000.000200",
+                    "thread_ts": None,
+                    "user": "U2",
+                    "text": "reply",
+                    "channel": "C1",
+                    "permalink": (
+                        "https://acme.slack.com/archives/C1/p1700000000000200"
+                        "?thread_ts=1700000000.000100"
+                    ),
+                },
+            ],
+            thread_replies={
+                ("C1", "1700000000.000100"): [
+                    {
+                        "ts": "1700000000.000100",
+                        "thread_ts": "1700000000.000100",
+                        "user": "U1",
+                        "text": "parent",
+                    },
+                    {
+                        "ts": "1700000000.000200",
+                        "thread_ts": "1700000000.000100",
+                        "user": "U2",
+                        "text": "reply",
+                    },
+                ],
+            },
+        )
+
+        result = asyncio.run(fetch_search(conn, client, query="reply", full_threads=True))
+
+        assert result.threads_seen == 1
+        assert result.threads_new == 1
+        assert [c["thread_ts"] for c in client.replies_calls] == ["1700000000.000100"]
+        msgs = load_thread_messages(conn, "C1", "1700000000.000100")
+        assert [m.ts for m in msgs] == ["1700000000.000100", "1700000000.000200"]
+
+
+def test_fetch_search_no_matches_still_returns_empty(tmp_path: Path) -> None:
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        client = FakeSearchClient(matches=[])
+
+        result = asyncio.run(fetch_search(conn, client, query="nothing"))
+
+        assert result.matches == []
+        assert result.threads_seen == 0
+        assert result.threads_new == 0
+        assert result.messages_seen == 0
+        assert result.messages_new == 0
+
+
+def test_fetch_search_second_run_with_no_changes_reports_zero(tmp_path: Path) -> None:
+    """Re-running the same search reports 0 threads and 0 messages cached."""
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        matches = [
             {
                 "ts": "1700000000.000100",
                 "thread_ts": "1700000000.000100",
@@ -696,71 +911,73 @@ def test_fetch_search_caches_matches_across_threads(tmp_path: Path) -> None:
                 "permalink": "https://acme.slack.com/archives/C2/p1700000000000200",
             },
         ]
-    )
+        client = FakeSearchClient(matches=matches)
 
-    result = asyncio.run(fetch_search(conn, client, query="hello"))
+        first = asyncio.run(fetch_search(conn, client, query="hello"))
+        assert first.threads_seen == 2
+        assert first.threads_new == 2
+        assert first.messages_seen == 2
+        assert first.messages_new == 2
 
-    assert len(result.matches) == 2
-    assert result.threads_seen == 2
-    assert result.threads_new == 2
-    assert result.messages_seen == 2
-    assert result.messages_new == 2
-    assert client.search_calls[0]["query"] == "hello"
-
-    # First match sits in a real thread, second is a standalone (no thread_ts).
-    msgs_c1 = load_thread_messages(conn, "C1", "1700000000.000100")
-    assert len(msgs_c1) == 1
-    assert msgs_c1[0].text == "hello world"
-    msgs_c2 = load_thread_messages(conn, "C2", "1700000000.000200")
-    assert len(msgs_c2) == 1
-    assert msgs_c2[0].text == "hello there"
-
-    state = get_thread_state(conn, "C2", "1700000000.000200")
-    assert state is not None
+        # Second run sees identical payloads already in cache.
+        client = FakeSearchClient(matches=matches)
+        second = asyncio.run(fetch_search(conn, client, query="hello"))
+        assert len(second.matches) == 2
+        assert second.threads_seen == 2
+        assert second.threads_new == 0
+        assert second.messages_seen == 2
+        assert second.messages_new == 0
 
 
-def test_fetch_search_normalizes_object_channel(tmp_path: Path) -> None:
-    # Real ``search.messages`` returns ``channel`` as an object, not a bare id.
-    conn = connect(tmp_path / "cache.db")
-    client = FakeSearchClient(
-        matches=[
+def test_fetch_search_second_run_with_edited_message_reports_change(
+    tmp_path: Path,
+) -> None:
+    """A second run reports only the thread/message whose payload changed."""
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        original = [
             {
                 "ts": "1700000000.000100",
                 "thread_ts": "1700000000.000100",
                 "user": "U1",
                 "text": "hello world",
-                "channel": {"id": "C1", "name": "general"},
-                "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
-            },
-        ]
-    )
-
-    result = asyncio.run(fetch_search(conn, client, query="hello"))
-
-    assert result.threads_seen == 1
-    assert result.threads_new == 1
-    assert result.messages_seen == 1
-    assert result.messages_new == 1
-    # The match's channel is normalised in place to the bare id.
-    assert result.matches[0]["channel"] == "C1"
-    msgs = load_thread_messages(conn, "C1", "1700000000.000100")
-    assert len(msgs) == 1
-    assert msgs[0].text == "hello world"
-
-
-def test_fetch_search_full_threads_expands_replies(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeSearchClient(
-        matches=[
-            {
-                "ts": "1700000000.000100",
-                "thread_ts": "1700000000.000100",
-                "user": "U1",
-                "text": "parent",
                 "channel": "C1",
             },
-        ],
-        thread_replies={
+            {
+                "ts": "1700000000.000200",
+                "user": "U2",
+                "text": "hello there",
+                "channel": "C2",
+            },
+        ]
+        client = FakeSearchClient(matches=original)
+        asyncio.run(fetch_search(conn, client, query="hello"))
+
+        edited = [
+            {**original[0], "text": "hello world (edited)"},
+            original[1],
+        ]
+        client = FakeSearchClient(matches=edited)
+        result = asyncio.run(fetch_search(conn, client, query="hello"))
+
+        assert result.threads_seen == 2
+        assert result.threads_new == 1
+        assert result.messages_seen == 2
+        assert result.messages_new == 1
+        msgs = load_thread_messages(conn, "C1", "1700000000.000100")
+        assert msgs[0].text == "hello world (edited)"
+
+
+def test_fetch_search_full_threads_second_run_reports_zero(tmp_path: Path) -> None:
+    """With --full-threads, a second unchanged run reports 0 cached."""
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        match = {
+            "ts": "1700000000.000100",
+            "thread_ts": "1700000000.000100",
+            "user": "U1",
+            "text": "parent",
+            "channel": "C1",
+        }
+        replies = {
             ("C1", "1700000000.000100"): [
                 {
                     "ts": "1700000000.000100",
@@ -770,246 +987,35 @@ def test_fetch_search_full_threads_expands_replies(tmp_path: Path) -> None:
                 },
                 {"ts": "1700000000.000300", "user": "U2", "text": "reply"},
             ],
-        },
-    )
+        }
 
-    result = asyncio.run(fetch_search(conn, client, query="parent", full_threads=True))
-
-    assert len(result.matches) == 1
-    assert result.threads_seen == 1
-    assert result.threads_new == 1
-    # In --full-threads mode the match itself is not cached directly; the
-    # parent + reply arrive via conversations.replies, both new.
-    assert result.messages_seen == 2
-    assert result.messages_new == 2
-    assert len(client.replies_calls) == 1
-    assert client.replies_calls[0]["thread_ts"] == "1700000000.000100"
-
-    msgs = load_thread_messages(conn, "C1", "1700000000.000100")
-    assert [m.ts for m in msgs] == ["1700000000.000100", "1700000000.000300"]
-
-
-def test_fetch_search_reply_match_keys_thread_by_permalink_root(tmp_path: Path) -> None:
-    """A reply match has no ``thread_ts`` but its permalink carries the root.
-
-    Slack returns ``thread_ts: null`` for a reply in search results, so keying
-    the cache off the match's own ``ts`` would file it under the reply ts and
-    make every later ``slackx conversations get <reply permalink>`` (which resolves the root
-    from the permalink) a cache miss.
-    """
-    conn = connect(tmp_path / "cache.db")
-    client = FakeSearchClient(
-        matches=[
-            {
-                "ts": "1700000000.000200",
-                "thread_ts": None,
-                "user": "U2",
-                "text": "reply",
-                "channel": "C1",
-                "permalink": (
-                    "https://acme.slack.com/archives/C1/p1700000000000200"
-                    "?thread_ts=1700000000.000100"
-                ),
-            },
-        ]
-    )
-
-    result = asyncio.run(fetch_search(conn, client, query="reply"))
-
-    assert result.threads_seen == 1
-    assert result.threads_new == 1
-    # Cached under the root, not the reply's own ts.
-    assert get_thread_state(conn, "C1", "1700000000.000100") is not None
-    assert get_thread_state(conn, "C1", "1700000000.000200") is None
-    msgs = load_thread_messages(conn, "C1", "1700000000.000100")
-    assert [(m.ts, m.text) for m in msgs] == [("1700000000.000200", "reply")]
-
-
-def test_fetch_search_full_threads_reply_match_fetches_permalink_root(
-    tmp_path: Path,
-) -> None:
-    """With --full-threads, a reply match expands its real thread, not itself."""
-    conn = connect(tmp_path / "cache.db")
-    client = FakeSearchClient(
-        matches=[
-            {
-                "ts": "1700000000.000200",
-                "thread_ts": None,
-                "user": "U2",
-                "text": "reply",
-                "channel": "C1",
-                "permalink": (
-                    "https://acme.slack.com/archives/C1/p1700000000000200"
-                    "?thread_ts=1700000000.000100"
-                ),
-            },
-        ],
-        thread_replies={
-            ("C1", "1700000000.000100"): [
-                {
-                    "ts": "1700000000.000100",
-                    "thread_ts": "1700000000.000100",
-                    "user": "U1",
-                    "text": "parent",
-                },
-                {
-                    "ts": "1700000000.000200",
-                    "thread_ts": "1700000000.000100",
-                    "user": "U2",
-                    "text": "reply",
-                },
-            ],
-        },
-    )
-
-    result = asyncio.run(fetch_search(conn, client, query="reply", full_threads=True))
-
-    assert result.threads_seen == 1
-    assert result.threads_new == 1
-    assert [c["thread_ts"] for c in client.replies_calls] == ["1700000000.000100"]
-    msgs = load_thread_messages(conn, "C1", "1700000000.000100")
-    assert [m.ts for m in msgs] == ["1700000000.000100", "1700000000.000200"]
-
-
-def test_fetch_search_no_matches_still_returns_empty(tmp_path: Path) -> None:
-    conn = connect(tmp_path / "cache.db")
-    client = FakeSearchClient(matches=[])
-
-    result = asyncio.run(fetch_search(conn, client, query="nothing"))
-
-    assert result.matches == []
-    assert result.threads_seen == 0
-    assert result.threads_new == 0
-    assert result.messages_seen == 0
-    assert result.messages_new == 0
-
-
-def test_fetch_search_second_run_with_no_changes_reports_zero(tmp_path: Path) -> None:
-    """Re-running the same search reports 0 threads and 0 messages cached."""
-    conn = connect(tmp_path / "cache.db")
-    matches = [
-        {
-            "ts": "1700000000.000100",
-            "thread_ts": "1700000000.000100",
-            "user": "U1",
-            "text": "hello world",
-            "channel": "C1",
-            "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
-        },
-        {
-            "ts": "1700000000.000200",
-            "user": "U2",
-            "text": "hello there",
-            "channel": "C2",
-            "permalink": "https://acme.slack.com/archives/C2/p1700000000000200",
-        },
-    ]
-    client = FakeSearchClient(matches=matches)
-
-    first = asyncio.run(fetch_search(conn, client, query="hello"))
-    assert first.threads_seen == 2
-    assert first.threads_new == 2
-    assert first.messages_seen == 2
-    assert first.messages_new == 2
-
-    # Second run sees identical payloads already in cache.
-    client = FakeSearchClient(matches=matches)
-    second = asyncio.run(fetch_search(conn, client, query="hello"))
-    assert len(second.matches) == 2
-    assert second.threads_seen == 2
-    assert second.threads_new == 0
-    assert second.messages_seen == 2
-    assert second.messages_new == 0
-
-
-def test_fetch_search_second_run_with_edited_message_reports_change(
-    tmp_path: Path,
-) -> None:
-    """A second run reports only the thread/message whose payload changed."""
-    conn = connect(tmp_path / "cache.db")
-
-    original = [
-        {
-            "ts": "1700000000.000100",
-            "thread_ts": "1700000000.000100",
-            "user": "U1",
-            "text": "hello world",
-            "channel": "C1",
-        },
-        {
-            "ts": "1700000000.000200",
-            "user": "U2",
-            "text": "hello there",
-            "channel": "C2",
-        },
-    ]
-    client = FakeSearchClient(matches=original)
-    asyncio.run(fetch_search(conn, client, query="hello"))
-
-    edited = [
-        {**original[0], "text": "hello world (edited)"},
-        original[1],
-    ]
-    client = FakeSearchClient(matches=edited)
-    result = asyncio.run(fetch_search(conn, client, query="hello"))
-
-    assert result.threads_seen == 2
-    assert result.threads_new == 1
-    assert result.messages_seen == 2
-    assert result.messages_new == 1
-    msgs = load_thread_messages(conn, "C1", "1700000000.000100")
-    assert msgs[0].text == "hello world (edited)"
-
-
-def test_fetch_search_full_threads_second_run_reports_zero(tmp_path: Path) -> None:
-    """With --full-threads, a second unchanged run reports 0 cached."""
-    conn = connect(tmp_path / "cache.db")
-    match = {
-        "ts": "1700000000.000100",
-        "thread_ts": "1700000000.000100",
-        "user": "U1",
-        "text": "parent",
-        "channel": "C1",
-    }
-    replies = {
-        ("C1", "1700000000.000100"): [
-            {
-                "ts": "1700000000.000100",
-                "thread_ts": "1700000000.000100",
-                "user": "U1",
-                "text": "parent",
-            },
-            {"ts": "1700000000.000300", "user": "U2", "text": "reply"},
-        ],
-    }
-
-    first = asyncio.run(
-        fetch_search(
-            conn,
-            FakeSearchClient(matches=[match], thread_replies=replies),
-            query="parent",
-            full_threads=True,
+        first = asyncio.run(
+            fetch_search(
+                conn,
+                FakeSearchClient(matches=[match], thread_replies=replies),
+                query="parent",
+                full_threads=True,
+            )
         )
-    )
-    assert first.threads_seen == 1
-    assert first.threads_new == 1
-    # Match is not cached directly in --full-threads mode; both messages
-    # arrive via replies, both new on the first run.
-    assert first.messages_seen == 2
-    assert first.messages_new == 2
+        assert first.threads_seen == 1
+        assert first.threads_new == 1
+        # Match is not cached directly in --full-threads mode; both messages
+        # arrive via replies, both new on the first run.
+        assert first.messages_seen == 2
+        assert first.messages_new == 2
 
-    second = asyncio.run(
-        fetch_search(
-            conn,
-            FakeSearchClient(matches=[match], thread_replies=replies),
-            query="parent",
-            full_threads=True,
+        second = asyncio.run(
+            fetch_search(
+                conn,
+                FakeSearchClient(matches=[match], thread_replies=replies),
+                query="parent",
+                full_threads=True,
+            )
         )
-    )
-    assert second.threads_seen == 1
-    assert second.threads_new == 0
-    assert second.messages_seen == 2
-    assert second.messages_new == 0
+        assert second.threads_seen == 1
+        assert second.threads_new == 0
+        assert second.messages_seen == 2
+        assert second.messages_new == 0
 
 
 def test_fetch_search_full_threads_handles_endpoint_payload_drift(
@@ -1021,64 +1027,63 @@ def test_fetch_search_full_threads_handles_endpoint_payload_drift(
     recognize every message as a cache hit so the user sees
     ``0 message(s) cached`` rather than oscillating forever.
     """
-    conn = connect(tmp_path / "cache.db")
+    with closing(connect(tmp_path / "cache.db")) as conn:
+        # The same message as it appears through search.messages.
+        match = {
+            "ts": "1700000000.000100",
+            "thread_ts": "1700000000.000100",
+            "user": "U1",
+            "text": "lol",
+            "channel": "C1",
+            "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
+            "blocks": [{"type": "rich_text", "block_id": "search1", "elements": []}],
+            "attachments": [{"image_url": "https://img.example.com/a.png?sig=search"}],
+            "team": "T0",
+        }
+        # The same message as it appears through conversations.replies (plus a
+        # reply). Note the different ``block_id``, differently-signed URL, and
+        # thread-metadata fields that only replies carries.
+        parent_via_replies = {
+            "ts": "1700000000.000100",
+            "thread_ts": "1700000000.000100",
+            "user": "U1",
+            "text": "lol",
+            "blocks": [{"type": "rich_text", "block_id": "replies1", "elements": []}],
+            "attachments": [{"image_url": "https://img.example.com/a.png?sig=replies"}],
+            "source_team": "T0",
+            "user_team": "T0",
+            "reply_count": 1,
+            "latest_reply": "1700000000.000300",
+        }
+        reply = {"ts": "1700000000.000300", "user": "U2", "text": "haha"}
+        replies = {("C1", "1700000000.000100"): [parent_via_replies, reply]}
 
-    # The same message as it appears through search.messages.
-    match = {
-        "ts": "1700000000.000100",
-        "thread_ts": "1700000000.000100",
-        "user": "U1",
-        "text": "lol",
-        "channel": "C1",
-        "permalink": "https://acme.slack.com/archives/C1/p1700000000000100",
-        "blocks": [{"type": "rich_text", "block_id": "search1", "elements": []}],
-        "attachments": [{"image_url": "https://img.example.com/a.png?sig=search"}],
-        "team": "T0",
-    }
-    # The same message as it appears through conversations.replies (plus a
-    # reply). Note the different ``block_id``, differently-signed URL, and
-    # thread-metadata fields that only replies carries.
-    parent_via_replies = {
-        "ts": "1700000000.000100",
-        "thread_ts": "1700000000.000100",
-        "user": "U1",
-        "text": "lol",
-        "blocks": [{"type": "rich_text", "block_id": "replies1", "elements": []}],
-        "attachments": [{"image_url": "https://img.example.com/a.png?sig=replies"}],
-        "source_team": "T0",
-        "user_team": "T0",
-        "reply_count": 1,
-        "latest_reply": "1700000000.000300",
-    }
-    reply = {"ts": "1700000000.000300", "user": "U2", "text": "haha"}
-    replies = {("C1", "1700000000.000100"): [parent_via_replies, reply]}
-
-    first = asyncio.run(
-        fetch_search(
-            conn,
-            FakeSearchClient(matches=[match], thread_replies=replies),
-            query="lol",
-            full_threads=True,
+        first = asyncio.run(
+            fetch_search(
+                conn,
+                FakeSearchClient(matches=[match], thread_replies=replies),
+                query="lol",
+                full_threads=True,
+            )
         )
-    )
-    # Initial run: matches aren't cached directly in --full-threads mode; both
-    # messages (parent + reply) arrive via replies and are new.
-    assert first.threads_seen == 1
-    assert first.threads_new == 1
-    assert first.messages_seen == 2
-    assert first.messages_new == 2
+        # Initial run: matches aren't cached directly in --full-threads mode; both
+        # messages (parent + reply) arrive via replies and are new.
+        assert first.threads_seen == 1
+        assert first.threads_new == 1
+        assert first.messages_seen == 2
+        assert first.messages_new == 2
 
-    second = asyncio.run(
-        fetch_search(
-            conn,
-            FakeSearchClient(matches=[match], thread_replies=replies),
-            query="lol",
-            full_threads=True,
+        second = asyncio.run(
+            fetch_search(
+                conn,
+                FakeSearchClient(matches=[match], thread_replies=replies),
+                query="lol",
+                full_threads=True,
+            )
         )
-    )
-    # The fix: skipping match-caching in --full-threads mode plus a stable
-    # whitelist means re-running reports cache hits for every reply.
-    assert second.threads_seen == 1
-    assert second.threads_new == 0
-    assert second.messages_seen == 2
-    assert second.messages_new == 0
+        # The fix: skipping match-caching in --full-threads mode plus a stable
+        # whitelist means re-running reports cache hits for every reply.
+        assert second.threads_seen == 1
+        assert second.threads_new == 0
+        assert second.messages_seen == 2
+        assert second.messages_new == 0
