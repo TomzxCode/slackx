@@ -16,6 +16,10 @@ def run_server(
     port: int = 8199,
     params: WorkspaceParams | None = None,
 ) -> HTTPServer:
+    """Build the workspace, bind the HTTP server, and return it without serving.
+
+    Call ``serve_forever()`` on the returned server to start handling requests.
+    """
     workspace = Workspace(params=params)
     FakeSlackHandler.workspace = workspace
     FakeSlackHandler.rate_limiter = RateLimiter() if workspace.params.rate_limits else None
